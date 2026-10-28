@@ -78,7 +78,7 @@ for (const file of requiredFiles) {
  * ------------------------------------------------------------------ */
 
 section('JavaScript syntax');
-for (const file of ['pwa.js', 'progressier.js', 'offline.js', 'qrcode.js']) {
+for (const file of ['pwa.js', 'progressier.js', 'offline.js', 'qrcode.js', 'example/example.js']) {
   if (!existsSync(at(file))) continue;
   try {
     execFileSync(process.execPath, ['--check', at(file)], { stdio: 'pipe' });
@@ -263,7 +263,189 @@ if (clientHits > 3) {
 }
 
 /* ------------------------------------------------------------------ *
- * 6. Optional files worth having
+ * 6. GitHub Pages playground and user-facing example
+ * ------------------------------------------------------------------ */
+
+section('GitHub Pages examples');
+
+const pagesRoot = new URL('https://pages.invalid/repo/');
+const pagesBasePath = pagesRoot.pathname;
+const examplePages = [
+  {
+    label: 'feature-test playground',
+    html: 'demo/index.html',
+    manifest: 'demo/manifest.webmanifest',
+    publishedHtml: 'index.html',
+    publishedManifest: 'manifest.webmanifest',
+  },
+  {
+    label: 'user-facing example',
+    html: 'example/index.html',
+    manifest: 'example/manifest.webmanifest',
+    publishedHtml: 'example/index.html',
+    publishedManifest: 'example/manifest.webmanifest',
+  },
+];
+const seenExampleIds = new Map();
+
+const sharedRuntimeFiles = new Set([
+  'pwa.js',
+  'pwa.css',
+  'progressier.js',
+  'qrcode.js',
+  'offline.html',
+  'offline.css',
+  'offline.js',
+  'browserconfig.xml',
+  'favicon.ico',
+]);
+
+function pagesFile(url, label) {
+  if (url.origin !== pagesRoot.origin || !url.pathname.startsWith(pagesBasePath)) {
+    fail(`${label} points outside the GitHub Pages project path: ${url.href}`);
+    return null;
+  }
+
+  const deployedPath = decodeURIComponent(url.pathname.slice(pagesBasePath.length));
+  if (deployedPath.startsWith('example/')) {
+    const exampleAsset = deployedPath.slice('example/'.length);
+    if (sharedRuntimeFiles.has(exampleAsset) || exampleAsset.startsWith('icons/')) {
+      return at(exampleAsset);
+    }
+  }
+  return at(deployedPath);
+}
+
+function tagAttribute(tag, name) {
+  const match = new RegExp(name + '="([^"]+)"', 'i').exec(tag);
+  return match ? match[1] : '';
+}
+
+for (const page of examplePages) {
+  const htmlPath = at(page.html);
+  const manifestPath = at(page.manifest);
+  if (!existsSync(htmlPath)) {
+    fail(`${page.label} HTML is missing (${page.html})`);
+    continue;
+  }
+  if (!existsSync(manifestPath)) {
+    fail(`${page.label} manifest is missing (${page.manifest})`);
+    continue;
+  }
+
+  const html = readFileSync(htmlPath, 'utf8');
+  const publishedPageUrl = new URL(page.publishedHtml, pagesRoot);
+  const linkTags = html.match(/<link\b[^>]*>/gi) || [];
+  const manifestTag = linkTags.find((tag) => /\brel\s*=\s*["']manifest["']/i.test(tag));
+  const manifestHref = manifestTag ? tagAttribute(manifestTag, 'href') : '';
+  if (!manifestHref) {
+    fail(`${page.label} has no manifest link`);
+  } else {
+    const manifestUrl = new URL(manifestHref, publishedPageUrl);
+    const expectedManifestUrl = new URL(page.publishedManifest, pagesRoot);
+    if (manifestUrl.href !== expectedManifestUrl.href) {
+      fail(`${page.label} manifest link resolves to ${manifestUrl.pathname}, expected ${expectedManifestUrl.pathname}`);
+    } else {
+      pass(`${page.label} links to ${manifestUrl.pathname}`);
+    }
+  }
+
+  const scriptTags = html.match(/<script\b[^>]*>/gi) || [];
+  const pwaTag = scriptTags.find((tag) => /\bsrc\s*=\s*["'][^"']*pwa\.js(?:[?#][^"']*)?["']/i.test(tag));
+  const pwaSrc = pwaTag ? tagAttribute(pwaTag, 'src') : '';
+  let pwaUrl = null;
+  if (!pwaSrc) {
+    fail(`${page.label} does not load pwa.js`);
+  } else {
+    pwaUrl = new URL(pwaSrc, publishedPageUrl);
+    const pwaPath = pagesFile(pwaUrl, `${page.label} pwa.js`);
+    if (pwaPath && existsSync(pwaPath)) pass(`${page.label} pwa.js resolves to its deployed runtime`);
+    else if (pwaPath) fail(`${page.label} pwa.js target does not exist: ${pwaUrl.pathname}`);
+  }
+
+  if (pwaTag && pwaUrl) {
+    const workerSrc = tagAttribute(pwaTag, 'data-sw') || 'progressier.js';
+    const workerUrl = new URL(workerSrc, pwaUrl);
+    const workerPath = pagesFile(workerUrl, `${page.label} service worker`);
+    if (workerPath && existsSync(workerPath)) pass(`${page.label} service worker resolves to its deployed worker`);
+    else if (workerPath) fail(`${page.label} service worker target does not exist: ${workerUrl.pathname}`);
+  }
+
+  const stylesheetTag = linkTags.find((tag) => tag.includes('rel="stylesheet"'));
+  if (stylesheetTag) {
+    const stylesheetUrl = new URL(tagAttribute(stylesheetTag, 'href'), publishedPageUrl);
+    const stylesheetPath = pagesFile(stylesheetUrl, `${page.label} stylesheet`);
+    if (stylesheetPath && existsSync(stylesheetPath)) pass(`${page.label} stylesheet is included`);
+    else if (stylesheetPath) fail(`${page.label} stylesheet is missing: ${stylesheetUrl.pathname}`);
+  }
+
+  if (page.label === 'user-facing example') {
+    const appScript = scriptTags.find((tag) => tag.includes('src="example.js"'));
+    if (!appScript) {
+      fail(`${page.label} app script is missing from its HTML`);
+    } else {
+      const appScriptUrl = new URL(tagAttribute(appScript, 'src'), publishedPageUrl);
+      const appScriptPath = pagesFile(appScriptUrl, `${page.label} app script`);
+      if (appScriptPath && existsSync(appScriptPath)) pass(`${page.label} app script is included`);
+      else if (appScriptPath) fail(`${page.label} app script target is missing: ${appScriptUrl.pathname}`);
+    }
+  }
+
+  let pageManifest;
+  try {
+    pageManifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+    pass(`${page.label} manifest parses`);
+  } catch (error) {
+    fail(`${page.label} manifest is invalid JSON: ${error.message}`);
+    continue;
+  }
+
+  const manifestUrl = new URL(page.publishedManifest, pagesRoot);
+  const scopeUrl = new URL(pageManifest.scope || './', manifestUrl);
+  const startUrl = new URL(pageManifest.start_url || './', manifestUrl);
+  if (scopeUrl.origin !== pagesRoot.origin || startUrl.origin !== pagesRoot.origin || !startUrl.pathname.startsWith(scopeUrl.pathname)) {
+    fail(`${page.label} start_url is outside its manifest scope`);
+  } else {
+    pass(`${page.label} start_url is inside its own scope`);
+  }
+
+  if (!pageManifest.id) {
+    fail(`${page.label} manifest has no stable id`);
+  } else {
+    const id = new URL(pageManifest.id, manifestUrl).href;
+    if (seenExampleIds.has(id)) {
+      fail(`${page.label} shares a manifest id with ${seenExampleIds.get(id)}`);
+    } else {
+      seenExampleIds.set(id, page.label);
+      pass(`${page.label} has a distinct install identity`);
+    }
+  }
+
+  for (const icon of pageManifest.icons || []) {
+    const iconUrl = new URL(icon.src || '', manifestUrl);
+    const iconPath = pagesFile(iconUrl, `${page.label} icon`);
+    if (!iconPath) continue;
+    if (!existsSync(iconPath)) {
+      fail(`${page.label} icon is missing: ${iconUrl.pathname}`);
+      continue;
+    }
+    const actual = pngSize(iconPath);
+    const declared = /^(\d+)x(\d+)$/.exec(String(icon.sizes || '').split(/\s+/)[0]);
+    if (!actual || (declared && (Number(declared[1]) !== actual.width || Number(declared[2]) !== actual.height))) {
+      fail(`${page.label} icon does not match its declared PNG size: ${iconUrl.pathname}`);
+    } else {
+      pass(`${page.label} icon ${iconUrl.pathname} is ${actual.width}x${actual.height}`);
+    }
+  }
+}
+
+for (const file of ['example/example.css', 'example/example.js']) {
+  if (existsSync(at(file))) pass(`${file} exists`);
+  else fail(`${file} is missing`);
+}
+
+/* ------------------------------------------------------------------ *
+ * 7. Optional files worth having
  * ------------------------------------------------------------------ */
 
 section('Optional files');

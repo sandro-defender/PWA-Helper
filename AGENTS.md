@@ -53,8 +53,10 @@ An agent must preserve these or the migration will break existing installs:
 3. **Keep the manifest `id` stable** for an existing app. For a brand-new app,
    choose a new stable id. Changing `id` creates a second installed app.
 4. **Serve `progressier.js` from the site root**, or set `data-sw` and
-   `data-sw-scope` to the real location. The worker uses root-relative paths
-   (`/offline.html`, `/pwa.css`, `/qrcode.js`, `/icons/...`).
+   `data-sw-scope` to the real location. The worker resolves precache assets
+   relative to its own directory (which is the root for the standard deployment).
+   `offline.html` currently has root-absolute links, so rewrite those when serving
+   the kit from a project subpath such as GitHub Pages.
 5. **Do not rename `pwa.css` classes** listed in §6; they are the public styling
    and markup contract.
 6. **Upload assets before changing HTML**, so the first page load never asks for
@@ -88,8 +90,9 @@ An agent must preserve these or the migration will break existing installs:
 | `scripts/generate-vapid-keys.mjs` | tool | VAPID key generator |
 | `examples/push-server/` | example | Minimal Node push sender |
 | `LICENSE`, `package.json` | repo | MIT license and `npm run check` / `verify` / `keys` scripts |
-| `demo/` | example | GitHub Pages demo page and a subpath-safe manifest |
-| `.github/workflows/` | repo | `check.yml` static checks, `pages.yml` demo deploy |
+| `demo/` | example | Full-feature GitHub Pages playground for testing the helper |
+| `example/` | example | Polished, user-facing sample integration and subpath-safe manifest |
+| `.github/workflows/` | repo | `check.yml` static checks, `pages.yml` playground + example deploy |
 
 Keep the directory shape when copying. If the target project uses a `public/`
 folder (Next.js, Vite, CRA), copy the **contents** of this repo into `public/`
@@ -490,14 +493,18 @@ components inherit whatever the page sets.
   the script at it (`src="/app/pwa.js"`). Nothing else is needed: `pwa.js`
   resolves the worker, manifest, CSS, icons and QR library relative to its own
   URL, and `progressier.js` resolves its precache and offline paths relative to
-  its scope. Only `manifest.webmanifest` needs relative `scope`/`start_url`
+  its own directory (normally the worker scope directory). Only the manifest
+  needs relative `scope`/`start_url`
   (`"./"` and `"./?launchedfrom=homescreen"`) and `offline.html` needs its
   root-absolute asset paths rewritten — see `.github/workflows/pages.yml` for a
   worked example.
 - **GitHub Pages:** `.github/workflows/pages.yml` builds `_site/` from the
-  runtime files plus `demo/` and deploys it. Enable Pages with **Source: GitHub
-  Actions** once. The live demo is
-  <https://sandro-defender.github.io/PWA-Helper/>.
+  runtime files, publishes `demo/` as the root feature-test playground, and
+  publishes `example/` at `/example/` with its own worker scope and offline page.
+  Enable Pages
+  with **Source: GitHub Actions** once. The pages are
+  <https://sandro-defender.github.io/PWA-Helper/> and
+  <https://sandro-defender.github.io/PWA-Helper/example/>.
 
 ---
 

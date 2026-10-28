@@ -21,7 +21,7 @@ jobs:
 
       - name: Syntax check every script
         run: |
-          for file in pwa.js progressier.js offline.js qrcode.js; do
+          for file in pwa.js progressier.js offline.js qrcode.js example/example.js; do
             node --check "$file"
           done
 
