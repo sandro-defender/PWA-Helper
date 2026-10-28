@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>PWA Kit demo</title>
+
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" href="favicon.ico" sizes="any" />
+    <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png" />
+    <meta name="theme-color" content="#ffffff" />
+    <meta name="description" content="Live demo of the self-hosted PWA kit: install, QR, offline, banners and push." />
+
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #ffffff;
+        --panel: #f7f7f8;
+        --text: #101828;
+        --muted: #667085;
+        --border: #e4e7ec;
+        --accent: #101828;
+        --accent-text: #ffffff;
+        --ok: #067647;
+        --warn: #b54708;
+        --radius: 14px;
+        --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0b0c0e;
+          --panel: #15171a;
+          --text: #f2f4f7;
+          --muted: #98a2b3;
+          --border: #262a30;
+          --accent: #f2f4f7;
+          --accent-text: #0b0c0e;
+        }
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        padding: 32px 20px 64px;
+        background: var(--bg);
+        color: var(--text);
+        font: 15px/1.55 var(--font);
+        -webkit-font-smoothing: antialiased;
+      }
+
+      main { max-width: 860px; margin: 0 auto; }
+
+      header { display: flex; gap: 16px; align-items: center; margin-bottom: 8px; }
+
+      header img { width: 56px; height: 56px; border-radius: 14px; }
+
+      h1 { margin: 0; font-size: 24px; letter-spacing: -0.02em; }
+
+      .sub { margin: 2px 0 0; color: var(--muted); font-size: 14px; }
+
+      .links { margin: 14px 0 28px; display: flex; flex-wrap: wrap; gap: 14px; font-size: 14px; }
+
+      .links a { color: var(--text); text-underline-offset: 3px; }
+
+      h2 {
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--muted);
+        margin: 32px 0 10px;
+        font-weight: 600;
+      }
+
+      .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 12px 14px;
+      }
+
+      .card .label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+
+      .card .value { font-size: 16px; font-weight: 600; margin-top: 2px; }
+
+      .value.on { color: var(--ok); }
+      .value.off { color: var(--warn); }
+
+      .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+      button, .button {
+        appearance: none;
+        border: 1px solid var(--border);
+        background: var(--panel);
+        color: var(--text);
+        font: inherit;
+        font-weight: 500;
+        padding: 9px 14px;
+        border-radius: 10px;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        transition: transform 0.06s ease, background 0.15s ease;
+      }
+
+      button:hover, .button:hover { background: var(--border); }
+      button:active { transform: translateY(1px); }
+
+      button.primary, .button.primary {
+        background: var(--accent);
+        color: var(--accent-text);
+        border-color: var(--accent);
+      }
+
+      button.primary:hover, .button.primary:hover { opacity: 0.9; background: var(--accent); }
+
+      /* The kit adds .initialized and .captured to Progressier buttons; this
+         only makes the demo button look like the primary action. */
+      .progressier-install-button {
+        background: var(--accent) !important;
+        color: var(--accent-text) !important;
+        border-color: var(--accent) !important;
+      }
+
+      .log {
+        margin-top: 10px;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 10px 14px;
+        font: 12.5px/1.7 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        color: var(--muted);
+        min-height: 74px;
+        max-height: 210px;
+        overflow: auto;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+
+      .log b { color: var(--text); font-weight: 600; }
+
+      .note {
+        margin-top: 12px;
+        padding: 12px 14px;
+        border-left: 3px solid var(--border);
+        color: var(--muted);
+        font-size: 13.5px;
+      }
+
+      .note strong { color: var(--text); }
+
+      code {
+        font: 12.5px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 5px;
+        padding: 1px 5px;
+      }
+
+      footer { margin-top: 40px; color: var(--muted); font-size: 12.5px; }
+    </style>
+
+    <!--
+      The kit is base-relative: it resolves the worker, manifest, CSS and icons
+      against the directory that serves pwa.js. That is why this demo works from
+      a GitHub Pages subpath (/PWA-Helper/) with no path configuration.
+    -->
+    <script
+      src="pwa.js"
+      defer
+      data-desktop-qr
+      data-app-name="PWA Kit demo"
+      data-theme-color="#ffffff"
+      data-start-url="?launchedfrom=homescreen"
+    ></script>
+  </head>
+
+  <body>
+    <main>
+      <header>
+        <img src="icons/icon-192.png" alt="" width="56" height="56" />
+        <div>
+          <h1>PWA Kit demo</h1>
+          <p class="sub">Self-hosted install, QR, offline, banners, badge and share target.</p>
+        </div>
+      </header>
+
+      <nav class="links">
+        <a href="https://github.com/sandro-defender/PWA-Helper">Repository</a>
+        <a href="https://github.com/sandro-defender/PWA-Helper/blob/main/AGENTS.md">AGENTS.md</a>
+        <a href="https://github.com/sandro-defender/PWA-Helper/blob/main/README.md">README</a>
+        <a href="https://github.com/sandro-defender/PWA-Helper/blob/main/PARITY.md">Parity</a>
+      </nav>
+
+      <h2>Live state</h2>
+      <div class="grid">
+        <div class="card"><div class="label">Standalone</div><div class="value" id="s-standalone">—</div></div>
+        <div class="card"><div class="label">Install prompt</div><div class="value" id="s-caninstall">—</div></div>
+        <div class="card"><div class="label">Notifications</div><div class="value" id="s-push">—</div></div>
+        <div class="card"><div class="label">Service worker</div><div class="value" id="s-sw">—</div></div>
+      </div>
+
+      <h2>Install</h2>
+      <div class="actions">
+        <button type="button" class="progressier-install-button" data-icons="true" data-install="Install app" data-installed="Open app"></button>
+        <button type="button" data-pwa-qr>Show QR code</button>
+        <button type="button" id="btn-help">iOS / manual instructions</button>
+      </div>
+      <p class="note">
+        <strong>Desktop:</strong> this demo sets <code>data-desktop-qr</code>, so the install
+        button opens the QR dialog instead of the browser prompt. Open the QR on your phone
+        to install there. <strong>Android/Chrome:</strong> the real
+        <code>beforeinstallprompt</code> flow runs when the browser offers it.
+      </p>
+
+      <h2>Notifications</h2>
+      <div class="actions">
+        <button type="button" id="btn-permission">Request permission</button>
+        <button type="button" id="btn-push-banner">Show push banner</button>
+        <button type="button" id="btn-badge">Badge +1</button>
+        <button type="button" id="btn-badge-clear">Clear badge</button>
+      </div>
+      <p class="note">
+        Sending push needs a server and VAPID keys — see
+        <code>examples/push-server/</code>. This demo only shows the permission and UI layer.
+      </p>
+
+      <h2>UI components</h2>
+      <div class="actions">
+        <button type="button" id="btn-install-banner">Install banner</button>
+        <button type="button" id="btn-welcome">Welcome modal</button>
+        <button type="button" id="btn-flow">Generic modal</button>
+        <button type="button" id="btn-offline">Offline alert</button>
+        <button type="button" id="btn-reload">Reload prompt</button>
+        <button type="button" id="btn-toast">Toast</button>
+      </div>
+
+      <h2>Events</h2>
+      <div class="log" id="log">Waiting for events…</div>
+
+      <footer>
+        MIT licensed. Icons are sample artwork — replace them in your own project.
+      </footer>
+    </main>
+
+    <script>
+      // pwa.js is deferred, so the demo waits for DOMContentLoaded (which fires
+      // after deferred scripts have run) before touching window.PWA.
+      document.addEventListener('DOMContentLoaded', function () {
+        var log = document.getElementById('log');
+        var lines = 0;
+
+        function write(message) {
+          if (lines === 0) log.textContent = '';
+          lines += 1;
+          var time = new Date().toLocaleTimeString();
+          log.textContent += (lines > 1 ? '\n' : '') + time + '  ' + message;
+          log.scrollTop = log.scrollHeight;
+        }
+
+        function set(id, value, good) {
+          var node = document.getElementById(id);
+          if (!node) return;
+          node.textContent = value;
+          node.className = 'value' + (good === true ? ' on' : good === false ? ' off' : '');
+        }
+
+        function refresh() {
+          var state = PWA.getState();
+          set('s-standalone', state.standalone ? 'Yes' : 'No', state.standalone);
+          set('s-caninstall', state.canInstall ? 'Available' : 'Not offered', state.canInstall);
+          set('s-push', state.pushPermission || 'unsupported', state.pushPermission === 'granted');
+          set(
+            's-sw',
+            navigator.serviceWorker.controller ? 'Active' : state.hasUpdate ? 'Update ready' : 'Registering…',
+            Boolean(navigator.serviceWorker.controller)
+          );
+        }
+
+        PWA.onChange(refresh);
+        refresh();
+        setInterval(refresh, 1000);
+
+        navigator.serviceWorker.ready.then(function () {
+          write('service worker ready');
+          refresh();
+        }).catch(function () {});
+
+        ['pwa:installable', 'pwa:installed', 'pwa:update', 'pwa:share', 'pwa:event'].forEach(function (name) {
+          document.addEventListener(name, function (event) {
+            var detail = event.detail ? JSON.stringify(event.detail).slice(0, 160) : '';
+            write(name + (detail ? '  ' + detail : ''));
+          });
+        });
+
+        document.getElementById('btn-help').addEventListener('click', function () {
+          PWA.showInstallHelp(PWA.isIOS() ? 'ios' : 'generic');
+        });
+
+        document.getElementById('btn-permission').addEventListener('click', function () {
+          PWA.requestPushPermission().then(function (permission) {
+            write('notification permission: ' + permission);
+            refresh();
+          });
+        });
+
+        document.getElementById('btn-push-banner').addEventListener('click', function () {
+          PWA.showPushBanner({
+            text: 'Get notified when something happens.',
+            preview: true,
+          });
+        });
+
+        document.getElementById('btn-badge').addEventListener('click', function () {
+          window.__demoBadge = (window.__demoBadge || 0) + 1;
+          PWA.setBadge(window.__demoBadge);
+          write('badge set to ' + window.__demoBadge);
+        });
+
+        document.getElementById('btn-badge-clear').addEventListener('click', function () {
+          window.__demoBadge = 0;
+          PWA.clearBadge();
+          write('badge cleared');
+        });
+
+        document.getElementById('btn-install-banner').addEventListener('click', function () {
+          PWA.showInstallBanner({ text: 'Install this demo for offline use.', preview: true });
+        });
+
+        document.getElementById('btn-welcome').addEventListener('click', function () {
+          PWA.showWelcome({
+            title: 'Welcome',
+            text: 'This modal, the banners and the install flows all come from pwa.js and pwa.css.',
+            items: ['No dependencies', 'Works from a subpath', 'Progressier-compatible markup'],
+          });
+        });
+
+        document.getElementById('btn-flow').addEventListener('click', function () {
+          PWA.showFlow({
+            title: 'Generic flow',
+            text: 'PWA.showFlow() renders the same modal used by the install help screens.',
+            button: 'Got it',
+          });
+        });
+
+        document.getElementById('btn-offline').addEventListener('click', function () {
+          PWA.showOfflineAlert();
+        });
+
+        document.getElementById('btn-reload').addEventListener('click', function () {
+          PWA.showReloadPrompt();
+        });
+
+        document.getElementById('btn-toast').addEventListener('click', function () {
+          PWA.notify('Saved');
+        });
+      });
+    </script>
+  </body>
+</html>

@@ -16,20 +16,27 @@
  * Configuration
  * ------------------------------------------------------------------ */
 
-const VERSION = '1.0.2';
+const VERSION = '1.0.3';
 const STATIC_CACHE = `pwa-static-${VERSION}`;
 const PAGE_CACHE = `pwa-pages-${VERSION}`;
 const CACHE_PREFIX = 'pwa-'; // only caches with this prefix are ever deleted
 
-const OFFLINE_URL = '/offline.html';
-const SHARE_TARGET_PATH = '/share-target';
+// Asset URLs are resolved against the directory that serves this worker, so the
+// same file works at the origin root (/) and under a subpath (/app/, GitHub
+// Pages project sites) without editing paths.
+const SCOPE_URL = new URL('./', self.location.href).href;
+const OFFLINE_URL = new URL('offline.html', SCOPE_URL).href;
+const SHARE_TARGET_PATH = new URL('share-target', SCOPE_URL).pathname;
+const HOME_URL = SCOPE_URL;
 const SHARE_DB = 'progressiersharedfiles'; // same names the old client uses
 const SHARE_STORE = 'progressiersharedfiles';
 const NOTIF_DB = 'progressierSavedPushNotifications';
 const NOTIF_STORE = 'progressierSavedPushNotifications';
 const META_DB = 'pwakit';
 const META_STORE = 'meta';
-const DEFAULT_ICON = '/icons/icon-192.png';
+const DEFAULT_ICON = new URL('icons/icon-192.png', SCOPE_URL).href;
+const WORKER_PATH = new URL(self.location.href).pathname;
+const CLIENT_PATH = new URL('pwa.js', SCOPE_URL).pathname;
 const MAX_SHARED_FILE_BYTES = 25 * 1024 * 1024;
 const NAVIGATION_TIMEOUT_MS = 5000;
 const MAX_CACHEABLE_BYTES = 6 * 1024 * 1024;
@@ -230,15 +237,18 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     (async () => {
       const cache = await caches.open(STATIC_CACHE);
-      await Promise.allSettled([
-        cache.add(new Request(OFFLINE_URL, { cache: 'reload' })),
-        cache.add(new Request('/offline.js', { cache: 'reload' })),
-        cache.add(new Request('/offline.css', { cache: 'reload' })),
-        cache.add(new Request('/pwa.css', { cache: 'reload' })),
-        cache.add(new Request('/qrcode.js', { cache: 'reload' })),
-        cache.add(new Request(DEFAULT_ICON, { cache: 'reload' })),
-        cache.add(new Request('/icons/icon-512.png', { cache: 'reload' })),
-      ]);
+      const precache = [
+        OFFLINE_URL,
+        new URL('offline.js', SCOPE_URL).href,
+        new URL('offline.css', SCOPE_URL).href,
+        new URL('pwa.css', SCOPE_URL).href,
+        new URL('qrcode.js', SCOPE_URL).href,
+        DEFAULT_ICON,
+        new URL('icons/icon-512.png', SCOPE_URL).href,
+      ];
+      await Promise.allSettled(
+        precache.map((url) => cache.add(new Request(url, { cache: 'reload' })))
+      );
       // Do NOT skipWaiting here. Updates wait until the page asks for them,
       // which prevents mixing old HTML with new JS.
     })()
@@ -278,8 +288,9 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET') return;
   if (url.origin !== self.location.origin) return;
   if (request.headers.has('range')) return;
-  if (url.pathname.startsWith('/api/')) return;
-  if (url.pathname === '/progressier.js' || url.pathname === '/sw.js' || url.pathname === '/pwa.js') return;
+  if (url.pathname.indexOf('/api/') !== -1) return;
+  if (url.pathname === WORKER_PATH || url.pathname === CLIENT_PATH) return;
+  if (url.pathname === new URL('sw.js', SCOPE_URL).pathname) return;
 
   if (request.mode === 'navigate') {
     event.respondWith(networkFirstPage(request));
@@ -354,7 +365,7 @@ function readFormString(form, key) {
 }
 
 async function handleShareTarget(request) {
-  const fallback = new URL('/?launchedfrom=share', self.location.origin);
+  const fallback = new URL('?launchedfrom=share', HOME_URL);
   try {
     const form = await request.formData();
     const id = randomId();

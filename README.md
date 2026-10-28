@@ -111,6 +111,8 @@ AGENTS.md                 AI-agent integration playbook
 INTEGRATION.md            Worked deployment example (staff.you.ge)
 PARITY.md                 Original vs local feature/sizing report
 reference/                Original hosted manifest (not deployed)
+demo/                     GitHub Pages demo page + subpath-safe manifest
+.github/workflows/        check.yml (static checks), pages.yml (demo deploy)
 scripts/
   check.mjs               Static checks: syntax, manifest, icons, version
   verify-deployment.mjs   Check a live deployment
@@ -292,7 +294,10 @@ PWA.createAppleSplashScreens();
 
 ## Configuration
 
-All options are optional `data-*` attributes on the script tag:
+All options are optional `data-*` attributes on the script tag. Paths are
+resolved against the directory that serves `pwa.js`, so the defaults work at a
+domain root (`/`) and under a subpath (`/app/`, GitHub Pages project sites)
+without changes.
 
 ```html
 <script
@@ -310,15 +315,15 @@ All options are optional `data-*` attributes on the script tag:
 
 | Attribute | Default | Purpose |
 | --- | --- | --- |
-| `data-sw` | `/progressier.js` | Service worker URL |
-| `data-sw-scope` | `/` | Service worker scope |
-| `data-manifest` | `/manifest.webmanifest` | Manifest URL (also injected if missing) |
-| `data-css` | `/pwa.css` | Component stylesheet URL |
-| `data-icon` | `/icons/icon-192.png` | Icon used by banners/modals |
-| `data-splash-icon` | `/icons/icon-512.png` | Source image for iOS splash screens |
+| `data-sw` | `progressier.js` | Service worker URL (next to `pwa.js`) |
+| `data-sw-scope` | worker's directory | Service worker scope |
+| `data-manifest` | `manifest.webmanifest` | Manifest URL (also injected if missing) |
+| `data-css` | `pwa.css` | Component stylesheet URL |
+| `data-icon` | `icons/icon-192.png` | Icon used by banners/modals |
+| `data-splash-icon` | `icons/icon-512.png` | Source image for iOS splash screens |
 | `data-app-name` | `document.title` | Name used in meta tags |
 | `data-theme-color` | `#ffffff` (or existing meta) | Theme color and splash background |
-| `data-start-url` | `/?launchedfrom=homescreen` | Windows tile start URL |
+| `data-start-url` | `?launchedfrom=homescreen` | Windows tile start URL |
 | `data-analytics` | — | Optional beacon endpoint for install/launch events |
 | `data-push-endpoint` | — | Default endpoint that receives push subscriptions |
 | `data-vapid-public-key` | — | Enables the subscribe buttons and push banner |
@@ -489,7 +494,7 @@ const express = require('express');
 const webpush = require('web-push');
 
 webpush.setVapidDetails(
-  'mailto:admin@staff.you.ge',
+  'mailto:admin@example.com',
   process.env.VAPID_PUBLIC_KEY,
   process.env.VAPID_PRIVATE_KEY
 );
@@ -655,6 +660,35 @@ AddType application/javascript .js
 
 If the worker lives in a subdirectory but must control the root, set
 `Service-Worker-Allowed: /` and register with `data-sw-scope="/"`.
+
+---
+
+## GitHub Pages
+
+This repository ships a live demo at
+<https://sandro-defender.github.io/PWA-Helper/>, built by
+`.github/workflows/pages.yml`. The workflow copies the runtime files plus
+`demo/` into `_site/` and deploys the artifact.
+
+Two details make a project site work from `/PWA-Helper/`:
+
+- `pwa.js` resolves every default path against its own URL, and
+  `progressier.js` resolves its precache and offline paths against its scope, so
+  the worker, manifest, CSS and icons stay inside the subpath.
+- `demo/manifest.webmanifest` uses relative URLs (`"scope": "./"`,
+  `"start_url": "./?launchedfrom=homescreen"`).
+
+The one exception is `offline.html`: it keeps root-absolute paths because it can
+be served as a fallback for a deep URL. The demo build rewrites those paths to
+the repository subpath.
+
+To deploy your own copy on Pages:
+
+1. **Settings → Pages → Build and deployment → Source: GitHub Actions.**
+2. Push to `main`, or run the `pages` workflow manually.
+3. Open `https://<user>.github.io/<repo>/`.
+
+At a domain root, nothing needs rewriting.
 
 ---
 

@@ -1,6 +1,6 @@
 {
   "name": "self-hosted-pwa-kit",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "private": true,
   "description": "Dependency-free, Progressier-compatible PWA layer: manifest, service worker, install UI, offline support, share target, push, badge and QR install dialog.",
   "license": "MIT",

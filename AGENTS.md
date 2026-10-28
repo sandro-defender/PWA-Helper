@@ -8,7 +8,7 @@ The kit is a self-hosted, dependency-free replacement for the hosted Progressier
 client. It is plain ES5/ES2017 JavaScript, one stylesheet, one manifest, one
 service worker, and static icons. There is no build step and no package install.
 
-Current kit version: **1.0.2** (`PWA.version` and `VERSION` in
+Current kit version: **1.0.3** (`PWA.version` and `VERSION` in
 `progressier.js`).
 
 ---
@@ -88,6 +88,8 @@ An agent must preserve these or the migration will break existing installs:
 | `scripts/generate-vapid-keys.mjs` | tool | VAPID key generator |
 | `examples/push-server/` | example | Minimal Node push sender |
 | `LICENSE`, `package.json` | repo | MIT license and `npm run check` / `verify` / `keys` scripts |
+| `demo/` | example | GitHub Pages demo page and a subpath-safe manifest |
+| `.github/workflows/` | repo | `check.yml` static checks, `pages.yml` demo deploy |
 
 Keep the directory shape when copying. If the target project uses a `public/`
 folder (Next.js, Vite, CRA), copy the **contents** of this repo into `public/`
@@ -262,22 +264,24 @@ Browser acceptance:
 
 ## 5. Configuration reference
 
-All options are optional `data-*` attributes on the `pwa.js` script tag.
+All options are optional `data-*` attributes on the `pwa.js` script tag. Path
+defaults are resolved against the directory that serves `pwa.js`, so they work
+unchanged at a domain root and under a subpath.
 
 | Attribute | Default | Meaning |
 | --- | --- | --- |
-| `data-sw` | `/progressier.js` | Service worker URL |
-| `data-sw-scope` | `/` | Service worker scope |
-| `data-manifest` | `/manifest.webmanifest` | Manifest URL |
-| `data-css` | `/pwa.css` | Stylesheet URL |
-| `data-icon` | `/icons/icon-192.png` | Icon in banners/modals |
-| `data-splash-icon` | `/icons/icon-512.png` | Source for generated iOS splash |
-| `data-qr-library` | `/qrcode.js` | Local QR library URL |
+| `data-sw` | `progressier.js` | Service worker URL |
+| `data-sw-scope` | worker's directory | Service worker scope |
+| `data-manifest` | `manifest.webmanifest` | Manifest URL |
+| `data-css` | `pwa.css` | Stylesheet URL |
+| `data-icon` | `icons/icon-192.png` | Icon in banners/modals |
+| `data-splash-icon` | `icons/icon-512.png` | Source for generated iOS splash |
+| `data-qr-library` | `qrcode.js` | Local QR library URL |
 | `data-qr-logo` | app icon | Logo drawn in the QR center |
 | `data-desktop-qr` | off | On desktop, install buttons open the QR dialog |
 | `data-app-name` | `document.title` | Name in injected meta tags |
 | `data-theme-color` | existing meta or `#ffffff` | Theme color and splash background |
-| `data-start-url` | `/?launchedfrom=homescreen` | Windows tile start URL |
+| `data-start-url` | `?launchedfrom=homescreen` | Windows tile start URL |
 | `data-itunes-app-id` | — | Adds `apple-itunes-app` |
 | `data-analytics` | — | Beacon endpoint for install/launch events |
 | `data-push-endpoint` | — | Receives push subscriptions |
@@ -482,10 +486,18 @@ components inherit whatever the page sets.
 - **SPA routers:** the service worker caches navigations network-first and
   falls back to `/offline.html`. Do not register a second worker at the same
   scope.
-- **Subpath deployment (`/app/`):** set `data-sw="/app/progressier.js"`,
-  `data-sw-scope="/app/"`, update `scope`/`start_url` in the manifest, and edit
-  the root-relative paths at the top of `progressier.js`
-  (`OFFLINE_URL`, `SHARE_TARGET_PATH`, precache list, icon paths).
+- **Subpath deployment (`/app/`):** copy the files into that folder and point
+  the script at it (`src="/app/pwa.js"`). Nothing else is needed: `pwa.js`
+  resolves the worker, manifest, CSS, icons and QR library relative to its own
+  URL, and `progressier.js` resolves its precache and offline paths relative to
+  its scope. Only `manifest.webmanifest` needs relative `scope`/`start_url`
+  (`"./"` and `"./?launchedfrom=homescreen"`) and `offline.html` needs its
+  root-absolute asset paths rewritten — see `.github/workflows/pages.yml` for a
+  worked example.
+- **GitHub Pages:** `.github/workflows/pages.yml` builds `_site/` from the
+  runtime files plus `demo/` and deploys it. Enable Pages with **Source: GitHub
+  Actions** once. The live demo is
+  <https://sandro-defender.github.io/PWA-Helper/>.
 
 ---
 
@@ -493,7 +505,7 @@ components inherit whatever the page sets.
 
 When any cached file changes:
 
-1. Bump `VERSION` in `progressier.js` (`1.0.2` → `1.0.3`).
+1. Bump `VERSION` in `progressier.js` (`1.0.3` → `1.0.4`).
 2. Bump `PWA.version` in `pwa.js` to match.
 3. Upload the changed files.
 4. Reload. With `data-auto-update` the new worker activates automatically;

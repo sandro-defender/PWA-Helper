@@ -1,0 +1,61 @@
+name: pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assemble demo site
+        run: |
+          set -euo pipefail
+          mkdir -p _site
+          cp pwa.js pwa.css progressier.js qrcode.js \
+             offline.html offline.css offline.js \
+             browserconfig.xml favicon.ico _site/
+          cp -r icons _site/icons
+          cp demo/index.html _site/index.html
+          cp demo/manifest.webmanifest _site/manifest.webmanifest
+
+          # A GitHub Pages project site is served from /<repo>/, so the offline
+          # page's root-absolute asset paths are rewritten for the demo copy.
+          # The kit itself stays root-absolute, which is correct at a domain root.
+          BASE="/${GITHUB_REPOSITORY#*/}"
+          sed -i \
+            -e "s|=\"/icons/|=\"${BASE}/icons/|g" \
+            -e "s|=\"/offline\.css\"|=\"${BASE}/offline.css\"|g" \
+            -e "s|=\"/offline\.js\"|=\"${BASE}/offline.js\"|g" \
+            -e "s|href=\"/\"|href=\"${BASE}/\"|g" \
+            _site/offline.html
+          sed -i "s|staff\.you\.ge|PWA Kit demo|g" _site/offline.html
+
+          touch _site/.nojekyll
+          find _site -maxdepth 1 -type f | sort
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -44,22 +44,38 @@
   }
   var dataset = (script && script.dataset) || {};
 
+  // Everything the kit requests is resolved against the directory that serves
+  // pwa.js. That keeps the same defaults working at the origin root (/) and
+  // under a subpath (/app/, GitHub Pages project sites) with no configuration.
+  var scriptUrl = (script && script.src) || window.location.href;
+  var baseUrl = scriptUrl.replace(/[^/]*$/, '');
+
+  function resolveUrl(value) {
+    if (!value) return value;
+    try {
+      return new URL(value, baseUrl).href;
+    } catch (error) {
+      return value;
+    }
+  }
+
   var config = {
-    swUrl: dataset.sw || '/progressier.js',
-    swScope: dataset.swScope || '/',
-    manifestUrl: dataset.manifest || '/manifest.webmanifest',
-    cssUrl: dataset.css || '/pwa.css',
+    baseUrl: baseUrl,
+    swUrl: resolveUrl(dataset.sw || 'progressier.js'),
+    swScope: '',
+    manifestUrl: resolveUrl(dataset.manifest || 'manifest.webmanifest'),
+    cssUrl: resolveUrl(dataset.css || 'pwa.css'),
     analytics: dataset.analytics || '',
     pushEndpoint: dataset.pushEndpoint || '',
     vapidPublicKey: dataset.vapidPublicKey || '',
-    icon: dataset.icon || '/icons/icon-192.png',
-    splashIcon: dataset.splashIcon || '/icons/icon-512.png',
-    qrLibraryUrl: dataset.qrLibrary || '/qrcode.js',
+    icon: resolveUrl(dataset.icon || 'icons/icon-192.png'),
+    splashIcon: resolveUrl(dataset.splashIcon || 'icons/icon-512.png'),
+    qrLibraryUrl: resolveUrl(dataset.qrLibrary || 'qrcode.js'),
     qrLogo: dataset.qrLogo || '',
     desktopQr: 'desktopQr' in dataset,
     appName: dataset.appName || '',
     themeColor: dataset.themeColor || '',
-    startUrl: dataset.startUrl || '/?launchedfrom=homescreen',
+    startUrl: resolveUrl(dataset.startUrl || '?launchedfrom=homescreen'),
     itunesAppId: dataset.itunesAppId || '',
     viewportFit: 'viewportFit' in dataset,
     autoUpdate: 'autoUpdate' in dataset,
@@ -74,6 +90,16 @@
     nonce: dataset.cspNonce || '',
     debug: 'debug' in dataset,
   };
+
+  // Scope defaults to the worker's own directory; override with data-sw-scope.
+  try {
+    config.swScope = dataset.swScope
+      ? new URL(dataset.swScope, baseUrl).pathname
+      : new URL('./', config.swUrl).pathname;
+  } catch (error) {
+    config.swScope = '/';
+  }
+
 
   function log() {
     if (!config.debug) return;
@@ -310,7 +336,7 @@
       var icon = document.createElement('link');
       icon.rel = 'apple-touch-icon';
       icon.sizes = '180x180';
-      icon.href = '/icons/apple-touch-icon.png';
+      icon.href = resolveUrl('icons/apple-touch-icon.png');
       document.head.appendChild(icon);
     }
 
@@ -333,8 +359,8 @@
     addMeta('msapplication-starturl', startUrl);
     addMeta('msapplication-navbutton-color', color);
     addMeta('msapplication-TileColor', color);
-    addMeta('msapplication-TileImage', '/icons/icon-144.png');
-    addMeta('msapplication-config', '/browserconfig.xml');
+    addMeta('msapplication-TileImage', resolveUrl('icons/icon-144.png'));
+    addMeta('msapplication-config', resolveUrl('browserconfig.xml'));
 
     // Old Android / Chinese browsers
     addMeta('x5-fullscreen', 'true');
@@ -743,7 +769,7 @@
     var logo = document.createElement('img');
     logo.className = 'logo';
     logo.alt = '';
-    logo.src = '/icons/icon-192.png';
+    logo.src = appIcon();
     head.appendChild(logo);
 
     var heading = document.createElement('h2');
@@ -1473,7 +1499,7 @@
   }
 
   function appIcon() {
-    return config.icon || '/icons/icon-192.png';
+    return config.icon || resolveUrl('icons/icon-192.png');
   }
 
   function closeButton() {
@@ -2551,7 +2577,7 @@
 
   var PWA = {
     __pwaKit: true,
-    version: '1.0.2',
+    version: '1.0.3',
     config: config,
 
     // install

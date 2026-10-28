@@ -206,23 +206,25 @@ if (!workerVersion) {
 }
 
 const precached = [
-  '/offline.html',
-  '/offline.css',
-  '/offline.js',
-  '/pwa.css',
-  '/qrcode.js',
-  '/icons/icon-192.png',
-  '/icons/icon-512.png',
+  'offline.html',
+  'offline.css',
+  'offline.js',
+  'pwa.css',
+  'qrcode.js',
+  'icons/icon-192.png',
+  'icons/icon-512.png',
 ];
-for (const path of precached) {
-  if (worker.includes(`'${path}'`)) {
-    if (existsSync(at(path.replace(/^\//, '')))) pass(`precache ${path} exists`);
-    else fail(`precache ${path} is referenced but missing`);
+for (const name of precached) {
+  if (worker.includes(`'${name}'`)) {
+    if (existsSync(at(name))) pass(`precache ${name} exists`);
+    else fail(`precache ${name} is referenced but missing`);
+  } else {
+    warn(`progressier.js no longer references ${name}`);
   }
 }
 
-for (const path of ['/offline.html', '/share-target', '/qrcode.js']) {
-  if (!worker.includes(path)) warn(`progressier.js does not mention ${path}`);
+for (const name of ['share-target', 'offline.html', 'qrcode.js']) {
+  if (!worker.includes(name)) warn(`progressier.js does not mention ${name}`);
 }
 
 /* ------------------------------------------------------------------ *
