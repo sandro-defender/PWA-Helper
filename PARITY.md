@@ -165,7 +165,7 @@ not a parity gap.
 | `ProgressierFlow` | Generic modal, iOS help sheet, QR install dialog; platform-specific instruction screens partial |
 | `ProgressierWelcomeScreen` | Implemented (`data-welcome`) |
 | `ProgressierOfflineAlert` | Implemented as DOM toast |
-| `ProgressierToolbox` | Partial (icons inline, no Progressier toolbox) |
+| `ProgressierToolbox` | Floating app-icon launcher with position/icon/color/visibility controls; hosted promo routing omitted |
 | `ProgressierMeta` | Manifest, Apple meta, Windows tiles, runtime splash screens |
 | `ProgressierManifest` | Static manifest (original is also static) |
 | `ProgressierAnalytics` | Optional beacon only, no dashboard |
@@ -202,9 +202,10 @@ not client code:
 - pull-to-refresh (site-specific; can be added on top)
 - cookie-consent banner
 - Progressier attribution/promo mode
+- backend-controlled toolbox install-page/promo redirection
 - exact wording strings and translations from their dashboard
 
-Everything else — install UI, buttons, banners, modal, welcome, offline alert,
+Everything else — install UI and floating toolbox icon, buttons, banners, modal, welcome, offline alert,
 reload prompt, QR install dialog (local `qrcode.js` + centered logo),
 badges, share target, push display/history, protocol handlers, theming, meta
 tags, splash screens, sizing and breakpoints — is implemented locally with no

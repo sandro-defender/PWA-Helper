@@ -51,8 +51,11 @@ Use the block in `snippet.html`. Minimum version:
 ```
 
 `pwa.js` fills in the rest of the meta tags, adds the manifest if it is missing,
-and mounts the Progressier-compatible buttons. Do not load the old script and
-`pwa.js` on the same page.
+and mounts the Progressier-compatible buttons. To add the original-style
+floating install icon, include `data-toolbox` on the script; it calls the local
+install flow and can be positioned/customized with the `data-toolbox-*`
+attributes documented in `README.md`. Do not load the old script and `pwa.js`
+on the same page.
 
 ## 3. Server headers
 
@@ -134,7 +137,7 @@ The service worker uses `VERSION` in `progressier.js`. When you change any
 cached file:
 
 1. Bump `VERSION` in `progressier.js` and `PWA.version` in `pwa.js` together
-   (currently `1.0.3` → `1.0.4` for an example update).
+   (currently `1.0.4` → `1.0.5` for an example update).
 2. Upload the changed files.
 3. Reload. With `data-auto-update`, the new worker activates automatically;
    otherwise `PWA.showReloadPrompt()` / the built-in prompt asks the user.

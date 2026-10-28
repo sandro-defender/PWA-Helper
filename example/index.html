@@ -17,14 +17,16 @@
     <link rel="stylesheet" href="example.css" />
 
     <script
-      src="../pwa.js"
+      src="pwa.js"
       defer
-      data-manifest="example/manifest.webmanifest"
+      data-sw-scope="./"
+      data-manifest="manifest.webmanifest"
       data-app-name="Staff Space"
       data-theme-color="#f4f7f4"
       data-icon="icons/icon-192.png"
       data-splash-icon="icons/icon-512.png"
-      data-start-url="example/?launchedfrom=homescreen"
+      data-start-url="?launchedfrom=homescreen"
+      data-toolbox
       data-offline-alert
       data-auto-update
     ></script>

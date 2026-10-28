@@ -4,6 +4,7 @@
  * Features:
  *   - service worker registration + update flow
  *   - install prompt capture, `[data-pwa-install]` buttons, iOS instructions
+ *   - optional Progressier-style floating app-icon install toolbox
  *   - standalone / installed detection
  *   - optional push subscriptions (VAPID)
  *   - app badge helpers
@@ -21,6 +22,8 @@
  *   data-analytics="/api/pwa-events"   optional beacon endpoint
  *   data-push-endpoint="/api/push/subscribe"  default push endpoint
  *   data-auto-update               apply updates without asking
+ *   data-toolbox                   show the floating install launcher
+ *   data-toolbox-position="right"  position the floating launcher
  *   data-no-meta                   don't inject manifest/apple meta tags
  *   data-allow-external-protocol   allow web+pwa: redirects to other origins
  *   data-csp-nonce="..."           nonce for the injected stylesheet
@@ -85,6 +88,15 @@
     installBanner: 'installBanner' in dataset,
     pushBanner: 'pushBanner' in dataset,
     offlineAlert: 'offlineAlert' in dataset,
+    toolbox: 'toolbox' in dataset,
+    toolboxOff: 'toolboxOff' in dataset,
+    toolboxPosition: dataset.toolboxPosition || 'right',
+    toolboxColor: dataset.toolboxColor || '',
+    toolboxImage: dataset.toolboxImg ? resolveUrl(dataset.toolboxImg) : '',
+    toolboxUseLogo: 'toolboxUseLogo' in dataset && dataset.toolboxUseLogo !== 'false',
+    toolboxHideStandalone: dataset.toolboxHideStandalone !== 'false',
+    toolboxShowPlatforms: dataset.toolboxShowPlatforms || 'all',
+    toolboxShowUrls: dataset.toolboxShowUrls || '',
     welcome: 'welcome' in dataset,
     allowExternalProtocol: 'allowExternalProtocol' in dataset,
     nonce: dataset.cspNonce || '',
@@ -572,6 +584,7 @@
       .then(function (reg) {
         registration = reg;
         readyResolve(reg);
+        renderToolbox();
         log('service worker registered', reg.scope);
 
         if (reg.waiting && navigator.serviceWorker.controller) {
@@ -2541,6 +2554,279 @@
   }
 
   /* ------------------------------------------------------------------ *
+   * Floating install toolbox (Progressier-style app icon)
+   * ------------------------------------------------------------------ */
+
+  var toolboxRoot = null;
+  var toolboxButton = null;
+  var toolboxImage = null;
+  var toolboxOptions = null;
+  var toolboxManuallyHidden = false;
+  var toolboxPending = false;
+  var toolboxPendingOptions = null;
+  var toolboxVisibilityTimer = null;
+  var toolboxUnsubscribe = null;
+
+  function parseToolboxUrls(value) {
+    if (Array.isArray(value))
+      return value
+        .map(String)
+        .map(function (item) {
+          return item.trim();
+        })
+        .filter(Boolean);
+    var text = String(value || '').trim();
+    if (!text) return [];
+    try {
+      var parsed = JSON.parse(text);
+      if (Array.isArray(parsed)) return parseToolboxUrls(parsed);
+    } catch (error) {
+      /* A comma-separated list is also accepted. */
+    }
+    return text
+      .split(',')
+      .map(function (item) {
+        return item.trim();
+      })
+      .filter(Boolean);
+  }
+
+  function normalizeToolboxOptions(options) {
+    options = options || {};
+    var image = options.image;
+    if (image === undefined) image = config.toolboxImage;
+    if (image) image = resolveUrl(String(image));
+
+    return {
+      position: options.position || config.toolboxPosition || 'right',
+      color: options.color || config.toolboxColor || themeColor() || '#ffffff',
+      image: image || '',
+      useLogo: options.useLogo == null ? config.toolboxUseLogo : Boolean(options.useLogo),
+      hideStandalone:
+        options.hideStandalone == null ? config.toolboxHideStandalone : Boolean(options.hideStandalone),
+      showPlatforms: String(options.showPlatforms || config.toolboxShowPlatforms || 'all').toLowerCase(),
+      showUrls: parseToolboxUrls(options.showUrls == null ? config.toolboxShowUrls : options.showUrls),
+      off: config.toolboxOff || Boolean(options.off),
+      requireServiceWorker: options.requireServiceWorker !== false,
+      appName: options.appName || appName(),
+    };
+  }
+
+  function toolboxPositionClasses(position) {
+    var allowed = ['left', 'right', 'center', 'top', 'middle'];
+    var tokens = String(position || 'right')
+      .toLowerCase()
+      .split('-')
+      .filter(function (token) {
+        return allowed.indexOf(token) !== -1;
+      });
+    var horizontal =
+      tokens.find(function (token) {
+        return token === 'left' || token === 'right' || token === 'center';
+      }) || 'right';
+    var vertical = tokens.find(function (token) {
+      return token === 'top' || token === 'middle';
+    });
+    var classes = ['progressier-' + horizontal];
+    if (vertical) classes.push('progressier-' + vertical);
+    return classes;
+  }
+
+  function toolboxPatternMatches(pattern) {
+    var value = String(pattern || '').trim();
+    if (!value) return false;
+
+    var current;
+    try {
+      current = new URL(window.location.href);
+    } catch (error) {
+      return false;
+    }
+
+    var currentPath = current.pathname.replace(/\/$/, '') || '/';
+    if (value.indexOf('*') !== -1) {
+      var escaped = value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\\\*/g, '.*');
+      return new RegExp(escaped, 'i').test((current.origin + currentPath).toLowerCase());
+    }
+
+    try {
+      var target = new URL(value, window.location.href);
+      var targetPath = target.pathname.replace(/\/$/, '') || '/';
+      if (target.origin !== current.origin || targetPath !== currentPath) return false;
+      return !target.search || target.search === current.search;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  function toolboxUrlAllowed(patterns) {
+    if (!patterns || !patterns.length) return true;
+
+    var allowedPatterns = [];
+    var blockedPatterns = [];
+    patterns.forEach(function (pattern) {
+      var value = String(pattern || '').trim();
+      if (!value) return;
+      if (value.indexOf('%&%') === 0) blockedPatterns.push(value.slice(3));
+      else allowedPatterns.push(value);
+    });
+
+    if (blockedPatterns.some(toolboxPatternMatches)) return false;
+    return !allowedPatterns.length || allowedPatterns.some(toolboxPatternMatches);
+  }
+
+  function toolboxIsEmbedded() {
+    try {
+      return window.self !== window.top;
+    } catch (error) {
+      return true;
+    }
+  }
+
+  function toolboxShouldHide() {
+    if (!toolboxRoot || !toolboxOptions) return true;
+    if (toolboxManuallyHidden || toolboxOptions.off) return true;
+    if (toolboxIsEmbedded()) return true;
+    if (document.body && document.body.classList.contains('no-toolbox')) return true;
+    if (toolboxOptions.hideStandalone && isStandalone()) return true;
+
+    var mobile = isMobile();
+    if (toolboxOptions.showPlatforms === 'mobile' && !mobile) return true;
+    if (toolboxOptions.showPlatforms === 'desktop' && mobile) return true;
+    if (!toolboxUrlAllowed(toolboxOptions.showUrls)) return true;
+    if (toolboxOptions.requireServiceWorker && (!('serviceWorker' in navigator) || !registration)) return true;
+    return false;
+  }
+
+  function renderToolbox() {
+    if (!toolboxRoot || !toolboxOptions) return;
+
+    toolboxRoot.className =
+      'pwa-toolbox progressier-widget ' + toolboxPositionClasses(toolboxOptions.position).join(' ');
+    toolboxButton.style.backgroundColor = toolboxOptions.color;
+    toolboxButton.setAttribute('aria-label', wording.get('installTheApp') + ' — ' + toolboxOptions.appName);
+    toolboxButton.title = wording.get('installTheApp');
+
+    var logo = appIcon();
+    var image = toolboxOptions.useLogo ? logo : toolboxOptions.image || logo;
+    if (toolboxImage.src !== image) toolboxImage.src = image;
+
+    var hidden = toolboxShouldHide();
+    toolboxRoot.classList.toggle('off', hidden);
+    toolboxRoot.hidden = hidden;
+    toolboxRoot.setAttribute('aria-hidden', hidden ? 'true' : 'false');
+    toolboxButton.tabIndex = hidden ? -1 : 0;
+  }
+
+  function onToolboxClick() {
+    try {
+      if (navigator.vibrate) navigator.vibrate(10);
+    } catch (error) {
+      /* Vibration is an optional enhancement. */
+    }
+    try {
+      showInstallRequest();
+    } catch (error) {
+      log('toolbox install flow failed', error);
+    }
+  }
+
+  function enableToolbox(options) {
+    if (!document.body) {
+      toolboxPendingOptions = options || toolboxPendingOptions || {};
+      if (!toolboxPending) {
+        toolboxPending = true;
+        document.addEventListener(
+          'DOMContentLoaded',
+          function () {
+            if (!toolboxPending) return;
+            var pendingOptions = toolboxPendingOptions;
+            toolboxPending = false;
+            toolboxPendingOptions = null;
+            enableToolbox(pendingOptions);
+          },
+          { once: true },
+        );
+      }
+      return null;
+    }
+
+    toolboxOptions = normalizeToolboxOptions(options);
+    toolboxManuallyHidden = false;
+
+    if (!toolboxRoot) {
+      toolboxRoot = make('div', 'pwa-toolbox progressier-widget');
+      toolboxRoot.setAttribute('data-pwa-toolbox', '');
+
+      toolboxButton = document.createElement('button');
+      toolboxButton.className = 'pwa-toolbox-icon progressier-widget-icon';
+      toolboxButton.type = 'button';
+      toolboxButton.addEventListener('click', onToolboxClick);
+
+      toolboxImage = document.createElement('img');
+      toolboxImage.className = 'pwa-toolbox-logo progressier-widget-logo';
+      toolboxImage.alt = '';
+      toolboxImage.draggable = false;
+      toolboxImage.addEventListener('error', function () {
+        if (toolboxOptions && toolboxOptions.image && !toolboxOptions.useLogo) {
+          toolboxOptions.image = '';
+          if (toolboxImage) toolboxImage.src = appIcon();
+        } else if (toolboxImage) {
+          toolboxImage.hidden = true;
+        }
+      });
+      toolboxImage.addEventListener('load', function () {
+        if (toolboxImage) toolboxImage.hidden = false;
+      });
+
+      toolboxButton.appendChild(toolboxImage);
+      toolboxRoot.appendChild(toolboxButton);
+      document.body.appendChild(toolboxRoot);
+
+      toolboxUnsubscribe = onChange(renderToolbox);
+      window.addEventListener('resize', renderToolbox);
+      window.addEventListener('pageshow', renderToolbox);
+      window.addEventListener('popstate', renderToolbox);
+      toolboxVisibilityTimer = setInterval(renderToolbox, 1000);
+    }
+
+    renderToolbox();
+    return toolboxRoot;
+  }
+
+  function showToolbox(options) {
+    if (options || !toolboxRoot) return enableToolbox(options);
+    toolboxManuallyHidden = false;
+    renderToolbox();
+    return toolboxRoot;
+  }
+
+  function hideToolbox() {
+    toolboxManuallyHidden = true;
+    renderToolbox();
+    return toolboxRoot;
+  }
+
+  function disableToolbox() {
+    toolboxPending = false;
+    toolboxPendingOptions = null;
+    if (toolboxVisibilityTimer) clearInterval(toolboxVisibilityTimer);
+    toolboxVisibilityTimer = null;
+    if (toolboxUnsubscribe) toolboxUnsubscribe();
+    toolboxUnsubscribe = null;
+    window.removeEventListener('resize', renderToolbox);
+    window.removeEventListener('pageshow', renderToolbox);
+    window.removeEventListener('popstate', renderToolbox);
+    if (toolboxRoot && toolboxRoot.parentNode) toolboxRoot.parentNode.removeChild(toolboxRoot);
+    toolboxRoot = null;
+    toolboxButton = null;
+    toolboxImage = null;
+    toolboxOptions = null;
+    toolboxManuallyHidden = false;
+    return true;
+  }
+
+  /* ------------------------------------------------------------------ *
    * Toast
    * ------------------------------------------------------------------ */
 
@@ -2577,7 +2863,7 @@
 
   var PWA = {
     __pwaKit: true,
-    version: '1.0.3',
+    version: '1.0.4',
     config: config,
 
     // install
@@ -2658,6 +2944,10 @@
     enableOfflineAlert: enableOfflineAlert,
     showReloadPrompt: showReloadPrompt,
     enableReloadPrompt: enableReloadPrompt,
+    enableToolbox: enableToolbox,
+    showToolbox: showToolbox,
+    hideToolbox: hideToolbox,
+    disableToolbox: disableToolbox,
     showFlow: showFlow,
     showWelcome: showWelcome,
     showQRCode: showQRCode,
@@ -2765,6 +3055,7 @@
   refreshState();
   refreshDom();
   scanButtons();
+  if (config.toolbox) enableToolbox();
   setInterval(scanButtons, 150);
 
   function scheduleSplashScreens() {

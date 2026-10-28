@@ -2,6 +2,7 @@
  * pwa.css — Progressier-compatible components
  * -------------------------------------------
  * Dimensions and breakpoints mirror the original Progressier UI:
+ *   toolbox icon     65px (52px under 350px) / bottom 17px / z 2147483643
  *   install banner   100vw / 45px icon / 40px buttons / z 2147483644
  *   push banner      510px -> 450px -> 95vw / 70px icon / z 2147483645
  *   modal            500x500 max / 30px radius / 40px close / 17px title
@@ -76,6 +77,105 @@
 .progressier-install-button .pwa-btn-label,
 .progressier-subscribe-button .pwa-btn-label {
   padding: 0 15px;
+}
+
+/* ---------------------------------------------------------------- *
+ * Floating install toolbox (original Progressier-style app icon)
+ * ---------------------------------------------------------------- */
+
+.pwa-toolbox {
+  position: fixed;
+  z-index: 2147483643;
+  pointer-events: none;
+}
+
+.pwa-toolbox[hidden],
+.pwa-toolbox.off,
+.pwa-toolbox.off * {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+}
+
+.pwa-toolbox .pwa-toolbox-icon {
+  position: fixed;
+  right: 20px;
+  bottom: 17px;
+  left: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 65px;
+  height: 65px;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 2px 9px 0 rgba(82, 79, 79, 0.15);
+  cursor: pointer;
+  pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.3s ease-in-out;
+  -webkit-transition: transform 0.3s ease-in-out;
+  appearance: none;
+}
+
+.pwa-toolbox .pwa-toolbox-icon:hover {
+  transform: scale(1.08);
+}
+
+.pwa-toolbox .pwa-toolbox-icon:focus-visible {
+  outline: 3px solid var(--progressierAccent, #1a73e8);
+  outline-offset: 4px;
+}
+
+.pwa-toolbox .pwa-toolbox-logo {
+  display: block;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.pwa-toolbox.progressier-left .pwa-toolbox-icon {
+  right: auto;
+  left: 20px;
+}
+
+.pwa-toolbox.progressier-right .pwa-toolbox-icon {
+  right: 20px;
+  left: auto;
+}
+
+.pwa-toolbox.progressier-center .pwa-toolbox-icon {
+  right: auto;
+  left: calc(50% - 32px);
+}
+
+.pwa-toolbox.progressier-top .pwa-toolbox-icon {
+  top: 17px;
+  bottom: auto !important;
+}
+
+.pwa-toolbox.progressier-middle .pwa-toolbox-icon {
+  top: calc(50% - 32px) !important;
+  bottom: auto !important;
+}
+
+@media (max-width: 350px) {
+  .pwa-toolbox .pwa-toolbox-icon {
+    width: 52px;
+    height: 52px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pwa-toolbox .pwa-toolbox-icon {
+    transition: none;
+    -webkit-transition: none;
+  }
 }
 
 /* ---------------------------------------------------------------- *
