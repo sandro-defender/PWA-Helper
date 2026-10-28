@@ -11,6 +11,9 @@ external requests, no build step, no `npm install`.
 `staff.you.ge`. That site is kept as the worked reference deployment; every
 runtime file is generic, and the manifest is the only place that names the app.
 
+**Live demo:** <https://sandro-defender.github.io/PWA-Helper/> — install, QR,
+banners, badge, offline page and event log, served from a GitHub Pages subpath.
+
 > **For AI coding agents:** start with [`AGENTS.md`](AGENTS.md). It is a
 > step-by-step integration playbook — file placement, manifest adaptation,
 > server headers, CSP, push, verification, an acceptance checklist and a
