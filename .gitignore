@@ -1,0 +1,15 @@
+node_modules/
+.vapid-keys.json
+subscriptions.json
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Logs and OS/editor noise
+*.log
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

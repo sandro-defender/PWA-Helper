@@ -1,0 +1,1037 @@
+/*!
+ * pwa.css — Progressier-compatible components
+ * -------------------------------------------
+ * Dimensions and breakpoints mirror the original Progressier UI:
+ *   install banner   100vw / 45px icon / 40px buttons / z 2147483644
+ *   push banner      510px -> 450px -> 95vw / 70px icon / z 2147483645
+ *   modal            500x500 max / 30px radius / 40px close / 17px title
+ *   offline alert    470x150 -> calc(100vw - 20px) / 170px / z 2147483647
+ *   reload prompt    fixed bottom 20px / 20px radius / 12px text
+ */
+
+:root {
+  --progressierBg: #ffffff;
+  --progressierTxt: #051b2c;
+  --progressierFont: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Ubuntu, sans-serif;
+  --progressierTextFontWeight: 400;
+  --progressierBtnFontWeight: 600;
+  --progressierHeadingFontWeight: 600;
+  --progressierLetterSpacing: 0;
+  --progressierHover: rgba(0, 0, 0, 0.06);
+  --progressierElement: #f5f5f5;
+  --progressierBorderColor: rgba(0, 0, 0, 0.09);
+  --progressierBoxShadow: 0 10px 40px rgba(0, 0, 0, 0.12);
+  --progressierAccent: #1a73e8;
+  --progressierAccentText: #ffffff;
+}
+
+/* ---------------------------------------------------------------- *
+ * Install / subscribe buttons
+ * ---------------------------------------------------------------- */
+
+.progressier-install-button,
+.progressier-subscribe-button {
+  cursor: pointer;
+}
+
+.progressier-install-button.captured,
+.progressier-subscribe-button.captured {
+  cursor: pointer;
+}
+
+.progressier-install-button.is-disabled,
+.progressier-subscribe-button.is-disabled {
+  pointer-events: none !important;
+  opacity: 0.4 !important;
+}
+
+.progressier-install-button[hidden],
+.progressier-subscribe-button[hidden],
+.progressier-install-button.is-hidden,
+.progressier-subscribe-button.is-hidden {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+}
+
+.progressier-install-button .pwa-btn-inner,
+.progressier-subscribe-button .pwa-btn-inner {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+}
+
+.progressier-install-button .pwa-btn-icon,
+.progressier-subscribe-button .pwa-btn-icon {
+  object-fit: contain;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 20px;
+  height: 20px;
+  flex: none;
+}
+
+.progressier-install-button .pwa-btn-label,
+.progressier-subscribe-button .pwa-btn-label {
+  padding: 0 15px;
+}
+
+/* ---------------------------------------------------------------- *
+ * Install banner (top, full width)
+ * ---------------------------------------------------------------- */
+
+.progressier-install-banner {
+  position: fixed;
+  top: -200px;
+  width: 100vw !important;
+  background: var(--progressierBg);
+  box-shadow: var(--progressierBoxShadow) !important;
+  transition: top 0.3s ease-in-out;
+  -webkit-transition: top 0.3s ease-in-out;
+  padding: 10px 0 !important;
+  display: flex;
+  align-items: center;
+  z-index: 2147483644 !important;
+  left: 0 !important;
+}
+
+.progressier-install-banner * {
+  -webkit-tap-highlight-color: transparent !important;
+  outline: 0 !important;
+}
+
+.progressier-install-banner.in {
+  top: 0;
+}
+
+.progressier-install-banner * {
+  font-family: var(--progressierFont) !important;
+  letter-spacing: var(--progressierLetterSpacing) !important;
+  font-weight: var(--progressierTextFontWeight) !important;
+  font-size: 15px !important;
+}
+
+.progressier-install-banner-inner {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 100%;
+}
+
+.progressier-install-banner-close {
+  margin-right: 20px;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  cursor: pointer;
+  border-radius: 50%;
+  flex: none;
+}
+
+.progressier-install-banner[dir="rtl"] .progressier-install-banner-close {
+  margin-left: 20px;
+  margin-right: 0;
+}
+
+.progressier-install-banner-close:hover {
+  background: var(--progressierHover);
+}
+
+.progressier-install-banner-close svg {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  color: var(--progressierTxt) !important;
+}
+
+.progressier-install-banner-close svg * {
+  color: var(--progressierTxt) !important;
+}
+
+.progressier-install-banner-details {
+  display: flex;
+  align-items: center;
+  margin-left: 15px;
+}
+
+.progressier-install-banner[dir="rtl"] .progressier-install-banner-details {
+  margin-left: 0;
+  margin-right: 15px;
+}
+
+.progressier-install-banner-icon {
+  flex: none !important;
+}
+
+.progressier-install-banner-text {
+  color: var(--progressierTxt) !important;
+  line-height: 22px !important;
+  word-break: break-word;
+}
+
+.progressier-install-banner-icon img {
+  width: 45px;
+  height: 45px;
+  flex: none !important;
+  margin-left: 20px;
+  border-radius: 10px;
+  position: relative !important;
+}
+
+.progressier-install-banner[dir="rtl"] .progressier-install-banner-icon img {
+  margin-left: 0;
+  margin-right: 20px;
+}
+
+.progressier-install-banner-btns {
+  display: flex;
+  align-items: center;
+  margin-left: 30px;
+}
+
+.progressier-install-banner[dir="rtl"] .progressier-install-banner-btns {
+  margin-right: 30px;
+  margin-left: 0;
+}
+
+.progressier-install-banner-btns,
+.progressier-install-banner-btns * {
+  font-weight: var(--progressierBtnFontWeight) !important;
+}
+
+.progressier-install-banner-btns button {
+  padding: 0 30px !important;
+  margin: 0 5px !important;
+  outline: 0 !important;
+  border: 0 !important;
+  height: 40px !important;
+  border-radius: 30px !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+  box-shadow: none !important;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  -webkit-box-sizing: border-box !important;
+  box-sizing: border-box !important;
+}
+
+.progressier-install-banner-btns button:after,
+.progressier-install-banner-btns button:before {
+  display: none !important;
+}
+
+.progressier-install-banner-btns button:nth-child(2) {
+  background: transparent !important;
+  color: var(--progressierTxt) !important;
+}
+
+.progressier-install-banner-btns button:nth-child(2):hover {
+  background: var(--progressierHover) !important;
+}
+
+.progressier-install-banner-btns button:first-child {
+  background: var(--progressierAccent) !important;
+  color: var(--progressierAccentText) !important;
+}
+
+.progressier-install-banner-btns button:first-child * {
+  color: var(--progressierAccentText) !important;
+}
+
+.progressier-install-banner-btns button:first-child:hover {
+  filter: brightness(0.9) !important;
+}
+
+.progressier-install-banner-btns button.disabled {
+  pointer-events: none !important;
+  opacity: 1 !important;
+}
+
+@media (min-width: 992px) {
+  .progressier-install-banner {
+    max-height: 100px;
+  }
+}
+
+@media (max-width: 800px) {
+  .progressier-install-banner-btns {
+    flex-direction: column !important;
+    margin: 0 10px !important;
+  }
+  .progressier-install-banner-details {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .progressier-install-banner-btns button {
+    width: 100% !important;
+    height: 40px !important;
+    max-width: 120px !important;
+  }
+  .progressier-install-banner-close {
+    position: absolute;
+    margin-right: 10px;
+  }
+  .progressier-install-banner[dir="rtl"] .progressier-install-banner-close {
+    margin-left: 10px;
+    margin-right: 0;
+  }
+  .progressier-install-banner-icon {
+    margin-left: 20px;
+  }
+  .progressier-install-banner[dir="rtl"] .progressier-install-banner-icon {
+    margin-left: 0;
+    margin-right: 20px;
+  }
+  .progressier-install-banner {
+    height: auto !important;
+    padding: 10px 0 !important;
+  }
+  .progressier-install-banner-btns button:nth-child(2) {
+    display: none !important;
+  }
+  .progressier-install-banner-text {
+    line-height: 18px !important;
+  }
+}
+
+@media (max-width: 550px) {
+  .progressier-install-banner * {
+    font-size: 13px !important;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  body:not([data-progressier-forced-theme="light"]) .progressier-install-banner-btns button:nth-child(2) {
+    color: var(--progressierTxt) !important;
+  }
+}
+
+/* ---------------------------------------------------------------- *
+ * Push banner (top, centered)
+ * ---------------------------------------------------------------- */
+
+.progressier-push-banner {
+  position: fixed;
+  top: -500px;
+  width: 510px;
+  background: var(--progressierBg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  left: calc(50% - 255px);
+  box-shadow: var(--progressierBoxShadow) !important;
+  color: #051b2c;
+  border-bottom-left-radius: 30px;
+  border-bottom-right-radius: 30px;
+  transition: top 0.3s ease-in-out;
+  -webkit-transition: top 0.3s ease-in-out;
+  z-index: 2147483645 !important;
+}
+
+.progressier-push-banner * {
+  -webkit-tap-highlight-color: transparent !important;
+  outline: 0 !important;
+}
+
+.progressier-push-banner.in {
+  top: 0;
+}
+
+.progressier-push-banner * {
+  font-family: var(--progressierFont) !important;
+  font-weight: var(--progressierTextFontWeight) !important;
+  font-size: 15px !important;
+  letter-spacing: var(--progressierLetterSpacing) !important;
+}
+
+.progressier-push-banner-inner {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  padding: 20px;
+}
+
+.progressier-push-banner-icon {
+  flex: none !important;
+}
+
+.progressier-push-banner-text {
+  margin-left: 20px !important;
+  color: var(--progressierTxt) !important;
+  line-height: 22px !important;
+  word-break: break-word;
+  text-align: left;
+}
+
+.progressier-push-banner[dir="rtl"] .progressier-push-banner-text {
+  margin-left: 0;
+  margin-right: 20px;
+}
+
+.progressier-push-banner-details {
+  display: flex;
+  width: 100%;
+}
+
+.progressier-push-banner-details img {
+  width: 70px;
+  height: 70px;
+  flex: none !important;
+  margin-right: 20px;
+  border-radius: 15px;
+}
+
+.progressier-push-banner-btns {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.progressier-push-banner-btns,
+.progressier-push-banner-btns * {
+  font-weight: var(--progressierBtnFontWeight) !important;
+}
+
+.progressier-push-banner-btns button {
+  padding: 0 20px !important;
+  margin-left: 15px !important;
+  outline: 0 !important;
+  border: 0 !important;
+  border-radius: 30px !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+  min-height: 50px !important;
+  box-shadow: none !important;
+  -webkit-box-sizing: border-box !important;
+  box-sizing: border-box !important;
+}
+
+.progressier-push-banner-btns button:after,
+.progressier-push-banner-btns button:before {
+  display: none !important;
+}
+
+.progressier-push-banner-btns button:first-child {
+  background: transparent !important;
+  color: var(--progressierTxt) !important;
+}
+
+.progressier-push-banner-btns button:first-child:hover {
+  background: var(--progressierHover) !important;
+}
+
+.progressier-push-banner-btns button:nth-child(2) {
+  background: var(--progressierAccent) !important;
+  color: var(--progressierAccentText) !important;
+}
+
+.progressier-push-banner-btns button:nth-child(2) * {
+  color: var(--progressierAccentText) !important;
+}
+
+.progressier-push-banner-btns button:nth-child(2):hover {
+  filter: brightness(0.9) !important;
+}
+
+.progressier-push-banner-btns button.disabled {
+  pointer-events: none !important;
+  opacity: 1 !important;
+}
+
+@media (min-width: 992px) {
+  .progressier-push-banner-text {
+    padding-bottom: 20px !important;
+  }
+  .progressier-push-banner-close {
+    display: none;
+  }
+}
+
+@media (max-width: 991px) {
+  .progressier-push-banner-btns {
+    flex-direction: column-reverse !important;
+    margin-top: 20px;
+  }
+  .progressier-push-banner-btns button {
+    width: 100% !important;
+    min-height: 40px !important;
+    height: 50px !important;
+    margin: 0 !important;
+    border-radius: 30px !important;
+  }
+  .progressier-push-banner-details img {
+    width: 50px;
+    height: 50px;
+    margin-right: 0;
+  }
+  .progressier-push-banner-btns button:first-child {
+    display: none !important;
+  }
+  .progressier-push-banner-text {
+    width: calc(100% - 130px);
+    line-height: 22px !important;
+  }
+  .progressier-push-banner-close {
+    position: absolute;
+    right: 20px;
+    top: 20px;
+  }
+  .progressier-push-banner[dir="rtl"] .progressier-push-banner-close {
+    right: unset;
+    left: 20px;
+  }
+  .progressier-push-banner-close svg {
+    width: 20px;
+    height: 20px;
+    flex: none;
+    color: var(--progressierTxt) !important;
+  }
+  .progressier-push-banner.in {
+    top: 2.5vw;
+    margin-top: max(0px, env(safe-area-inset-top));
+  }
+  .progressier-push-banner {
+    border-radius: 30px !important;
+    width: 450px;
+    left: calc(50% - 225px);
+  }
+}
+
+@media (max-width: 550px) {
+  .progressier-push-banner * {
+    font-size: 14px !important;
+  }
+  .progressier-push-banner {
+    width: 95vw;
+    left: 2.5vw;
+  }
+  .progressier-push-banner-inner {
+    width: 100% !important;
+  }
+  .progressier-push-banner-btns button,
+  .progressier-push-banner-btns button * {
+    font-size: 14px !important;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  body:not([data-progressier-forced-theme="light"]) .progressier-push-banner-btns button:first-child {
+    color: var(--progressierTxt) !important;
+  }
+}
+
+/* ---------------------------------------------------------------- *
+ * Offline alert
+ * ---------------------------------------------------------------- */
+
+.progressier-offline-alert {
+  position: fixed !important;
+  bottom: 10px !important;
+  left: 10px !important;
+  background: #fff;
+  width: 470px !important;
+  height: 150px !important;
+  border-radius: 10px;
+  transition: all 0.3s ease-in-out;
+  -webkit-transition: all 0.3s ease-in-out;
+  z-index: 2147483647 !important;
+  outline: 0 !important;
+  border: 2px solid #f5f5f5 !important;
+  box-shadow: rgba(228, 228, 234, 0.22) 0 22px 25px 0;
+  overflow: hidden;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  font-family: var(--progressierFont) !important;
+  box-sizing: border-box;
+}
+
+.progressier-offline-alert[hidden] {
+  display: none !important;
+}
+
+.progressier-offline-alert-illustration {
+  background: #f5f5f5;
+  height: 100%;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 30vw;
+  flex: none;
+  width: 130px;
+}
+
+.progressier-offline-alert-illustration svg {
+  transform: scale(0.75);
+  margin-top: -25%;
+  width: 96px;
+  height: 96px;
+}
+
+.progressier-offline-alert-body {
+  padding-left: 30px;
+  padding-right: 30px;
+  overflow: hidden;
+  position: relative;
+  margin: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.progressier-offline-alert h2 {
+  color: #535353;
+  font-size: 18px;
+  margin: 0 0 5px;
+  font-family: var(--progressierFont) !important;
+  font-weight: 600;
+}
+
+.progressier-offline-alert p {
+  margin: 0;
+  color: #858585;
+  font-size: 14px;
+  font-weight: 300;
+  font-family: var(--progressierFont) !important;
+}
+
+.progressier-offline-alert-wifi {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  color: #b3b3b3;
+}
+
+.progressier-offline-alert-close {
+  position: absolute;
+  top: 0;
+  right: 0;
+  border-bottom-left-radius: 50%;
+  padding: 5px;
+  display: flex;
+  color: #8a8a8a;
+  cursor: pointer;
+}
+
+.progressier-offline-alert-close svg {
+  width: 20px;
+  height: 20px;
+}
+
+@media (max-width: 991px) {
+  .progressier-offline-alert {
+    width: calc(100vw - 20px) !important;
+    height: 170px !important;
+  }
+}
+
+/* ---------------------------------------------------------------- *
+ * Reload prompt
+ * ---------------------------------------------------------------- */
+
+.progressier-prompt-overlay {
+  display: flex;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 2147483647 !important;
+  background: rgba(0, 0, 0, 0.33);
+  align-items: center;
+  justify-content: center;
+  font-family: var(--progressierFont) !important;
+}
+
+.progressier-prompt-reload-button {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  background: var(--progressierAccent);
+  position: fixed;
+  bottom: 20px;
+  padding: 10px 20px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.progressier-prompt-reload-button:hover {
+  filter: brightness(0.9);
+}
+
+/* ---------------------------------------------------------------- *
+ * Flow / modal / welcome
+ * ---------------------------------------------------------------- */
+
+.pwa-flow {
+  z-index: 2147483645 !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+}
+
+.pwa-flow * {
+  -webkit-tap-highlight-color: transparent !important;
+  outline: 0 !important;
+}
+
+.pwa-flow .pwa-flow-inner {
+  overflow: hidden;
+  position: relative;
+  background: var(--progressierBg);
+  width: 100%;
+  max-width: 500px;
+  max-height: 500px;
+  border-radius: 30px;
+  justify-content: center;
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  min-height: 250px;
+  border: 1px solid var(--progressierBorderColor);
+  transition: transform 0.3s cubic-bezier(0, 0, 0.23, 1);
+  box-sizing: border-box;
+}
+
+.pwa-flow .pwa-flow-inner > * {
+  transition: opacity 0.4s linear;
+}
+
+.pwa-flow.removing .pwa-flow-inner {
+  transform: scale(0);
+}
+
+.pwa-flow.removing .pwa-flow-inner > * {
+  opacity: 0;
+}
+
+.pwa-flow * {
+  text-align: start;
+  color: var(--progressierTxt) !important;
+  font-family: var(--progressierFont) !important;
+  font-weight: var(--progressierTextFontWeight);
+  letter-spacing: var(--progressierLetterSpacing);
+  line-height: 26px;
+  font-size: 15px !important;
+  box-sizing: border-box !important;
+}
+
+.pwa-flow-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 90%;
+  position: relative;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.pwa-flow-close {
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  margin-right: -10px;
+  transition: 0.3s ease-out all;
+  flex: none;
+}
+
+.pwa-flow-close:hover,
+.pwa-flow-close:active,
+.pwa-flow-close:focus {
+  background: var(--progressierHover);
+}
+
+.pwa-flow[dir="rtl"] .pwa-flow-close {
+  margin-left: -10px;
+  margin-right: 0;
+}
+
+.pwa-flow-close svg {
+  width: 20px;
+  height: 20px;
+  color: var(--progressierTxt) !important;
+}
+
+.pwa-flow-title {
+  font-weight: var(--progressierHeadingFontWeight) !important;
+  font-size: 17px !important;
+}
+
+.pwa-flow-details {
+  display: flex;
+  align-items: center;
+  width: calc(90% - 40px);
+  border: 1px solid var(--progressierBorderColor);
+  justify-content: flex-start;
+  padding: 20px;
+  border-radius: 30px;
+  background: var(--progressierElement);
+  box-sizing: border-box;
+}
+
+.pwa-flow-details img {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  margin-right: 15px;
+  flex: none;
+}
+
+.pwa-flow-text {
+  width: 100%;
+  overflow: hidden;
+}
+
+.pwa-flow-text > div:first-child {
+  font-weight: 600 !important;
+}
+
+.pwa-flow-text > div:nth-child(2) {
+  font-size: 13px !important;
+  color: var(--progressierTxt) !important;
+  opacity: 0.7;
+}
+
+.pwa-flow-body {
+  width: calc(90% - 40px);
+  padding: 18px 0 6px;
+}
+
+.pwa-flow-body p {
+  margin: 0 0 10px;
+  font-size: 15px !important;
+  line-height: 24px;
+}
+
+.pwa-flow-body ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.pwa-flow-body li {
+  position: relative;
+  padding-left: 30px;
+  margin: 5px 0;
+  line-height: 24px;
+}
+
+.pwa-flow-body li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  background: var(--progressierElement);
+  border: 1px solid var(--progressierBorderColor);
+}
+
+.pwa-flow-actions {
+  width: calc(90% - 40px);
+  padding: 10px 0 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pwa-flow-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 50px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 30px;
+  background: var(--progressierAccent);
+  color: var(--progressierAccentText) !important;
+  font-family: var(--progressierFont) !important;
+  font-weight: var(--progressierBtnFontWeight);
+  font-size: 15px;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.pwa-flow-btn * {
+  color: var(--progressierAccentText) !important;
+}
+
+.pwa-flow-btn.secondary {
+  background: transparent;
+  color: var(--progressierTxt) !important;
+}
+
+.pwa-flow-btn.secondary * {
+  color: var(--progressierTxt) !important;
+}
+
+.pwa-flow-btn:hover {
+  filter: brightness(0.94);
+}
+
+@media (max-width: 550px) {
+  .pwa-flow .pwa-flow-inner {
+    width: calc(100vw - 24px);
+    border-radius: 24px;
+  }
+  .pwa-flow-header {
+    width: 92%;
+  }
+}
+
+/* QR install dialog (matches the original 250px QR / 700px desktop modal) */
+
+.pwa-flow-inner.qrcode {
+  max-height: 700px;
+}
+
+.pwa-flow-inner.qrcode .pwa-flow-details {
+  display: none !important;
+}
+
+.pwa-flow-inner.qrcode .pwa-flow-body {
+  margin-top: -10px;
+  padding-top: 0;
+}
+
+.pwa-flow-qr {
+  width: 250px;
+  height: 250px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  margin: -10px 0 20px;
+  flex: none;
+}
+
+.pwa-flow-qr canvas,
+.pwa-flow-qr img {
+  width: 250px;
+  height: 250px;
+  display: block;
+  position: relative;
+}
+
+.pwa-flow-qr.loading::after {
+  content: "";
+  position: absolute;
+  height: 210px;
+  width: 210px;
+  background: var(--progressierElement);
+  background-image: linear-gradient(
+    to right,
+    var(--progressierElement) 10%,
+    var(--progressierBorderColor) 18%,
+    var(--progressierElement) 33%
+  );
+  background-size: 800px 230px;
+  animation: pwa-qr-placeholder 1.25s linear infinite;
+  animation-fill-mode: forwards;
+}
+
+@keyframes pwa-qr-placeholder {
+  0% {
+    background-position: -468px 0;
+  }
+  100% {
+    background-position: 468px 0;
+  }
+}
+
+.pwa-qr-body p {
+  text-align: center;
+}
+
+.pwa-qr-install-here {
+  margin-top: 16px;
+}
+
+.pwa-flow-qr.error {
+  flex-direction: column;
+  text-align: center;
+  gap: 6px;
+}
+
+.pwa-qr-error {
+  font-weight: 600;
+  padding: 20px 20px 0;
+}
+
+.pwa-qr-url {
+  font-size: 11px !important;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  opacity: 0.65;
+  padding: 0 10px;
+}
+
+@media (min-width: 735px) {
+  .pwa-flow-inner.qrcode {
+    max-height: 700px !important;
+  }
+  .pwa-flow-inner.qrcode .pwa-flow-body p {
+    text-align: center;
+  }
+}
+
+/* Offline "toast" used by PWA.notify */
+
+.pwa-toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(20px + env(safe-area-inset-bottom));
+  transform: translate(-50%, 20px);
+  background: #0f172a;
+  color: #fff;
+  border-radius: 12px;
+  padding: 12px 18px;
+  font: 600 13.5px/1.4 var(--progressierFont);
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.3);
+  z-index: 2147483647;
+  opacity: 0;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  max-width: min(420px, calc(100vw - 32px));
+  text-align: center;
+}
+
+.pwa-toast.in {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+/* Hidden by install state, usable from your own CSS */
+
+html.pwa-standalone .pwa-hide-standalone,
+html.pwa-installed .pwa-hide-installed {
+  display: none !important;
+}

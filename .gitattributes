@@ -1,0 +1,17 @@
+# Normalize line endings so the kit behaves the same on every checkout.
+* text=auto eol=lf
+
+# Scripts must keep LF: they are served as-is and diffed in reviews.
+*.js   text eol=lf
+*.mjs  text eol=lf
+*.css  text eol=lf
+*.html text eol=lf
+*.json text eol=lf
+*.webmanifest text eol=lf
+*.md   text eol=lf
+
+# Binary assets
+*.png  binary
+*.ico  binary
+*.jpg  binary
+*.webp binary

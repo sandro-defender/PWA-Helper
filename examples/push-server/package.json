@@ -1,0 +1,13 @@
+{
+  "name": "staff-you-ge-push-example",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Minimal Web Push sender for the self-hosted PWA kit",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "web-push": "^3.6.7"
+  }
+}

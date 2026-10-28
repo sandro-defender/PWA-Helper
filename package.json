@@ -1,0 +1,25 @@
+{
+  "name": "self-hosted-pwa-kit",
+  "version": "1.0.2",
+  "private": true,
+  "description": "Dependency-free, Progressier-compatible PWA layer: manifest, service worker, install UI, offline support, share target, push, badge and QR install dialog.",
+  "license": "MIT",
+  "type": "module",
+  "keywords": [
+    "pwa",
+    "service-worker",
+    "web-manifest",
+    "web-push",
+    "install-prompt",
+    "offline",
+    "progressier"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "check": "node scripts/check.mjs",
+    "verify": "node scripts/verify-deployment.mjs",
+    "keys": "node scripts/generate-vapid-keys.mjs --write"
+  }
+}

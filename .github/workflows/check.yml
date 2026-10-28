@@ -1,0 +1,29 @@
+name: check
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  static:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Static checks
+        run: node scripts/check.mjs
+
+      - name: Syntax check every script
+        run: |
+          for file in pwa.js progressier.js offline.js qrcode.js; do
+            node --check "$file"
+          done
+
+      - name: Manifest parses
+        run: node -e "JSON.parse(require('fs').readFileSync('manifest.webmanifest','utf8')); console.log('manifest ok')"

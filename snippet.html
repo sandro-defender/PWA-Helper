@@ -1,0 +1,64 @@
+<!--
+  staff.you.ge PWA — replace the two progressier.app tags with this block.
+
+  Old:
+    <link rel="manifest" href="https://progressier.app/HIPSBNVemXtM8VMwRfWs/progressier.json"/>
+    <script defer src="https://progressier.app/HIPSBNVemXtM8VMwRfWs/script.js"></script>
+
+  Keep the service worker at /progressier.js; do not rename it.
+-->
+
+<!-- Core -->
+<link rel="manifest" href="/manifest.webmanifest" />
+<link rel="icon" href="/favicon.ico" sizes="any" />
+<link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png" />
+<link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />
+
+<!-- Browser / iOS / Windows chrome -->
+<meta name="theme-color" content="#ffffff" />
+<meta name="application-name" content="staff.you.ge" />
+<meta name="apple-mobile-web-app-title" content="staff.you.ge" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="msapplication-TileColor" content="#ffffff" />
+<meta name="msapplication-TileImage" content="/icons/icon-144.png" />
+<meta name="msapplication-config" content="/browserconfig.xml" />
+
+<!-- Client: install UI, offline alert, banners, push -->
+<script
+  src="/pwa.js"
+  defer
+  data-sw="/progressier.js"
+  data-sw-scope="/"
+  data-manifest="/manifest.webmanifest"
+></script>
+
+<!--
+  Optional push. Add these only after the endpoint and VAPID keys exist:
+
+    data-vapid-public-key="BEl62i..."
+    data-push-endpoint="/api/push/subscribe"
+
+  Optional auto-show (off by default so nothing appears unexpectedly):
+
+    data-install-banner
+    data-push-banner
+    data-offline-alert
+    data-welcome
+
+  Optional overrides:
+
+    data-css="/pwa.css"
+    data-icon="/icons/icon-192.png"
+    data-splash-icon="/icons/icon-512.png"
+    data-app-name="staff.you.ge"
+    data-theme-color="#ffffff"
+    data-start-url="/?launchedfrom=homescreen"
+    data-no-meta
+    data-no-css
+    data-no-splash
+    data-auto-update
+    data-csp-nonce="..."
+    data-debug
+-->
