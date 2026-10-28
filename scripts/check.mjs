@@ -6,7 +6,8 @@
  *   npm run check
  *
  * Verifies:
- *   - JavaScript syntax of every runtime script
+ *   - JavaScript syntax of runtime and reference scripts
+ *   - original and readable reference bundles are present
  *   - manifest is valid JSON with the required fields
  *   - every manifest icon exists and its real PNG size matches the declaration
  *   - offline / precache assets referenced by the worker exist
@@ -78,7 +79,15 @@ for (const file of requiredFiles) {
  * ------------------------------------------------------------------ */
 
 section('JavaScript syntax');
-for (const file of ['pwa.js', 'progressier.js', 'offline.js', 'qrcode.js', 'example/example.js']) {
+for (const file of [
+  'pwa.js',
+  'progressier.js',
+  'offline.js',
+  'qrcode.js',
+  'example/example.js',
+  'reference/Script.js',
+  'reference/Script.decompiled.js',
+]) {
   if (!existsSync(at(file))) continue;
   try {
     execFileSync(process.execPath, ['--check', at(file)], { stdio: 'pipe' });
@@ -90,7 +99,17 @@ for (const file of ['pwa.js', 'progressier.js', 'offline.js', 'qrcode.js', 'exam
 }
 
 /* ------------------------------------------------------------------ *
- * 3. Manifest
+ * 3. Reference artifacts (kept out of deployment)
+ * ------------------------------------------------------------------ */
+
+section('Reference artifacts');
+for (const file of ['reference/Script.js', 'reference/Script.decompiled.js']) {
+  if (existsSync(at(file))) pass(`${file} is preserved`);
+  else fail(`${file} is missing`);
+}
+
+/* ------------------------------------------------------------------ *
+ * 4. Manifest
  * ------------------------------------------------------------------ */
 
 section('Manifest');
@@ -185,13 +204,17 @@ if (manifest) {
 }
 
 /* ------------------------------------------------------------------ *
- * 4. Service worker assets and version
+ * 5. Service worker assets and version
  * ------------------------------------------------------------------ */
 
 section('Service worker');
 
 const worker = existsSync(at('progressier.js')) ? readFileSync(at('progressier.js'), 'utf8') : '';
 const client = existsSync(at('pwa.js')) ? readFileSync(at('pwa.js'), 'utf8') : '';
+const styles = existsSync(at('pwa.css')) ? readFileSync(at('pwa.css'), 'utf8') : '';
+const originalReference = existsSync(at('reference/Script.decompiled.js'))
+  ? readFileSync(at('reference/Script.decompiled.js'), 'utf8')
+  : '';
 
 const workerVersion = /const VERSION = '([^']+)'/.exec(worker);
 const clientVersion = /version:\s*'([^']+)'/.exec(client);
@@ -203,6 +226,57 @@ if (!workerVersion) {
   fail(`version mismatch: worker ${workerVersion[1]} vs client ${clientVersion[1]}`);
 } else {
   pass(`version is ${workerVersion[1]} in both files`);
+}
+
+const toolboxContract = [
+  "toolbox: 'toolbox' in dataset",
+  'function enableToolbox(options)',
+  'function toolboxIsDesktop()',
+  'new URLSearchParams(target.search)',
+  'enableToolbox: enableToolbox',
+  'showToolbox: showToolbox',
+  'hideToolbox: hideToolbox',
+  'disableToolbox: disableToolbox',
+  'showInstallRequest: showInstallRequest',
+];
+if (toolboxContract.every((token) => client.includes(token))) {
+  pass('floating toolbox configuration, visibility matching, API and install flow are present');
+} else {
+  fail('floating toolbox configuration, visibility matching, API or install flow is incomplete');
+}
+
+const toolboxStyles = [
+  'z-index: 2147483643',
+  'bottom: 17px',
+  'width: 65px',
+  'height: 65px',
+  'border-radius: 50%',
+  'scale(1.08)',
+  'left: 20px',
+  'right: 20px',
+  'calc(50% - 32px)',
+  'top: 17px',
+  'width: 52px',
+  'height: 52px',
+];
+const originalToolboxStyleMarkers = [
+  'z-index: 2147483643;',
+  'bottom: 17px',
+  'width: 65px',
+  'height: 65px',
+  'border-radius: 50%',
+  'transform:scale(1.08) !important',
+  'left:20px',
+  'right:20px',
+  'calc(50% - 32px)',
+  'top:17px',
+  'width:52px;height:52px',
+];
+if (toolboxStyles.every((token) => styles.includes(token)) &&
+    originalToolboxStyleMarkers.every((token) => originalReference.includes(token))) {
+  pass('floating toolbox sizing, placement and hover styles match the original');
+} else {
+  fail('floating toolbox styles differ from the original sizing or placement');
 }
 
 const precached = [
@@ -228,7 +302,7 @@ for (const name of ['share-target', 'offline.html', 'qrcode.js']) {
 }
 
 /* ------------------------------------------------------------------ *
- * 5. No hosted Progressier leftovers in deployable files
+ * 6. No hosted Progressier leftovers in deployable files
  * ------------------------------------------------------------------ */
 
 section('Progressier leftovers');
@@ -263,7 +337,7 @@ if (clientHits > 3) {
 }
 
 /* ------------------------------------------------------------------ *
- * 6. GitHub Pages playground and user-facing example
+ * 7. GitHub Pages playground and user-facing example
  * ------------------------------------------------------------------ */
 
 section('GitHub Pages examples');
@@ -364,11 +438,35 @@ for (const page of examplePages) {
   }
 
   if (pwaTag && pwaUrl) {
+    if (/\bdata-toolbox(?:\s|=|>)/i.test(pwaTag)) {
+      pass(`${page.label} enables the floating install toolbox`);
+    } else {
+      fail(`${page.label} is missing data-toolbox`);
+    }
+
+    const manifestSrc = tagAttribute(pwaTag, 'data-manifest') || 'manifest.webmanifest';
+    const configuredManifestUrl = new URL(manifestSrc, pwaUrl);
+    const expectedManifestUrl = new URL(page.publishedManifest, pagesRoot);
+    if (configuredManifestUrl.href === expectedManifestUrl.href) {
+      pass(`${page.label} runtime uses its route-local manifest`);
+    } else {
+      fail(`${page.label} runtime manifest resolves to ${configuredManifestUrl.pathname}, expected ${expectedManifestUrl.pathname}`);
+    }
+
     const workerSrc = tagAttribute(pwaTag, 'data-sw') || 'progressier.js';
     const workerUrl = new URL(workerSrc, pwaUrl);
     const workerPath = pagesFile(workerUrl, `${page.label} service worker`);
     if (workerPath && existsSync(workerPath)) pass(`${page.label} service worker resolves to its deployed worker`);
     else if (workerPath) fail(`${page.label} service worker target does not exist: ${workerUrl.pathname}`);
+
+    const scopeSrc = tagAttribute(pwaTag, 'data-sw-scope');
+    const workerScopeUrl = scopeSrc ? new URL(scopeSrc, pwaUrl) : new URL('.', workerUrl);
+    const expectedScopeUrl = new URL('.', publishedPageUrl);
+    if (workerScopeUrl.pathname === expectedScopeUrl.pathname) {
+      pass(`${page.label} service worker is scoped to its own route`);
+    } else {
+      fail(`${page.label} service worker scope is ${workerScopeUrl.pathname}, expected ${expectedScopeUrl.pathname}`);
+    }
   }
 
   const stylesheetTag = linkTags.find((tag) => tag.includes('rel="stylesheet"'));
@@ -445,7 +543,7 @@ for (const file of ['example/example.css', 'example/example.js']) {
 }
 
 /* ------------------------------------------------------------------ *
- * 7. Optional files worth having
+ * 8. Optional files worth having
  * ------------------------------------------------------------------ */
 
 section('Optional files');

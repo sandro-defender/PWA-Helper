@@ -2,7 +2,7 @@
 
 A dependency-free, Progressier-compatible PWA layer you can drop into any web
 project: manifest, service worker, install UI, offline support, share target,
-push notifications, app badge and a QR install dialog.
+push notifications, app badge, a QR install dialog and a floating install launcher.
 
 Everything runs from your own domain — no third-party script, no account, no
 external requests, no build step, no `npm install`.
@@ -13,7 +13,7 @@ generic, while each deployment supplies its app identity through the manifest
 and optional `pwa.js` configuration.
 
 **Live playground:** <https://sandro-defender.github.io/PWA-Helper/> — the full
-feature-test page for install, QR, offline, push, share, caches, theme, wording and UI events.
+feature-test page for install, toolbox, QR, offline, push, share, caches, theme, wording and UI events.
 
 **User-facing example:** <https://sandro-defender.github.io/PWA-Helper/example/> —
 a cleaner sample staff workspace showing how the helper can feel inside a real app.
@@ -83,7 +83,7 @@ node scripts/verify-deployment.mjs https://you.example  # live deployment
 | [`PARITY.md`](PARITY.md) | you need to know what matches the original Progressier client |
 | [`snippet.html`](snippet.html) | you want to copy the complete `<head>` block |
 | [`examples/push-server/`](examples/push-server/) | you need a runnable Web Push sender |
-| [`reference/`](reference/) | you want to compare against the original hosted manifest |
+| [`reference/`](reference/) | you want to inspect the original manifest and client bundle (reference-only; never deployed) |
 | `demo/` | you want to test the helper's full feature set in the playground |
 | `example/` | you want a polished, user-facing sample integration |
 
@@ -94,9 +94,10 @@ node scripts/verify-deployment.mjs https://you.example  # live deployment
 The Progressier `script.js` is a 324 KB minified proprietary bundle. It is not a
 standalone PWA library: it resolves your `appId`, fetches configuration from
 `progressier.com`, and is licensed for use with their service. Hosting it on your
-server would fail (missing Progressier domain/app ID) and would still depend on
-their backend. That proprietary bundle is **not included** in this repository;
-the readable local runtime is a clean-room implementation.
+server would still depend on their backend. A user-supplied copy is kept under
+`reference/` only for parity research; `reference/Script.decompiled.js` is its
+pretty-printed reading copy. Neither file is used by the runtime or deployed by
+GitHub Pages. The local runtime is a separate clean-room implementation.
 
 Their service worker (`sw.js`, 5 KB) only handles push, share target and the app
 badge — it does **no offline caching**. This kit implements the same public
@@ -121,7 +122,7 @@ snippet.html              Copy-paste head block
 AGENTS.md                 AI-agent integration playbook
 INTEGRATION.md            Worked deployment example (staff.you.ge)
 PARITY.md                 Original vs local feature/sizing report
-reference/                Original hosted manifest (not deployed)
+reference/                Original manifest/client bundle + readable copies (research only; not deployed)
 demo/                     Full-feature GitHub Pages test playground + manifest
 example/                  Polished user-facing sample integration + manifest
 .github/workflows/        check.yml (static checks), pages.yml (playground + example deploy)
@@ -248,6 +249,44 @@ auto-detected (150 ms scan) and wired up:
 
 The kit adds `.captured` and `.initialized` classes, exactly like the original.
 
+### Floating install toolbox
+
+`data-toolbox` adds the original-style floating app-icon launcher. Clicking it
+opens the local install flow (`PWA.showInstallRequest()`), which leads to the
+native prompt when available or the install instructions otherwise. It is hidden
+in iframes, when there is no registered service worker, by `data-toolbox-off` or
+`body.no-toolbox`, and—by default—in
+standalone mode.
+
+```html
+<script
+  src="/pwa.js"
+  defer
+  data-toolbox
+  data-toolbox-position="right"
+  data-toolbox-color="#ffffff"
+  data-toolbox-img="/icons/icon-192.png"
+></script>
+```
+
+The button can also be managed at runtime:
+
+```js
+PWA.enableToolbox({ position: 'left-top', color: '#ffffff', image: '/icons/icon-192.png' });
+PWA.hideToolbox();    // hide without removing the widget
+PWA.showToolbox();    // show it again, subject to platform/URL rules
+PWA.disableToolbox(); // remove and clean up the widget
+```
+
+Supported positions are `left`, `right`, or `center`, with optional `-top` or
+`-middle` vertical placement. `data-toolbox-show-platforms` can limit it to
+`mobile` or `desktop`; `data-toolbox-show-urls` accepts a JSON array or
+comma-separated path/URL patterns (`*` wildcard). Query parameters included in a
+pattern are matched as a subset, so extra parameters on the current URL do not
+prevent a match. Prefix a pattern with `%&%` to hide the widget on matching
+pages. The standalone default can be overridden
+with `data-toolbox-hide-standalone="false"`.
+
 ### Banners, modal, offline alert
 
 ```js
@@ -342,6 +381,15 @@ without changes.
 | `data-install-banner` | off | Show the install banner automatically |
 | `data-push-banner` | off | Show the push banner automatically |
 | `data-offline-alert` | off | Show the offline alert automatically |
+| `data-toolbox` | off | Show the floating install launcher |
+| `data-toolbox-off` | off | Suppress the launcher even when `data-toolbox` is set |
+| `data-toolbox-position` | `right` | `left`, `right`, `center`, with optional `-top` / `-middle` |
+| `data-toolbox-color` | theme color | Background color behind the floating app icon |
+| `data-toolbox-img` | app icon | Custom launcher image URL (relative to `pwa.js`) |
+| `data-toolbox-use-logo` | off | Force the app icon instead of `data-toolbox-img` |
+| `data-toolbox-hide-standalone` | on | Hide in standalone mode; set to `false` to keep visible |
+| `data-toolbox-show-platforms` | `all` | Limit visibility to `mobile` or `desktop` |
+| `data-toolbox-show-urls` | all | JSON array or comma-separated path/URL patterns |
 | `data-welcome` | off | Show the welcome modal once per browser |
 | `data-auto-update` | off | Apply service worker updates without asking |
 | `data-no-meta` | off | Do not inject manifest/Apple/Windows meta tags |
@@ -367,7 +415,8 @@ helpers) so existing calls keep working.
 
 | Method | Description |
 | --- | --- |
-| `PWA.promptInstall()` / `PWA.install()` | Show install prompt or iOS help. Resolves `{ outcome }` |
+| `PWA.promptInstall()` / `PWA.install()` | Show native install prompt or iOS help. Resolves `{ outcome }` |
+| `PWA.showInstallRequest()` | Show the full local install flow (or desktop QR dialog) |
 | `PWA.canInstall()` | Browser prompt is available |
 | `PWA.isStandalone()` | Running as an installed app |
 | `PWA.isInstalled()` | Installed or standalone |
@@ -393,6 +442,8 @@ helpers) so existing calls keep working.
 | `PWA.showWelcome(options)` / `PWA.showFlow(options)` | Welcome and modal flows |
 | `PWA.showReloadPrompt()` / `PWA.enableReloadPrompt()` | Reload prompt |
 | `PWA.showOfflineAlert()` / `PWA.enableOfflineAlert()` | Offline alert |
+| `PWA.enableToolbox(options)` / `PWA.showToolbox()` | Create/show the floating install launcher |
+| `PWA.hideToolbox()` / `PWA.disableToolbox()` | Hide or remove the launcher |
 | `PWA.createAppleSplashScreens()` | Regenerate iOS splash links for the current screen |
 | `PWA.notify(message, options)` | Small toast |
 | `PWA.wording.get(key)` / `PWA.wording.setLanguage('fr')` | UI wording |

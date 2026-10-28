@@ -16,7 +16,7 @@
  * Configuration
  * ------------------------------------------------------------------ */
 
-const VERSION = '1.0.3';
+const VERSION = '1.0.4';
 const STATIC_CACHE = `pwa-static-${VERSION}`;
 const PAGE_CACHE = `pwa-pages-${VERSION}`;
 const CACHE_PREFIX = 'pwa-'; // only caches with this prefix are ever deleted

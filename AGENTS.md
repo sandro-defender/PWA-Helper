@@ -8,7 +8,7 @@ The kit is a self-hosted, dependency-free replacement for the hosted Progressier
 client. It is plain ES5/ES2017 JavaScript, one stylesheet, one manifest, one
 service worker, and static icons. There is no build step and no package install.
 
-Current kit version: **1.0.3** (`PWA.version` and `VERSION` in
+Current kit version: **1.0.4** (`PWA.version` and `VERSION` in
 `progressier.js`).
 
 ---
@@ -70,7 +70,7 @@ An agent must preserve these or the migration will break existing installs:
 
 | File | Required | Role |
 | --- | --- | --- |
-| `pwa.js` | yes | Client SDK: config, SW registration, install/push UI, QR, banners, meta, splash |
+| `pwa.js` | yes | Client SDK: config, SW registration, install/push UI, floating toolbox, QR, banners, meta, splash |
 | `pwa.css` | yes (unless `data-no-css`) | All component styles and Progressier CSS variables |
 | `progressier.js` | yes | Service worker: offline cache, push display, share target, badge |
 | `manifest.webmanifest` | yes | App identity, icons, share target, protocol handlers |
@@ -85,6 +85,7 @@ An agent must preserve these or the migration will break existing installs:
 | `INTEGRATION.md` | reference | Deployment checklist for `staff.you.ge` |
 | `README.md` | reference | Full API and server config |
 | `PARITY.md` | reference | What matches the original Progressier client |
+| `reference/` | research only | Original manifest/client source and readable copies; never deploy |
 | `scripts/check.mjs` | tool | Static checker: syntax, manifest, icon sizes, version, leftovers |
 | `scripts/verify-deployment.mjs` | tool | Live deployment checker |
 | `scripts/generate-vapid-keys.mjs` | tool | VAPID key generator |
@@ -292,6 +293,15 @@ unchanged at a domain root and under a subpath.
 | `data-install-banner` | off | Auto-show install banner |
 | `data-push-banner` | off | Auto-show push banner |
 | `data-offline-alert` | off | Auto-show offline alert |
+| `data-toolbox` | off | Show the floating app-icon install launcher |
+| `data-toolbox-off` | off | Suppress the launcher |
+| `data-toolbox-position` | `right` | Position: `left`, `right`, `center`; optional `-top` / `-middle` |
+| `data-toolbox-color` | theme color | Launcher background color |
+| `data-toolbox-img` | app icon | Custom launcher image, relative to `pwa.js` |
+| `data-toolbox-use-logo` | off | Force the app icon instead of the custom image |
+| `data-toolbox-hide-standalone` | on | Hide inside standalone mode; `false` keeps it visible |
+| `data-toolbox-show-platforms` | `all` | Restrict to `mobile` or `desktop` |
+| `data-toolbox-show-urls` | all | JSON array or comma-separated match patterns |
 | `data-welcome` | off | Show welcome modal once per browser |
 | `data-auto-update` | off | Activate updates without asking |
 | `data-no-meta` | off | Skip manifest/Apple/Windows meta injection |
@@ -302,7 +312,9 @@ unchanged at a domain root and under a subpath.
 | `data-csp-nonce` | — | Nonce for injected styles |
 | `data-debug` | off | Verbose console logging |
 
-Booleans are presence-based: `data-debug` means on; omit it for off.
+Booleans are presence-based: `data-debug` means on; omit it for off. The
+floating launcher also stays hidden in iframes and when `body.no-toolbox` is
+present; it waits for the service worker registration before appearing.
 
 ---
 
@@ -354,6 +366,7 @@ compatibility shim (`install`, `prompt`, `isStandalone`,
 | Method | Returns / effect |
 | --- | --- |
 | `PWA.promptInstall(options)` / `PWA.install()` | `{ outcome }`: `accepted`, `dismissed`, `instructions`, `qr`, `already-installed` |
+| `PWA.showInstallRequest()` | Show the local install flow (or desktop QR dialog) |
 | `PWA.canInstall()` | `true` when `beforeinstallprompt` is captured |
 | `PWA.isStandalone()` | Running as installed app |
 | `PWA.isInstalled()` | Installed or standalone |
@@ -512,7 +525,7 @@ components inherit whatever the page sets.
 
 When any cached file changes:
 
-1. Bump `VERSION` in `progressier.js` (`1.0.3` → `1.0.4`).
+1. Bump `VERSION` in `progressier.js` (`1.0.4` → `1.0.5`).
 2. Bump `PWA.version` in `pwa.js` to match.
 3. Upload the changed files.
 4. Reload. With `data-auto-update` the new worker activates automatically;
@@ -573,7 +586,8 @@ target project if the design calls for them):
 
 - pull-to-refresh indicator
 - cookie-consent banner (only banner-dismissal cookies exist)
-- floating install "toolbox" widget (use `.progressier-install-button` instead)
+- Progressier's backend-driven toolbox promo/install-page routing; the local
+  `data-toolbox` icon opens the local `PWA.showInstallRequest()` flow instead
 - newsfeed/announcement feed UI (notification history is stored and exposed via
   `PWA.getNotifications()`, but there is no rendered feed)
 - platform-specific install instruction screens for every OS; the kit ships a
