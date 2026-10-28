@@ -133,7 +133,8 @@ configured” instead of asking for permission.
 The service worker uses `VERSION` in `progressier.js`. When you change any
 cached file:
 
-1. Bump `VERSION` (`1.0.1` → `1.0.2`).
+1. Bump `VERSION` in `progressier.js` and `PWA.version` in `pwa.js` together
+   (currently `1.0.3` → `1.0.4` for an example update).
 2. Upload the changed files.
 3. Reload. With `data-auto-update`, the new worker activates automatically;
    otherwise `PWA.showReloadPrompt()` / the built-in prompt asks the user.
@@ -157,6 +158,8 @@ Not included, because they were Progressier services rather than client code:
 - dashboard announcements / newsfeed
 - user accounts and billing
 - App Store / Play Store / TWA packaging
-- QR install flow, cookie consent, pull-to-refresh
+- cookie-consent banner and pull-to-refresh
+
+The QR install dialog **is included**; it is generated locally by `qrcode.js` and does not require a hosted service.
 
 See `PARITY.md` for the full list and the sizing/feature comparison.

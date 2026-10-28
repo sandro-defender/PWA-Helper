@@ -20,31 +20,52 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Assemble demo site
+      - name: Assemble GitHub Pages site
         run: |
           set -euo pipefail
-          mkdir -p _site
+          mkdir -p _site/example
+
+          # The root page is the full feature-test playground.
+          cp demo/index.html _site/index.html
+          cp demo/manifest.webmanifest _site/manifest.webmanifest
+
+          # Put the shared runtime at the Pages root for the playground.
           cp pwa.js pwa.css progressier.js qrcode.js \
              offline.html offline.css offline.js \
              browserconfig.xml favicon.ico _site/
           cp -r icons _site/icons
-          cp demo/index.html _site/index.html
-          cp demo/manifest.webmanifest _site/manifest.webmanifest
 
-          # A GitHub Pages project site is served from /<repo>/, so the offline
-          # page's root-absolute asset paths are rewritten for the demo copy.
-          # The kit itself stays root-absolute, which is correct at a domain root.
+          # The user-facing sample is a separate, fully scoped PWA. Its own
+          # runtime copy gives it an /example/ service worker and offline page.
+          cp pwa.js pwa.css progressier.js qrcode.js \
+             offline.html offline.css offline.js \
+             browserconfig.xml favicon.ico _site/example/
+          cp -r icons _site/example/icons
+          cp example/index.html example/example.css example/example.js \
+             example/manifest.webmanifest _site/example/
+
+          # GitHub Pages project sites are served from /<repo>/. The worker and
+          # client resolve assets relative to their own URL. The offline pages
+          # use root-absolute links, so rewrite each copy for its own scope.
           BASE="/${GITHUB_REPOSITORY#*/}"
-          sed -i \
-            -e "s|=\"/icons/|=\"${BASE}/icons/|g" \
-            -e "s|=\"/offline\.css\"|=\"${BASE}/offline.css\"|g" \
-            -e "s|=\"/offline\.js\"|=\"${BASE}/offline.js\"|g" \
-            -e "s|href=\"/\"|href=\"${BASE}/\"|g" \
-            _site/offline.html
-          sed -i "s|staff\.you\.ge|PWA Kit demo|g" _site/offline.html
+
+          sed -i "s|src=\"/icons/|src=\"${BASE}/icons/|g" _site/browserconfig.xml
+          sed -i "s|src=\"/icons/|src=\"${BASE}/example/icons/|g" _site/example/browserconfig.xml
+
+          sed -i "s|=\"/icons/|=\"${BASE}/icons/|g" _site/offline.html
+          sed -i "s|=\"/offline[.]css\"|=\"${BASE}/offline.css\"|g" _site/offline.html
+          sed -i "s|=\"/offline[.]js\"|=\"${BASE}/offline.js\"|g" _site/offline.html
+          sed -i "s|href=\"/\"|href=\"${BASE}/\"|g" _site/offline.html
+          sed -i "s|staff[.]you[.]ge|PWA Kit playground|g" _site/offline.html
+
+          sed -i "s|=\"/icons/|=\"${BASE}/example/icons/|g" _site/example/offline.html
+          sed -i "s|=\"/offline[.]css\"|=\"${BASE}/example/offline.css\"|g" _site/example/offline.html
+          sed -i "s|=\"/offline[.]js\"|=\"${BASE}/example/offline.js\"|g" _site/example/offline.html
+          sed -i "s|href=\"/\"|href=\"${BASE}/example/\"|g" _site/example/offline.html
+          sed -i "s|staff[.]you[.]ge|Staff Space|g" _site/example/offline.html
 
           touch _site/.nojekyll
-          find _site -maxdepth 1 -type f | sort
+          find _site -maxdepth 3 -type f | sort
 
       - uses: actions/upload-pages-artifact@v3
         with:

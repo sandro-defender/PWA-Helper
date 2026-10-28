@@ -1,5 +1,5 @@
 {
-  "name": "PWA Kit demo",
+  "name": "PWA Kit playground",
   "short_name": "PWA Kit",
   "id": "./",
   "start_url": "./?launchedfrom=homescreen",

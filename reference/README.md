@@ -1,7 +1,8 @@
 # Reference
 
-`progressier.json` is the original manifest served by Progressier for
-`staff.you.ge`. It is kept only for comparison and future maintenance; it is not
+`progressier.json` is the original one-line JSON manifest served by Progressier
+for `staff.you.ge`. `progressier.decompiled.json` is its pretty-printed JSON
+copy for easier reading. The original is preserved unchanged. Neither file is
 part of the deployment.
 
 The deployed manifest is `/manifest.webmanifest`. It preserves the original

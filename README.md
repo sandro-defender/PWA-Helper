@@ -8,11 +8,16 @@ Everything runs from your own domain — no third-party script, no account, no
 external requests, no build step, no `npm install`.
 
 **Origin.** This kit was written to replace the hosted Progressier client on
-`staff.you.ge`. That site is kept as the worked reference deployment; every
-runtime file is generic, and the manifest is the only place that names the app.
+`staff.you.ge`. That site is the worked reference deployment; the runtime is
+generic, while each deployment supplies its app identity through the manifest
+and optional `pwa.js` configuration.
 
-**Live demo:** <https://sandro-defender.github.io/PWA-Helper/> — install, QR,
-banners, badge, offline page and event log, served from a GitHub Pages subpath.
+**Live playground:** <https://sandro-defender.github.io/PWA-Helper/> — the full
+feature-test page for install, QR, offline, push, share, caches, theme, wording and UI events.
+
+**User-facing example:** <https://sandro-defender.github.io/PWA-Helper/example/> —
+a cleaner sample staff workspace showing how the helper can feel inside a real app.
+Its schedule/checklist interactions use sample data stored only in the visitor’s browser.
 
 > **For AI coding agents:** start with [`AGENTS.md`](AGENTS.md). It is a
 > step-by-step integration playbook — file placement, manifest adaptation,
@@ -79,6 +84,8 @@ node scripts/verify-deployment.mjs https://you.example  # live deployment
 | [`snippet.html`](snippet.html) | you want to copy the complete `<head>` block |
 | [`examples/push-server/`](examples/push-server/) | you need a runnable Web Push sender |
 | [`reference/`](reference/) | you want to compare against the original hosted manifest |
+| `demo/` | you want to test the helper's full feature set in the playground |
+| `example/` | you want a polished, user-facing sample integration |
 
 ---
 
@@ -88,7 +95,8 @@ The Progressier `script.js` is a 324 KB minified proprietary bundle. It is not a
 standalone PWA library: it resolves your `appId`, fetches configuration from
 `progressier.com`, and is licensed for use with their service. Hosting it on your
 server would fail (missing Progressier domain/app ID) and would still depend on
-their backend.
+their backend. That proprietary bundle is **not included** in this repository;
+the readable local runtime is a clean-room implementation.
 
 Their service worker (`sw.js`, 5 KB) only handles push, share target and the app
 badge — it does **no offline caching**. This kit implements the same public
@@ -114,8 +122,9 @@ AGENTS.md                 AI-agent integration playbook
 INTEGRATION.md            Worked deployment example (staff.you.ge)
 PARITY.md                 Original vs local feature/sizing report
 reference/                Original hosted manifest (not deployed)
-demo/                     GitHub Pages demo page + subpath-safe manifest
-.github/workflows/        check.yml (static checks), pages.yml (demo deploy)
+demo/                     Full-feature GitHub Pages test playground + manifest
+example/                  Polished user-facing sample integration + manifest
+.github/workflows/        check.yml (static checks), pages.yml (playground + example deploy)
 scripts/
   check.mjs               Static checks: syntax, manifest, icons, version
   verify-deployment.mjs   Check a live deployment
@@ -668,22 +677,28 @@ If the worker lives in a subdirectory but must control the root, set
 
 ## GitHub Pages
 
-This repository ships a live demo at
-<https://sandro-defender.github.io/PWA-Helper/>, built by
-`.github/workflows/pages.yml`. The workflow copies the runtime files plus
-`demo/` into `_site/` and deploys the artifact.
+This repository publishes two GitHub Pages routes through
+`.github/workflows/pages.yml`:
 
-Two details make a project site work from `/PWA-Helper/`:
+- <https://sandro-defender.github.io/PWA-Helper/> — the full feature-test playground.
+- <https://sandro-defender.github.io/PWA-Helper/example/> — a polished sample
+  staff workspace showing the helper in a user-facing page.
 
-- `pwa.js` resolves every default path against its own URL, and
-  `progressier.js` resolves its precache and offline paths against its scope, so
-  the worker, manifest, CSS and icons stay inside the subpath.
-- `demo/manifest.webmanifest` uses relative URLs (`"scope": "./"`,
-  `"start_url": "./?launchedfrom=homescreen"`).
+The workflow publishes `demo/` at `/` with the shared runtime at the Pages root.
+It publishes `example/` at `/example/` with its own runtime copy, manifest,
+service-worker scope and offline page so the user example behaves as a separate
+installable app.
 
-The one exception is `offline.html`: it keeps root-absolute paths because it can
-be served as a fallback for a deep URL. The demo build rewrites those paths to
-the repository subpath.
+The project site is served from `/PWA-Helper/`. `pwa.js` resolves its files
+relative to its own URL, and `progressier.js` resolves precache assets relative
+to its own directory, so their paths remain inside that base. Both manifests use
+relative `scope` and `start_url` values so each install has its own identity and
+launch path. The example build copies the icons into `/example/icons/` so the
+sample worker and offline page stay within the example app's own scope.
+
+The one exception is `offline.html`: it uses root-absolute asset paths so it
+works for deep offline navigations on a domain-root deployment. The Pages build
+rewrites those links to the repository subpath.
 
 To deploy your own copy on Pages:
 
