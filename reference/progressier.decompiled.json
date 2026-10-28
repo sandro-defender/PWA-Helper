@@ -1,0 +1,37 @@
+{
+  "short_name": "staff.you.ge",
+  "dir": "auto",
+  "name": "staff.you.ge",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "display": "standalone",
+  "start_url": "https://staff.you.ge/?launchedfrom=homescreen",
+  "scope": "https://staff.you.ge",
+  "id": "https://staff.you.ge/HIPSBNVemXtM8VMwRfWs",
+  "prefer_related_applications": false,
+  "related_applications": [],
+  "icons": [
+    {
+      "src": "https://oouxkyuexvzylckxeeks.supabase.co/storage/v1/object/public/pgsstoragebucket/XsbFKnzxRuaLHl0Y7Mee/VessKhCXBswlVmM.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "https://oouxkyuexvzylckxeeks.supabase.co/storage/v1/object/public/pgsstoragebucket/XsbFKnzxRuaLHl0Y7Mee/YkGyxKTAYhpXBJp.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "protocol_handlers": [
+    {
+      "protocol": "web+pwa",
+      "url": "https://staff.you.ge/?launchedfrom=homescreen&pwaprotocolredirect=%s"
+    },
+    {
+      "protocol": "web+loldwyhv",
+      "url": "https://staff.you.ge/?launchedfrom=homescreen&pwaprotocolredirect=%s"
+    }
+  ]
+}
