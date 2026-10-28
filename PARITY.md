@@ -19,6 +19,10 @@ backend; copying it would still require their service.
 
 | Component | Original | Local |
 | --- | --- | --- |
+| Floating toolbox | app-icon button `65×65`, bottom `17px`, edge inset `20px`, z `2147483643`; round, hover scale `1.08` | same dimensions and hover; semantic `<button>` with a visible keyboard-focus ring |
+| Toolbox on narrow screens | `52×52` at `max-width:350px` | same |
+| Toolbox position | left / right / center; optional top / middle | same position classes and offsets |
+| Toolbox logo | full-size, circular, clipped; custom image or app logo | same visual treatment; invalid custom image falls back to app logo |
 | Install banner | full-width top bar, `padding:10px 0`, z `2147483644` | same |
 | Install banner icon | `45×45`, radius `10px` | same |
 | Install banner buttons | height `40px`, radius `30px`, padding `0 30px` | same |
@@ -145,6 +149,30 @@ The original worker did no caching. Offline support is an intentional improvemen
 not a parity gap.
 
 ---
+
+## Toolbox function and style audit
+
+Compared the complete `ProgressierToolbox` constructor in
+`reference/Script.decompiled.js` with the local toolbox code in `pwa.js` and
+`pwa.css`.
+
+| Original method / behavior | Local counterpart | Parity notes |
+| --- | --- | --- |
+| `ready`, `make`, `init` | `enableToolbox` | Waits for the document body, creates one widget, then renders and updates visibility. |
+| `positionString` | `toolboxPositionClasses` | Supports left/right/center and optional top/middle placements. |
+| `iconBackground`, `iconImage`, `render` | `normalizeToolboxOptions`, `renderToolbox` | Supports theme/custom color, custom image, and forcing the app logo; a broken custom image falls back to the app icon. |
+| `on`, `off`, `updateVisibility` | `showToolbox`, `hideToolbox`, `renderToolbox` | Uses the original `off` class and matching visibility rules; local adds the `hidden` attribute and ARIA state. |
+| `processClick`, `startInstallationFlow` | `onToolboxClick` → `PWA.showInstallRequest()` | Keeps the vibration and launches the local native-prompt/instructions/QR flow. Hosted promo redirects are intentionally not used. |
+| `launchInstallPage` | Not reproduced | It opens a backend-provided hosted install URL; that Progressier route is unavailable to the self-hosted kit. |
+| `shouldHide` | `toolboxShouldHide` | Matches iframe, opt-out, standalone, platform, URL, and service-worker checks. Desktop targeting follows Progressier's OS detection, including iPadOS desktop-mode handling; URL queries use the original subset-match behavior. |
+| `rerender` | `renderToolbox` plus state/resize/page-show/history listeners | Re-renders when kit state changes and polls visibility every second, as the original does. |
+| `forceFixed` | No runtime counterpart | The original Squarespace/hosting-provider helper has no call site in its component. Its legacy `body.force-fixed` CSS rule is retained. |
+
+The source also hides the widget for backend-only flags such as `forceRemoval`,
+Squarespace hosting metadata, promo-method routing, and embeddable-wrapper mode.
+Those flags are not available in the local configuration; the visible toolbox
+rules and local UI are reproduced. The local stylesheet additionally preserves
+a keyboard-focus indicator and reduced-motion behavior.
 
 ## Feature matrix by original class
 

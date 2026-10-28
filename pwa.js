@@ -2653,7 +2653,17 @@
       var target = new URL(value, window.location.href);
       var targetPath = target.pathname.replace(/\/$/, '') || '/';
       if (target.origin !== current.origin || targetPath !== currentPath) return false;
-      return !target.search || target.search === current.search;
+      if (!target.search) return true;
+
+      // Progressier treats a URL's query as a subset match: every parameter in
+      // the configured pattern must match, but the current URL may have extras.
+      var currentQuery = new URLSearchParams(current.search);
+      var targetQuery = new URLSearchParams(target.search);
+      var queryMatches = true;
+      targetQuery.forEach(function (queryValue, key) {
+        if (currentQuery.get(key) !== queryValue) queryMatches = false;
+      });
+      return queryMatches;
     } catch (error) {
       return false;
     }
@@ -2683,6 +2693,36 @@
     }
   }
 
+  // Match ProgressierDetection.isDesktop for toolbox targeting rather than
+  // relying on a generic mobile-UA substring (notably iPadOS desktop mode).
+  function toolboxIsDesktop() {
+    try {
+      var platform = String(navigator.platform || '').toLowerCase();
+      var userAgent = String(ua || '').toLowerCase();
+      var iosPlatforms = [
+        'ipad simulator',
+        'iphone simulator',
+        'ipod simulator',
+        'ipad',
+        'iphone',
+        'ipod',
+      ];
+      var iosDevice =
+        iosPlatforms.indexOf(platform) !== -1 ||
+        (ua.indexOf('Mac') !== -1 && 'ontouchend' in document);
+
+      if (platform.indexOf('win') !== -1) return true;
+      if (iosDevice) return false;
+      if (userAgent.indexOf('android') !== -1) return false;
+      if (platform.indexOf('mac') !== -1) return true;
+      if (userAgent.indexOf('linux') !== -1) return true;
+      if (platform.indexOf('linux') !== -1 && userAgent.indexOf('cros') !== -1) return true;
+      return false;
+    } catch (error) {
+      return false;
+    }
+  }
+
   function toolboxShouldHide() {
     if (!toolboxRoot || !toolboxOptions) return true;
     if (toolboxManuallyHidden || toolboxOptions.off) return true;
@@ -2690,9 +2730,9 @@
     if (document.body && document.body.classList.contains('no-toolbox')) return true;
     if (toolboxOptions.hideStandalone && isStandalone()) return true;
 
-    var mobile = isMobile();
-    if (toolboxOptions.showPlatforms === 'mobile' && !mobile) return true;
-    if (toolboxOptions.showPlatforms === 'desktop' && mobile) return true;
+    var desktop = toolboxIsDesktop();
+    if (toolboxOptions.showPlatforms === 'mobile' && desktop) return true;
+    if (toolboxOptions.showPlatforms === 'desktop' && !desktop) return true;
     if (!toolboxUrlAllowed(toolboxOptions.showUrls)) return true;
     if (toolboxOptions.requireServiceWorker && (!('serviceWorker' in navigator) || !registration)) return true;
     return false;

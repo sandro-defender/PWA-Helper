@@ -211,6 +211,10 @@ section('Service worker');
 
 const worker = existsSync(at('progressier.js')) ? readFileSync(at('progressier.js'), 'utf8') : '';
 const client = existsSync(at('pwa.js')) ? readFileSync(at('pwa.js'), 'utf8') : '';
+const styles = existsSync(at('pwa.css')) ? readFileSync(at('pwa.css'), 'utf8') : '';
+const originalReference = existsSync(at('reference/Script.decompiled.js'))
+  ? readFileSync(at('reference/Script.decompiled.js'), 'utf8')
+  : '';
 
 const workerVersion = /const VERSION = '([^']+)'/.exec(worker);
 const clientVersion = /version:\s*'([^']+)'/.exec(client);
@@ -227,6 +231,8 @@ if (!workerVersion) {
 const toolboxContract = [
   "toolbox: 'toolbox' in dataset",
   'function enableToolbox(options)',
+  'function toolboxIsDesktop()',
+  'new URLSearchParams(target.search)',
   'enableToolbox: enableToolbox',
   'showToolbox: showToolbox',
   'hideToolbox: hideToolbox',
@@ -234,9 +240,43 @@ const toolboxContract = [
   'showInstallRequest: showInstallRequest',
 ];
 if (toolboxContract.every((token) => client.includes(token))) {
-  pass('floating toolbox configuration, API and install flow are present');
+  pass('floating toolbox configuration, visibility matching, API and install flow are present');
 } else {
-  fail('floating toolbox configuration, API or install flow is incomplete');
+  fail('floating toolbox configuration, visibility matching, API or install flow is incomplete');
+}
+
+const toolboxStyles = [
+  'z-index: 2147483643',
+  'bottom: 17px',
+  'width: 65px',
+  'height: 65px',
+  'border-radius: 50%',
+  'scale(1.08)',
+  'left: 20px',
+  'right: 20px',
+  'calc(50% - 32px)',
+  'top: 17px',
+  'width: 52px',
+  'height: 52px',
+];
+const originalToolboxStyleMarkers = [
+  'z-index: 2147483643;',
+  'bottom: 17px',
+  'width: 65px',
+  'height: 65px',
+  'border-radius: 50%',
+  'transform:scale(1.08) !important',
+  'left:20px',
+  'right:20px',
+  'calc(50% - 32px)',
+  'top:17px',
+  'width:52px;height:52px',
+];
+if (toolboxStyles.every((token) => styles.includes(token)) &&
+    originalToolboxStyleMarkers.every((token) => originalReference.includes(token))) {
+  pass('floating toolbox sizing, placement and hover styles match the original');
+} else {
+  fail('floating toolbox styles differ from the original sizing or placement');
 }
 
 const precached = [

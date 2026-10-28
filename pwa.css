@@ -89,6 +89,18 @@
   pointer-events: none;
 }
 
+.pwa-toolbox * {
+  -webkit-tap-highlight-color: transparent !important;
+  outline: 0 !important;
+}
+
+/* Retained from Progressier's toolbox stylesheet; its legacy caller is optional. */
+body.force-fixed {
+  position: fixed !important;
+  height: 100vh !important;
+  overflow: hidden !important;
+}
+
 .pwa-toolbox[hidden],
 .pwa-toolbox.off,
 .pwa-toolbox.off * {
@@ -113,20 +125,20 @@
   border-radius: 50%;
   background: #ffffff;
   box-shadow: 0 2px 9px 0 rgba(82, 79, 79, 0.15);
+  -webkit-box-shadow: 0 2px 9px 0 rgba(82, 79, 79, 0.15);
   cursor: pointer;
   pointer-events: auto;
-  -webkit-tap-highlight-color: transparent;
-  transition: transform 0.3s ease-in-out;
-  -webkit-transition: transform 0.3s ease-in-out;
+  transition: all 0.3s ease-in-out;
+  -webkit-transition: all 0.3s ease-in-out;
   appearance: none;
 }
 
 .pwa-toolbox .pwa-toolbox-icon:hover {
-  transform: scale(1.08);
+  transform: scale(1.08) !important;
 }
 
 .pwa-toolbox .pwa-toolbox-icon:focus-visible {
-  outline: 3px solid var(--progressierAccent, #1a73e8);
+  outline: 3px solid var(--progressierAccent, #1a73e8) !important;
   outline-offset: 4px;
 }
 
@@ -134,9 +146,14 @@
   display: block;
   width: 100%;
   height: 100%;
-  margin: 0;
+  margin: 0 !important;
+  overflow: hidden;
   border-radius: 50%;
-  object-fit: cover;
+  color: transparent !important;
+}
+
+.pwa-toolbox .pwa-toolbox-logo[hidden] {
+  display: none !important;
 }
 
 .pwa-toolbox.progressier-left .pwa-toolbox-icon {

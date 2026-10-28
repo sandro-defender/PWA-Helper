@@ -281,8 +281,10 @@ PWA.disableToolbox(); // remove and clean up the widget
 Supported positions are `left`, `right`, or `center`, with optional `-top` or
 `-middle` vertical placement. `data-toolbox-show-platforms` can limit it to
 `mobile` or `desktop`; `data-toolbox-show-urls` accepts a JSON array or
-comma-separated path/URL patterns (`*` wildcard). Prefix a pattern with `%&%`
-to hide the widget on matching pages. The standalone default can be overridden
+comma-separated path/URL patterns (`*` wildcard). Query parameters included in a
+pattern are matched as a subset, so extra parameters on the current URL do not
+prevent a match. Prefix a pattern with `%&%` to hide the widget on matching
+pages. The standalone default can be overridden
 with `data-toolbox-hide-standalone="false"`.
 
 ### Banners, modal, offline alert
