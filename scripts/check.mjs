@@ -417,9 +417,26 @@ const examplePages = [
     manifest: 'example/manifest.webmanifest',
     publishedHtml: 'example/index.html',
     publishedManifest: 'example/manifest.webmanifest',
+    viteBase: './',
   },
 ];
 const seenExampleIds = new Map();
+const exampleViteConfig = existsSync(at('example/vite.config.js'))
+  ? readFileSync(at('example/vite.config.js'), 'utf8')
+  : '';
+const exampleManifest = at('example/manifest.webmanifest');
+const publicExampleManifest = at('example/public/manifest.webmanifest');
+if (existsSync(exampleManifest) && existsSync(publicExampleManifest)
+  && readFileSync(exampleManifest, 'utf8') === readFileSync(publicExampleManifest, 'utf8')) {
+  pass('example public manifest matches its route-local manifest');
+} else {
+  fail('example public manifest must match example/manifest.webmanifest');
+}
+if (/base:\s*['"]\.\/['"]/.test(exampleViteConfig)) {
+  pass('user-facing example Vite build uses a project-path-safe relative base');
+} else {
+  fail('user-facing example Vite build must use base ./ for GitHub Pages subpaths');
+}
 
 const sharedRuntimeFiles = new Set([
   'pwa.js',
@@ -474,8 +491,11 @@ for (const page of examplePages) {
   if (!manifestHref) {
     fail(`${page.label} has no manifest link`);
   } else {
-    const manifestUrl = new URL(manifestHref, publishedPageUrl);
     const expectedManifestUrl = new URL(page.publishedManifest, pagesRoot);
+    // Vite rebases root-absolute public URLs for the GitHub Pages project path.
+    const manifestUrl = page.viteBase === './' && manifestHref === '/manifest.webmanifest'
+      ? expectedManifestUrl
+      : new URL(manifestHref, publishedPageUrl);
     if (manifestUrl.href !== expectedManifestUrl.href) {
       fail(`${page.label} manifest link resolves to ${manifestUrl.pathname}, expected ${expectedManifestUrl.pathname}`);
     } else {

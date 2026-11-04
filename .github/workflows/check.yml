@@ -14,14 +14,20 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
+          cache: npm
+          cache-dependency-path: example/package-lock.json
+
+      - name: Build ReactBits example
+        run: npm ci && npm run build
+        working-directory: example
 
       - name: Static checks
         run: node scripts/check.mjs
 
       - name: Syntax check every script
         run: |
-          for file in pwa.js progressier.js offline.js domain-config.js domain-registry.js dns-diagnostics.js manifest-handler.js functions/manifest.webmanifest.js qrcode.js example/example.js; do
+          for file in pwa.js progressier.js offline.js domain-config.js domain-registry.js dns-diagnostics.js manifest-handler.js functions/manifest.webmanifest.js qrcode.js example/example.js example/vite.config.js; do
             node --check "$file"
           done
 

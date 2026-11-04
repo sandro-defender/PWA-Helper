@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Rebuilt the GitHub Pages user-facing example with an isolated React/Vite app and
+  the React Bits ElectricLogo animation; kept React, Vite and OGL out of the core
+  toolkit dependencies.
+
 ## 1.0.5 — You.Ge Assistant multi-domain upgrade
 
 - Rebranded the package and default application identity to You.Ge Assistant.
