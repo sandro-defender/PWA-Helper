@@ -21,6 +21,15 @@
     }
   }
 
+  function storageReadable() {
+    try {
+      window.localStorage.getItem(storagePrefix + '__availability__');
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
   function localDateKey() {
     var date = new Date();
     var month = String(date.getMonth() + 1).padStart(2, '0');
@@ -44,6 +53,8 @@
     var countNode = document.getElementById('task-count');
     var progress = document.getElementById('task-progress');
     var progressFill = document.getElementById('task-progress-fill');
+    var checklistFootnote = document.querySelector('.panel-footnote');
+    var storageAvailable = storageReadable();
 
     if (dateNode) {
       dateNode.textContent = new Intl.DateTimeFormat(undefined, {
@@ -77,16 +88,18 @@
         ? 'End sample shift <span aria-hidden="true">→</span>'
         : 'Check in <span aria-hidden="true">→</span>';
       if (shiftFootnote) {
-        shiftFootnote.textContent = checkedIn
-          ? 'Sample status saved on this device.'
-          : 'Sample action — nothing is sent to a server.';
+        shiftFootnote.textContent = !storageAvailable
+          ? 'Browser storage is unavailable; this sample status may not persist.'
+          : checkedIn
+            ? 'Sample status saved on this device.'
+            : 'Sample action — nothing is sent to a server.';
       }
     }
 
     if (shiftToggle) {
       shiftToggle.addEventListener('click', function () {
         checkedIn = !checkedIn;
-        write(checkInKey, checkedIn ? '1' : '0');
+        if (!write(checkInKey, checkedIn ? '1' : '0')) storageAvailable = false;
         renderShift();
         announce(checkedIn ? 'You are checked in for this sample shift.' : 'Sample shift ended.');
       });
@@ -106,6 +119,11 @@
       if (countNode) countNode.textContent = complete + ' of ' + checklistIds.length + ' done';
       if (progress) progress.setAttribute('aria-valuenow', String(complete));
       if (progressFill) progressFill.style.width = (complete / checklistIds.length) * 100 + '%';
+      if (checklistFootnote) {
+        checklistFootnote.textContent = storageAvailable
+          ? 'Your checklist is saved privately in this browser.'
+          : 'Browser storage is unavailable; checklist changes may not persist.';
+      }
     }
 
     checklistIds.forEach(function (id) {
@@ -114,7 +132,7 @@
       var itemKey = storagePrefix + 'checklist:' + localDateKey() + ':' + id;
       input.checked = read(itemKey) === '1';
       input.addEventListener('change', function () {
-        write(itemKey, input.checked ? '1' : '0');
+        if (!write(itemKey, input.checked ? '1' : '0')) storageAvailable = false;
         updateChecklist();
         announce(input.checked ? 'Checklist item completed.' : 'Checklist item reopened.');
       });
