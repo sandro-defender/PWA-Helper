@@ -3,8 +3,10 @@
 ## Unreleased
 
 - Rebuilt the GitHub Pages user-facing example with an isolated React/Vite app and
-  the React Bits ElectricLogo animation; kept React, Vite and OGL out of the core
-  toolkit dependencies.
+  a fixed, interactive React Bits ElectricLogo assistant launcher, persistent
+  logo mark, and quick actions; clarified local-storage failures in the sample
+  check-in/checklist interactions and added UI regression tests. React, Vite and
+  OGL remain out of the core toolkit dependencies.
 
 ## 1.0.5 — You.Ge Assistant multi-domain upgrade
 

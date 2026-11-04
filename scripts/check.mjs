@@ -517,7 +517,29 @@ for (const page of examplePages) {
   }
 
   if (pwaTag && pwaUrl) {
-    if (/\bdata-toolbox(?:\s|=|>)/i.test(pwaTag)) {
+    if (page.label === 'user-facing example') {
+      const floatingRoot = /id="assistant-floating-root"/.test(html);
+      const assistantModule = scriptTags.some((tag) => /src="\.\/src\/main\.jsx"/.test(tag));
+      const assistantSource = existsSync(at('example/src/main.jsx'))
+        ? readFileSync(at('example/src/main.jsx'), 'utf8')
+        : '';
+      const assistantMarkPath = at('example/src/assistant-mark.png');
+      const assistantMarkSize = existsSync(assistantMarkPath) ? pngSize(assistantMarkPath) : null;
+      const floatingStyles = readFileSync(at('example/example.css'), 'utf8');
+      if (floatingRoot && assistantModule && /<ElectricLogo\b/.test(assistantSource)
+        && /assistantMark/.test(assistantSource) && /<img className="assistant-mark-image"/.test(assistantSource)
+        && assistantMarkSize?.width === 192 && assistantMarkSize?.height === 192
+        && /\.assistant-widget\s*\{[^}]*position:\s*fixed/s.test(floatingStyles)) {
+        pass(`${page.label} mounts the visible React Bits logo in a fixed floating assistant`);
+      } else {
+        fail(`${page.label} is missing its fixed floating assistant logo or mount`);
+      }
+      if (/data-pwa-diagnostics/.test(assistantSource) && /data-pwa-install/.test(assistantSource)) {
+        pass(`${page.label} floating assistant exposes working diagnostics and install actions`);
+      } else {
+        fail(`${page.label} floating assistant is missing diagnostics or install actions`);
+      }
+    } else if (/\bdata-toolbox(?:\s|=|>)/i.test(pwaTag)) {
       pass(`${page.label} enables the floating install toolbox`);
     } else {
       fail(`${page.label} is missing data-toolbox`);
