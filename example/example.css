@@ -98,6 +98,8 @@ a { color: inherit; }
 .main-nav a:hover, .main-nav a[aria-current="page"] { color: var(--brand); }
 
 .header-actions { display: flex; align-items: center; gap: 15px; }
+.header-actions [data-pwa-diagnostics] { min-height: 40px; padding: 0 12px; border: 1px solid var(--line); border-radius: 11px; background: var(--surface); color: var(--text); font: inherit; font-size: 12px; font-weight: 650; cursor: pointer; }
+.header-actions [data-pwa-diagnostics]:focus-visible { outline: 3px solid var(--brand); outline-offset: 3px; }
 
 .connection-pill, .app-mode-pill {
   display: inline-flex;

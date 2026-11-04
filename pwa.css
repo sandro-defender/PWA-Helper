@@ -947,6 +947,45 @@ body.force-fixed {
   line-height: 24px;
 }
 
+.pwa-network-diagnostics .pwa-diagnostics-detail {
+  color: var(--progressierTxt) !important;
+  opacity: 0.75;
+  font-size: 13px !important;
+}
+
+.pwa-diagnostics-recovery {
+  width: calc(90% - 40px);
+  margin: 0 0 24px;
+  padding: 13px 15px;
+  border: 1px solid var(--progressierBorderColor);
+  border-radius: 14px;
+  color: var(--progressierTxt);
+  background: var(--progressierElement);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.pwa-diagnostics-recovery summary {
+  cursor: pointer;
+  font-weight: 650;
+}
+
+.pwa-diagnostics-recovery summary:focus-visible,
+.pwa-diagnostics-recovery a:focus-visible {
+  outline: 3px solid var(--progressierAccent);
+  outline-offset: 3px;
+}
+
+.pwa-diagnostics-recovery a {
+  color: var(--progressierAccent);
+  overflow-wrap: anywhere;
+}
+
+.pwa-diagnostics-recovery .pwa-flow-body {
+  width: 100%;
+  padding: 12px 0 0;
+}
+
 .pwa-flow-body ul {
   list-style: none;
   margin: 0;

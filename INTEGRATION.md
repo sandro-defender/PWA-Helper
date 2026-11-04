@@ -1,168 +1,140 @@
-# Integrating into staff.you.ge
+# You.Ge Assistant integration and migration guide
 
-This is the short version for the real deployment. `README.md` has the full API;
-`PARITY.md` explains what matches the old Progressier client.
+This checklist applies to any host or subdomain. Use examples such as
+`app.example.com` or `/portal/`; no domain is assumed by the runtime. Existing
+installations remain compatible with the `/progressier.js` worker URL and
+legacy storage keys.
 
-## 1. What to upload
+## 1. Upload files
 
-Keep the paths exactly as-is:
+Copy the runtime files into the application root (or the app's scoped public
+folder):
 
-```
-/manifest.webmanifest
-/progressier.js          <- service worker, do not rename
-/pwa.js
-/pwa.css
-/offline.html
-/offline.css
-/offline.js
-/browserconfig.xml
-/favicon.ico
-/icons/
-  icon-192.png
-  icon-512.png
-  icon-144.png
-  icon-150.png
-  icon-maskable-192.png
-  icon-maskable-512.png
-  apple-touch-icon.png
-  favicon-32.png
+```text
+pwa.js pwa.css progressier.js manifest.webmanifest qrcode.js
+domain-config.js domain-registry.js dns-diagnostics.js manifest-handler.js
+offline.html offline.css offline.js browserconfig.xml favicon.ico icons/
 ```
 
-`progressier.js` must stay at the root so the registration that old visitors
-already have is replaced in place. Upload assets before changing the HTML.
+On Cloudflare Pages, retain `functions/manifest.webmanifest.js` and the shared
+`manifest-handler.js` at project root if using the dynamic host-aware manifest.
+Static-only hosts should publish a separate manifest per brand or use the safe
+You.Ge Assistant fallback manifest.
 
-## 2. Replace the old tags
+## 2. Configure domains and subdomains
 
-Remove these two lines:
+Register public overrides in `domain-registry.js` before loading the resolver.
+Exact hostname keys and optional path-scoped keys (for example,
+`example.com/portal/`) take precedence over `*.example.com` patterns. Add identity,
+metadata, colors, icons, start URL, scope/base path, shortcuts and feature toggles
+as needed. See [`MULTI_DOMAIN.md`](MULTI_DOMAIN.md) for a complete example.
 
-```html
-<link rel="manifest" href="https://progressier.app/HIPSBNVemXtM8VMwRfWs/progressier.json"/>
-<script defer src="https://progressier.app/HIPSBNVemXtM8VMwRfWs/script.js"></script>
-```
+Do not put secrets, private API destinations or authorization rules in this
+registry. Unknown hosts use safe defaults. Browser hostname detection is not
+access control.
 
-Use the block in `snippet.html`. Minimum version:
+Use this order in the page head:
 
 ```html
 <link rel="manifest" href="/manifest.webmanifest" />
-<link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />
-<link rel="icon" href="/favicon.ico" sizes="any" />
-<meta name="theme-color" content="#ffffff" />
+<script src="/domain-registry.js" defer></script>
+<script src="/domain-config.js" defer></script>
+<script src="/dns-diagnostics.js" defer></script>
 <script src="/pwa.js" defer></script>
 ```
 
-`pwa.js` fills in the rest of the meta tags, adds the manifest if it is missing,
-and mounts the Progressier-compatible buttons. To add the original-style
-floating install icon, include `data-toolbox` on the script; it calls the local
-install flow and can be positioned/customized with the `data-toolbox-*`
-attributes documented in `README.md`. Do not load the old script and `pwa.js`
-on the same page.
+For `/portal/`, serve assets from that base and set `pwa.basePath` to
+`/portal/`; use `./` for manifest `scope` and `startUrl`. The worker defaults to
+its own directory and will not request a broader scope unless explicitly
+configured.
 
-## 3. Server headers
+## 3. Hosting headers and manifest route
 
-The two that matter:
+- HTTPS is required for service workers, install prompts and push (except
+  localhost).
+- `manifest.webmanifest`: `Content-Type: application/manifest+json`.
+- Host-aware manifest responses: `Cache-Control: private, no-store`, `Vary: Host`.
+- `/progressier.js`: `Content-Type: application/javascript`,
+  `Cache-Control: no-cache`. If it must control above its own directory, use the
+  narrowest applicable `Service-Worker-Allowed` header.
+- Set CSP `worker-src 'self'`; allow `https://cloudflare-dns.com` in `connect-src`
+  for user-triggered diagnostics. Respect style nonce requirements documented in
+  README.
+- Do not put secrets in manifest/config responses; don't CDN-cache one host's
+  manifest under another hostname.
 
-```
-/manifest.webmanifest   Content-Type: application/manifest+json
-/progressier.js         Content-Type: application/javascript
-                        Cache-Control: no-cache
-                        Service-Worker-Allowed: /
-```
+Cloudflare Pages can use the included `functions/manifest.webmanifest.js`
+adapter. It resolves a validated public registry entry for the request hostname,
+uses safe defaults for unknown hosts, keeps manifest URLs same-origin and within
+the app base path, and disables shared caching. On other edge/server platforms,
+route the manifest URL to `YouGeManifestHandler.handle(request)` or implement the
+same contract. A static JSON file cannot vary by request host; build one manifest
+per host if the platform cannot execute a route.
 
-Also serve `/pwa.js`, `/pwa.css` and the offline files with `no-cache` or a
-short max-age. nginx/Apache blocks are in `README.md`.
-
-## 4. Verify the live site
-
-```bash
-node scripts/verify-deployment.mjs https://staff.you.ge
-```
-
-It checks the HTML for leftover `progressier.app` tags, the manifest MIME type,
-every icon's real PNG dimensions, the service worker headers, the offline page,
-and the Windows tile assets. Exit code `1` means a hard failure.
-
-## 5. Install test
-
-1. Open `https://staff.you.ge` in Chrome/Edge on desktop and Android.
-2. Check DevTools → Application → Manifest: no errors, installable.
-3. Check Application → Service Workers: `/progressier.js` is activated.
-4. Install, close, relaunch from the icon.
-5. On iOS Safari: Share → Add to Home Screen, then launch. The splash screen is
-   generated on the first Safari visit and used on the next launch.
-6. Turn the network off and reload: the offline page should appear.
-
-Chrome only shows its own install prompt after it decides the site is eligible.
-That is normal; it is not controlled by this kit. Use `PWA.promptInstall()` from
-your own button, or the `.progressier-install-button` markup.
-
-## 6. Push (optional)
-
-Generate keys:
+## 4. Verify deployment
 
 ```bash
-node scripts/generate-vapid-keys.mjs --write
+npm run check
+node scripts/verify-deployment.mjs https://app.example.com
 ```
 
-Then load the client with:
+Verify:
+- the manifest MIME type, identity, start URL and scope for that host;
+- static icons and all scripts are present under the correct base path;
+- worker path, scope and `Service-Worker-Allowed` headers are correct;
+- no unrelated host or out-of-scope URL appears in manifest actions;
+- CSP allows the worker and Cloudflare endpoint only when needed.
 
-```html
-<script
-  src="/pwa.js"
-  defer
-  data-vapid-public-key="THE_PUBLIC_KEY"
-  data-push-endpoint="/api/push/subscribe"
-></script>
-```
+## 5. Browser acceptance
 
-A runnable sender lives in `examples/push-server/`. Without those two
-attributes, subscribe buttons stay visible but show “notifications are not
-configured” instead of asking for permission.
+1. In Chrome/Edge DevTools → Application, confirm the host-specific manifest and
+   active worker. Install and relaunch from the icon.
+2. Test iOS Safari → Share → Add to Home Screen. Other iOS browsers may not offer
+   Safari's manual flow.
+3. Open `PWA.showNetworkDiagnostics()` and confirm the displayed hostname is
+   this deployment's host. Diagnostics are on demand and do not block startup.
+4. In a controlled test, enable offline mode and reload a visited route. The
+   worker caches navigation HTML only when the response explicitly declares
+   `Cache-Control: public`; confirm a public route or otherwise confirm the
+   scoped offline page shows the hostname, retry action and recovery instructions.
+   Mark authenticated/personalized HTML `Cache-Control: private, no-store`.
+5. Verify QR/share URLs use the active URL by default; test a waiting worker
+   update if one is available.
+6. Repeat on two separate origins and a subpath. Browser installs and local
+   storage are intentionally independent per origin.
 
-## 7. Content Security Policy
+## 6. Optional push
 
-- The install-help sheet uses a shadow root with an inline `<style>`. If your CSP
-  blocks inline styles, pass `data-csp-nonce="..."` to `pwa.js`.
-- iOS splash screens are generated as `data:` images. Allow `data:` in `img-src`
-  if you want them, or set `data-no-splash` and supply static
-  `apple-touch-startup-image` links yourself.
-- `pwa.js` and `progressier.js` are external files, so `script-src 'self'` is
-  enough for them.
-- If you use `data-analytics`, allow that endpoint in `connect-src`.
-- Push requires `worker-src 'self'` (or `script-src 'self'`) plus the normal
-  `connect-src` for your push service if you ever call it from the page.
+Push still requires application-server authorization and VAPID keys. The
+`examples/push-server/` sender is a demonstration, not production-authenticated.
+Key subscriptions to the authenticated user and protect subscribe/send/delete
+routes with your existing session middleware. Use your own contact address for
+`VAPID_SUBJECT` and never expose a private VAPID key in this public registry.
 
-## 8. Updating later
+## 7. Updating and rollback
 
-The service worker uses `VERSION` in `progressier.js`. When you change any
-cached file:
+- Keep `/progressier.js` at the same URL for the legacy worker to update in
+  place. Keep legacy IndexedDB store names; saved share/notification data is
+  not cleared by this upgrade.
+- Worker caches now include host, registered app scope and version. The worker
+  copies same-origin, in-scope static assets from the last known shared legacy
+  cache names and migrates legacy HTML only when it explicitly declares
+  `Cache-Control: public`. Old shared-name caches are retained because older
+  versions did not identify ownership safely. It prunes only its own newer
+  namespace; new navigation HTML is also cached only when explicitly public.
+- Keep the legacy manifest ID on its original installation. Changing `id` can
+  create a second installed app. Unrelated origins remain separate installs and
+  cannot transfer browser data automatically.
+- Roll back by restoring the previous runtime files while keeping the worker
+  URL. Do not manually clear all Cache Storage or IndexedDB; this may erase
+  user-visible history and shared payloads.
+- Bump `VERSION` in `progressier.js` and `PWA.version` in `pwa.js` together for
+  future cache-affecting releases.
 
-1. Bump `VERSION` in `progressier.js` and `PWA.version` in `pwa.js` together
-   (currently `1.0.4` → `1.0.5` for an example update).
-2. Upload the changed files.
-3. Reload. With `data-auto-update`, the new worker activates automatically;
-   otherwise `PWA.showReloadPrompt()` / the built-in prompt asks the user.
+## 8. DNS recovery
 
-The old worker is replaced automatically because the script path is unchanged.
-
-## 9. Rollback
-
-Keep a copy of the current files. To roll back, restore the files and bump
-`VERSION` again so browsers fetch the restored worker. Do not delete
-`/progressier.js`: visitors would keep the last worker until their next visit.
-If you must remove the PWA entirely, restore the old Progressier tags and keep a
-worker at `/progressier.js` that calls `self.registration.unregister()`.
-
-## 10. Still backend/proprietary
-
-Not included, because they were Progressier services rather than client code:
-
-- hosted push campaigns, scheduling, segments
-- analytics dashboard, A/B tests
-- dashboard announcements / newsfeed
-- user accounts and billing
-- App Store / Play Store / TWA packaging
-- cookie-consent banner and pull-to-refresh
-
-The QR install dialog **is included**; it is generated locally by `qrcode.js` and does not require a hosted service.
-
-See `PARITY.md` for the full list and the sizing/feature comparison.
+Diagnostics use Cloudflare's public DoH JSON API for the current hostname and a
+same-origin app probe. They cannot inspect a device's ordinary resolver and
+cannot prove ISP DNS blocking. Recovery remains user-guided: Android Private DNS
+provider hostname `one.one.one.one`, or Cloudflare 1.1.1.1 DNS-only mode on
+iPhone/iPad (no WARP required). See [`DNS_RECOVERY.md`](DNS_RECOVERY.md).

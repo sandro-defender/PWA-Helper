@@ -1,8 +1,8 @@
 {
-  "name": "self-hosted-pwa-kit",
-  "version": "1.0.4",
+  "name": "you-ge-assistant",
+  "version": "1.0.5",
   "private": true,
-  "description": "Dependency-free, Progressier-compatible PWA layer: manifest, service worker, install UI and toolbox, offline support, share target, push, badge and QR install dialog.",
+  "description": "You.Ge Assistant: a dependency-free, multi-domain PWA toolkit with installation, offline support, sharing, push, badges, QR codes and network diagnostics.",
   "license": "MIT",
   "type": "module",
   "keywords": [
@@ -18,7 +18,8 @@
     "node": ">=18"
   },
   "scripts": {
-    "check": "node scripts/check.mjs",
+    "check": "node scripts/check.mjs && node --test tests/*.test.mjs",
+    "test": "node --test tests/*.test.mjs",
     "verify": "node scripts/verify-deployment.mjs",
     "keys": "node scripts/generate-vapid-keys.mjs --write"
   }

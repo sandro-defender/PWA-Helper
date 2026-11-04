@@ -70,7 +70,7 @@ Breakpoints match the original: `992px`, `991px`, `800px`, `550px`.
 | `ProgressierOfflineAlert` | `PWA.showOfflineAlert()`, `PWA.enableOfflineAlert()` |
 | `ProgressierNewsfeed` data source | `PWA.getNotifications()` / `PWA.markNotificationsRead()` |
 | `pwaredirect=` decoding | implemented, same-origin by default |
-| Custom events | `pwa:installable`, `pwa:installed`, `pwa:update`, `pwa:share`, `pwa:event` |
+| Custom events | `pwa:installable`, `pwa:installed`, `pwa:update`, `pwa:share`, `pwa:diagnostics`, `pwa:event` |
 
 ### HTML compatibility
 
@@ -142,7 +142,7 @@ or `data-no-splash`.
 | Notification click focus/navigate | yes | yes |
 | Action-specific URLs | yes | yes |
 | Subscription renewal | no | yes (`pushsubscriptionchange`) |
-| Offline caching | none | network-first pages, SWR assets, offline page |
+| Offline caching | none | network-first pages (public HTML only), SWR assets, scoped offline page |
 | `skipWaiting` on install | yes (immediate) | waits for `applyUpdate()` to avoid mixed versions |
 
 The original worker did no caching. Offline support is an intentional improvement,
@@ -236,16 +236,22 @@ not client code:
 Everything else — install UI and floating toolbox icon, buttons, banners, modal, welcome, offline alert,
 reload prompt, QR install dialog (local `qrcode.js` + centered logo),
 badges, share target, push display/history, protocol handlers, theming, meta
-tags, splash screens, sizing and breakpoints — is implemented locally with no
-third-party requests.
+tags, splash screens, sizing and breakpoints — is implemented locally. The only
+built-in third-party request is user-triggered Cloudflare DoH; optional push and
+analytics calls use configured application endpoints.
 
 ---
 
-## Deployment tooling added for staff.you.ge
+## Multi-domain deployment and diagnostics tooling
 
 | File | Purpose |
 | --- | --- |
 | `snippet.html` | Copy-paste `<head>` block replacing the two Progressier tags |
+| `domain-config.js`, `domain-registry.js` | Validated host/path resolution, branding and feature flags |
+| `manifest-handler.js`, `functions/manifest.webmanifest.js` | Host-aware manifest response and Cloudflare Pages adapter |
+| `dns-diagnostics.js`, `DNS_RECOVERY.md` | On-demand current-host DoH diagnostics, limitations and recovery guide |
+| `MULTI_DOMAIN.md` | Multi-host, wildcard, path-scoped and subpath deployment guide |
+| `tests/` | Mocked DNS, domain-config and manifest-handler behavior |
 | `INTEGRATION.md` | Upload order, headers, CSP, update and rollback steps |
 | `scripts/verify-deployment.mjs` | Checks live HTML, manifest MIME, icon dimensions, SW headers, offline assets |
 | `scripts/generate-vapid-keys.mjs` | Creates a P-256 VAPID pair for Web Push |

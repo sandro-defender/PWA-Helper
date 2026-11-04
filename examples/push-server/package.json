@@ -1,9 +1,9 @@
 {
-  "name": "staff-you-ge-push-example",
+  "name": "you-ge-assistant-push-example",
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "Minimal Web Push sender for the self-hosted PWA kit",
+  "description": "Minimal Web Push sender example for You.Ge Assistant",
   "scripts": {
     "start": "node server.js"
   },

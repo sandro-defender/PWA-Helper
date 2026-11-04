@@ -1,8 +1,7 @@
 # Push server example
 
-Minimal Node sender for the self-hosted PWA kit. It receives browser
-subscriptions and sends notifications that match `progressier.js`'s expected
-payload.
+Minimal Node sender for You.Ge Assistant. It receives browser subscriptions
+and sends notifications that match `progressier.js`'s expected payload.
 
 ## Run
 
@@ -19,7 +18,7 @@ Then set the keys and start it:
 # bash
 VAPID_PUBLIC_KEY="..." \
 VAPID_PRIVATE_KEY="..." \
-VAPID_SUBJECT="mailto:admin@staff.you.ge" \
+VAPID_SUBJECT="mailto:admin@example.com" \
 node server.js
 ```
 
@@ -27,7 +26,7 @@ node server.js
 # PowerShell
 $env:VAPID_PUBLIC_KEY="..."
 $env:VAPID_PRIVATE_KEY="..."
-$env:VAPID_SUBJECT="mailto:admin@staff.you.ge"
+$env:VAPID_SUBJECT="mailto:admin@example.com"
 node server.js
 ```
 
@@ -62,7 +61,7 @@ so `/api/push/*` is same-origin.
 ```bash
 curl -X POST http://localhost:3000/api/push/send \
   -H "Content-Type: application/json" \
-  -d '{"title":"staff.you.ge","body":"Hello from the push server","url":"/"}'
+  -d '{"title":"You.Ge Assistant","body":"Hello from the push server","url":"/"}'
 ```
 
 ## Production notes
@@ -70,7 +69,7 @@ curl -X POST http://localhost:3000/api/push/send \
 - Key subscriptions by your logged-in user, not just by endpoint. This example
   uses the endpoint so it stays dependency-free.
 - Protect `/api/push/subscribe`, `/api/push/send` and `/api/push/test` with the
-  same session/auth middleware as the rest of `staff.you.ge`.
+  same session/auth middleware as the rest of your application.
 - Keep `subscriptions.json` out of git. It contains endpoint secrets.
 - `404` and `410` responses mean the subscription is gone; the example removes it.
 - The service worker also handles `pushsubscriptionchange` and re-subscribes, but

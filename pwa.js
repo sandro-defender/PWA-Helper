@@ -46,6 +46,27 @@
     script = scripts[scripts.length - 1] || null;
   }
   var dataset = (script && script.dataset) || {};
+  var runtimeBasePath = '/';
+  try {
+    runtimeBasePath = new URL(dataset.basePath || './', (script && script.src) || window.location.href).pathname;
+  } catch (error) {
+    runtimeBasePath = '/';
+  }
+  var domainConfig = window.YouGeDomain && typeof window.YouGeDomain.resolve === 'function'
+    ? window.YouGeDomain.resolve({
+        hostname: window.location.hostname,
+        origin: window.location.origin,
+        protocol: window.location.protocol,
+        pathname: window.location.pathname,
+        basePath: runtimeBasePath,
+      })
+    : {
+        identity: { name: 'You.Ge Assistant', shortName: 'You.Ge', description: 'Your installable, offline-ready web assistant.' },
+        branding: { themeColor: '#155eef', backgroundColor: '#f8fafc', icon: 'icons/icon-192.png' },
+        pwa: { enabled: true, startUrl: './?launchedfrom=homescreen', scope: './', display: 'standalone' },
+        features: { installation: true, offline: true, sharing: true, push: true, badges: true, qr: true, diagnostics: true, dnsRecovery: true },
+        domain: { hostname: window.location.hostname, origin: window.location.origin, protocol: window.location.protocol, pathname: window.location.pathname, basePath: '/' },
+      };
 
   // Everything the kit requests is resolved against the directory that serves
   // pwa.js. That keeps the same defaults working at the origin root (/) and
@@ -71,14 +92,17 @@
     analytics: dataset.analytics || '',
     pushEndpoint: dataset.pushEndpoint || '',
     vapidPublicKey: dataset.vapidPublicKey || '',
-    icon: resolveUrl(dataset.icon || 'icons/icon-192.png'),
-    splashIcon: resolveUrl(dataset.splashIcon || 'icons/icon-512.png'),
+    icon: resolveUrl(dataset.icon || domainConfig.branding.icon || 'icons/icon-192.png'),
+    splashIcon: resolveUrl(dataset.splashIcon || domainConfig.branding.splashIcon || 'icons/icon-512.png'),
     qrLibraryUrl: resolveUrl(dataset.qrLibrary || 'qrcode.js'),
     qrLogo: dataset.qrLogo || '',
     desktopQr: 'desktopQr' in dataset,
-    appName: dataset.appName || '',
-    themeColor: dataset.themeColor || '',
-    startUrl: resolveUrl(dataset.startUrl || '?launchedfrom=homescreen'),
+    appName: dataset.appName || domainConfig.identity.name,
+    themeColor: dataset.themeColor || domainConfig.branding.themeColor,
+    startUrl: resolveUrl(dataset.startUrl || domainConfig.pwa.startUrl || '?launchedfrom=homescreen'),
+    domain: domainConfig.domain,
+    domainConfig: domainConfig,
+    features: domainConfig.features,
     itunesAppId: dataset.itunesAppId || '',
     viewportFit: 'viewportFit' in dataset,
     autoUpdate: 'autoUpdate' in dataset,
@@ -103,13 +127,22 @@
     debug: 'debug' in dataset,
   };
 
-  // Scope defaults to the worker's own directory; override with data-sw-scope.
+  // Scope defaults to the resolved app scope only when that scope is within
+  // the worker's directory. A broader scope is never requested implicitly.
   try {
-    config.swScope = dataset.swScope
-      ? new URL(dataset.swScope, baseUrl).pathname
-      : new URL('./', config.swUrl).pathname;
+    var workerDirectory = new URL('./', config.swUrl);
+    if (dataset.swScope) {
+      var explicitScope = new URL(dataset.swScope, baseUrl);
+      if (explicitScope.origin !== workerDirectory.origin) throw new Error('service-worker scope must be same-origin');
+      config.swScope = explicitScope.pathname;
+    } else {
+      var appScope = new URL(domainConfig.pwa.scope || './', config.manifestUrl);
+      config.swScope = appScope.origin === workerDirectory.origin && appScope.pathname.startsWith(workerDirectory.pathname)
+        ? appScope.pathname
+        : workerDirectory.pathname;
+    }
   } catch (error) {
-    config.swScope = '/';
+    config.swScope = new URL('./', config.swUrl).pathname;
   }
 
 
@@ -187,7 +220,10 @@
       ios: isIOS(),
       safari: isSafari(),
       launchSource: launchSource,
-      pushSupported: 'PushManager' in window && 'Notification' in window,
+      hostname: domainConfig.domain.hostname,
+      origin: domainConfig.domain.origin,
+      basePath: domainConfig.domain.basePath,
+      pushSupported: pushSupported(),
       pushPermission: 'Notification' in window ? Notification.permission : 'denied',
     };
   }
@@ -219,7 +255,7 @@
     var isInstalled = installed || standalone;
 
     document.querySelectorAll('[data-pwa-install]').forEach(function (element) {
-      if (isInstalled) element.hidden = true;
+      if (isInstalled || domainConfig.features.installation === false || domainConfig.pwa.enabled === false) element.hidden = true;
     });
     document.querySelectorAll('[data-pwa-hide-standalone]').forEach(function (element) {
       if (standalone) element.hidden = true;
@@ -312,7 +348,7 @@
   }
 
   function appName() {
-    return config.appName || document.title || window.location.hostname;
+    return config.appName || domainConfig.identity.name || document.title || window.location.hostname;
   }
 
   function themeColor() {
@@ -344,13 +380,23 @@
         manifestLink.href = config.manifestUrl;
       }
     }
-    if (!document.querySelector('link[rel="apple-touch-icon"]')) {
-      var icon = document.createElement('link');
-      icon.rel = 'apple-touch-icon';
-      icon.sizes = '180x180';
-      icon.href = resolveUrl('icons/apple-touch-icon.png');
-      document.head.appendChild(icon);
+    var appleIcon = document.querySelector('link[rel="apple-touch-icon"]');
+    if (!appleIcon) {
+      appleIcon = document.createElement('link');
+      appleIcon.rel = 'apple-touch-icon';
+      appleIcon.sizes = '180x180';
+      document.head.appendChild(appleIcon);
     }
+    appleIcon.href = resolveUrl(domainConfig.branding.appleTouchIcon || domainConfig.branding.icon);
+    var pngFavicon = document.querySelector('link[rel="icon"][type="image/png"]');
+    if (!pngFavicon) {
+      pngFavicon = document.createElement('link');
+      pngFavicon.rel = 'icon';
+      pngFavicon.type = 'image/png';
+      pngFavicon.sizes = '32x32';
+      document.head.appendChild(pngFavicon);
+    }
+    pngFavicon.href = resolveUrl(domainConfig.branding.favicon || 'icons/favicon-32.png');
 
     var color = themeColor();
     var themeMeta = document.querySelector('meta[name="theme-color"]');
@@ -360,8 +406,29 @@
     var name = appName();
     var startUrl = absoluteStartUrl();
 
+    var description = domainConfig.identity.description;
+    if (!domainConfig.domain.configured) {
+      var existingDescription = document.querySelector('meta[name="description"]');
+      if (existingDescription && existingDescription.content) description = existingDescription.content;
+    }
     addMeta('application-name', name);
+    addMeta('description', description);
     addMeta('apple-mobile-web-app-title', name);
+    addProperty('og:site_name', name);
+    addProperty('og:title', document.title || name);
+    addProperty('og:description', description);
+    addProperty('og:url', window.location.origin + window.location.pathname);
+    addProperty('og:type', 'website');
+    Object.keys(domainConfig.metadata || {}).forEach(function (key) {
+      var value = domainConfig.metadata[key];
+      if (key.indexOf('og:') === 0 || key.indexOf('twitter:') === 0) addProperty(key, value);
+    });
+    if (!document.querySelector('link[rel="canonical"]')) {
+      var canonical = document.createElement('link');
+      canonical.rel = 'canonical';
+      canonical.href = window.location.origin + window.location.pathname;
+      document.head.appendChild(canonical);
+    }
     addMeta('apple-touch-fullscreen', 'yes');
     addMeta('apple-mobile-web-app-capable', 'yes');
     addMeta('mobile-web-app-capable', 'yes');
@@ -568,6 +635,10 @@
   });
 
   function register() {
+    if (domainConfig.pwa.enabled === false) {
+      readyResolve(null);
+      return;
+    }
     if (!('serviceWorker' in navigator)) {
       log('service workers are not supported');
       readyResolve(null);
@@ -700,6 +771,7 @@
 
   window.addEventListener('beforeinstallprompt', function (event) {
     event.preventDefault();
+    if (domainConfig.pwa.enabled === false || domainConfig.features.installation === false) return;
     installPromptEvent = event;
     log('beforeinstallprompt captured');
     refreshState();
@@ -715,10 +787,11 @@
   });
 
   function showHelp(kind) {
+    if (domainConfig.pwa.enabled === false || domainConfig.features.installation === false) return null;
     if (document.querySelector('[data-pwa-help]')) return;
 
     var isIosHelp = kind === 'ios';
-    var title = isIosHelp ? 'Install on iPhone or iPad' : 'Install this app';
+    var title = isIosHelp ? 'Install ' + appName() + ' on iPhone or iPad' : 'Install ' + appName();
     var steps = isIosHelp
       ? [
           'Tap the Share button in the Safari toolbar.',
@@ -847,6 +920,9 @@
 
   function promptInstall(options) {
     options = options || {};
+    if (domainConfig.pwa.enabled === false || domainConfig.features.installation === false) {
+      return Promise.resolve({ outcome: 'disabled' });
+    }
     if (installed || isStandalone()) {
       return Promise.resolve({ outcome: 'already-installed' });
     }
@@ -909,7 +985,8 @@
   }
 
   function pushSupported() {
-    return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+    return !(config.features && config.features.push === false) &&
+      'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
   }
 
   function subscribePush(options) {
@@ -1020,6 +1097,7 @@
    * ------------------------------------------------------------------ */
 
   function setBadge(count) {
+    if (config.features && config.features.badges === false) return Promise.resolve(false);
     var value = Math.max(0, Math.floor(count) || 0);
     try {
       if ('setAppBadge' in navigator) {
@@ -1033,6 +1111,7 @@
   }
 
   function clearBadge() {
+    if (config.features && config.features.badges === false) return Promise.resolve(false);
     return setBadge(0).then(function () {
       return postToWorker({ type: 'CLEAR_BADGE' }).catch(function () {});
     });
@@ -1103,6 +1182,10 @@
 
   var sharedFilePromise = new Promise(function (resolve) {
     function start() {
+      if (config.features && config.features.sharing === false) {
+        resolve(null);
+        return;
+      }
       var id = getParam('fileid');
       if (!id) {
         resolve(null);
@@ -1830,6 +1913,7 @@
 
   function showInstallBanner(options) {
     options = options || {};
+    if (domainConfig.pwa.enabled === false || domainConfig.features.installation === false) return null;
     if (isStandalone()) return null;
 
     var platforms = options.platforms || 'all';
@@ -2215,6 +2299,147 @@
     return flow;
   }
 
+  function runNetworkDiagnostics(options) {
+    options = options || {};
+    if (config.features && config.features.diagnostics === false) {
+      return Promise.resolve({ hostname: domainConfig.domain.hostname, classification: 'disabled', message: 'Network diagnostics are disabled for this domain.' });
+    }
+    if (!window.YouGeDns || typeof window.YouGeDns.check !== 'function') {
+      return Promise.resolve({ hostname: domainConfig.domain.hostname, classification: 'unknown', message: 'The DNS diagnostics module is not loaded.' });
+    }
+    var diagnosticsConfig = domainConfig.diagnostics || {};
+    return window.YouGeDns.check({
+      hostname: domainConfig.domain.hostname,
+      origin: domainConfig.domain.origin,
+      basePath: domainConfig.domain.basePath,
+      online: navigator.onLine,
+      appProbePath: diagnosticsConfig.appProbePath,
+      backendProbePath: diagnosticsConfig.backendProbePath,
+    }, options);
+  }
+
+  function showNetworkDiagnostics() {
+    if (document.querySelector('[data-pwa-diagnostics-dialog]')) return document.querySelector('[data-pwa-diagnostics-dialog]');
+    if (config.features && config.features.diagnostics === false) return null;
+
+    var flow = make('div', 'pwa-flow pwa-network-diagnostics');
+    flow.setAttribute('data-pwa-diagnostics-dialog', '');
+    flow.setAttribute('role', 'dialog');
+    flow.setAttribute('aria-modal', 'true');
+    flow.setAttribute('aria-label', 'Network diagnostics');
+    var inner = make('div', 'pwa-flow-inner');
+    var header = make('div', 'pwa-flow-header');
+    var title = make('div', 'pwa-flow-title', 'Network diagnostics');
+    var close = closeButton();
+    close.setAttribute('aria-label', 'Close');
+    close.setAttribute('role', 'button');
+    close.setAttribute('tabindex', '0');
+    header.appendChild(title);
+    header.appendChild(close);
+    inner.appendChild(header);
+
+    var body = make('div', 'pwa-flow-body');
+    var target = document.createElement('p');
+    target.textContent = 'Testing connection to: ' + domainConfig.domain.hostname;
+    var resolver = document.createElement('p');
+    resolver.textContent = 'DNS resolver: Cloudflare DNS (1.1.1.1)';
+    var status = document.createElement('p');
+    status.setAttribute('role', 'status');
+    status.setAttribute('aria-live', 'polite');
+    status.textContent = 'Diagnostics run only when you choose to start or retry.';
+    var detail = document.createElement('p');
+    detail.className = 'pwa-diagnostics-detail';
+    body.appendChild(target);
+    body.appendChild(resolver);
+    body.appendChild(status);
+    body.appendChild(detail);
+    inner.appendChild(body);
+
+    var actions = make('div', 'pwa-flow-actions');
+    var retry = make('button', 'pwa-flow-btn', 'Run diagnostics');
+    retry.type = 'button';
+    actions.appendChild(retry);
+    inner.appendChild(actions);
+
+    var recovery = document.createElement('details');
+    recovery.className = 'pwa-diagnostics-recovery';
+    var summary = document.createElement('summary');
+    summary.textContent = 'DNS recovery instructions';
+    recovery.appendChild(summary);
+    var guide = document.createElement('div');
+    guide.className = 'pwa-flow-body';
+    var android = document.createElement('p');
+    android.textContent = 'Android: Settings → Network & internet → Private DNS → select provider hostname → enter one.one.one.one → Save. Return to ' + domainConfig.domain.hostname + ' and retry.';
+    var androidLink = document.createElement('a');
+    androidLink.href = 'https://developers.cloudflare.com/1.1.1.1/setup/android/';
+    androidLink.target = '_blank';
+    androidLink.rel = 'noopener noreferrer';
+    androidLink.textContent = 'Official Android instructions';
+    var ios = document.createElement('p');
+    ios.textContent = 'iPhone or iPad: install Cloudflare 1.1.1.1, choose DNS-only mode (WARP is not required), then return to this domain and retry.';
+    var iosLink = document.createElement('a');
+    iosLink.href = 'https://developers.cloudflare.com/1.1.1.1/setup/ios/';
+    iosLink.target = '_blank';
+    iosLink.rel = 'noopener noreferrer';
+    iosLink.textContent = 'Official iOS instructions';
+    var playLink = document.createElement('a');
+    playLink.href = 'https://play.google.com/store/apps/details?id=com.cloudflare.onedotonedotonedotone';
+    playLink.target = '_blank';
+    playLink.rel = 'noopener noreferrer';
+    playLink.textContent = 'Cloudflare 1.1.1.1 for Android';
+    var appStoreLink = document.createElement('a');
+    appStoreLink.href = 'https://apps.apple.com/app/1-1-1-1-faster-internet/id1423538627';
+    appStoreLink.target = '_blank';
+    appStoreLink.rel = 'noopener noreferrer';
+    appStoreLink.textContent = 'Cloudflare 1.1.1.1 for iPhone';
+    var androidGuide = [android, androidLink, document.createElement('br'), playLink];
+    var iosGuide = [ios, iosLink, document.createElement('br'), appStoreLink];
+    var recoveryOrder = isIOS() ? [iosGuide, androidGuide] : /Android/i.test(ua) ? [androidGuide, iosGuide] : [androidGuide, iosGuide];
+    recoveryOrder.forEach(function (group) {
+      group.forEach(function (element) { guide.appendChild(element); });
+    });
+    recovery.appendChild(guide);
+    recovery.hidden = Boolean(domainConfig.features && domainConfig.features.dnsRecovery === false);
+    inner.appendChild(recovery);
+    flow.appendChild(inner);
+    document.body.appendChild(flow);
+
+    var running = false;
+    function run() {
+      if (running) return;
+      running = true;
+      retry.disabled = true;
+      retry.textContent = 'Checking…';
+      status.textContent = 'Checking Cloudflare DNS and the current application host…';
+      detail.textContent = '';
+      runNetworkDiagnostics().then(function (result) {
+        status.textContent = result.message || result.classification;
+        detail.textContent = (result.classification || 'unknown').replace(/_/g, ' ') +
+          (result.dns && result.dns.length ? ' — ' + result.dns.map(function (entry) { return entry.type + ': ' + entry.statusText; }).join(', ') : '');
+        if (result.caveat) detail.textContent += ' ' + result.caveat;
+        dispatch('diagnostics', result);
+      }).catch(function (error) {
+        status.textContent = 'Diagnostics could not complete.';
+        detail.textContent = error && error.message ? error.message : 'Retry when your connection is available.';
+      }).then(function () {
+        running = false;
+        retry.disabled = false;
+        retry.textContent = 'Retry diagnostics';
+      });
+    }
+    function destroy() {
+      document.removeEventListener('keydown', onKey);
+      closeFlow(flow);
+    }
+    function onKey(event) { if (event.key === 'Escape') destroy(); }
+    close.addEventListener('click', destroy);
+    close.addEventListener('keydown', function (event) { if (event.key === 'Enter' || event.key === ' ') destroy(); });
+    flow.addEventListener('click', function (event) { if (event.target === flow) destroy(); });
+    document.addEventListener('keydown', onKey);
+    retry.addEventListener('click', run);
+    return flow;
+  }
+
   function showWelcome(options) {
     return showFlow(
       Object.assign(
@@ -2513,6 +2738,7 @@
   }
 
   function showQRCode(options) {
+    if (config.features && config.features.qr === false) return null;
     if (typeof options === 'string') options = { url: options };
     return showQrDialog(options || {});
   }
@@ -2520,8 +2746,9 @@
   // Opening ?pswutlzoq=install (the URL encoded in the QR code) shows the
   // install flow straight away, like the hosted client did.
   function showInstallRequest() {
+    if (domainConfig.pwa.enabled === false || domainConfig.features.installation === false) return null;
     cleanInstallParam();
-    if (config.desktopQr && !isIOS() && window.screen.width > 991) {
+    if (config.desktopQr && config.features.qr !== false && !isIOS() && window.screen.width > 991) {
       return showQrDialog();
     }
     return showFlow({
@@ -2536,6 +2763,10 @@
   }
 
   function scanQrButtons() {
+    if (config.features && config.features.qr === false) {
+      document.querySelectorAll('[data-pwa-qr]').forEach(function (node) { node.hidden = true; });
+      return;
+    }
     document.querySelectorAll('[data-pwa-qr]:not(.pwa-qr-captured)').forEach(function (node) {
       node.classList.add('pwa-qr-captured', 'captured');
       node.setAttribute('role', 'button');
@@ -2725,6 +2956,7 @@
 
   function toolboxShouldHide() {
     if (!toolboxRoot || !toolboxOptions) return true;
+    if (domainConfig.pwa.enabled === false || domainConfig.features.installation === false) return true;
     if (toolboxManuallyHidden || toolboxOptions.off) return true;
     if (toolboxIsEmbedded()) return true;
     if (document.body && document.body.classList.contains('no-toolbox')) return true;
@@ -2903,7 +3135,7 @@
 
   var PWA = {
     __pwaKit: true,
-    version: '1.0.4',
+    version: '1.0.5',
     config: config,
 
     // install
@@ -2937,6 +3169,7 @@
     subscribePush: subscribePush,
     unsubscribePush: unsubscribePush,
     requestPushPermission: function () {
+      if (config.features && config.features.push === false) return Promise.resolve('denied');
       if (!('Notification' in window)) return Promise.resolve('denied');
       return Notification.requestPermission();
     },
@@ -2989,6 +3222,8 @@
     hideToolbox: hideToolbox,
     disableToolbox: disableToolbox,
     showFlow: showFlow,
+    showNetworkDiagnostics: showNetworkDiagnostics,
+    runNetworkDiagnostics: runNetworkDiagnostics,
     showWelcome: showWelcome,
     showQRCode: showQRCode,
     showInstallRequest: showInstallRequest,
@@ -3128,7 +3363,7 @@
   });
 
   window.addEventListener('load', function () {
-    if (config.installBanner && !isStandalone()) {
+    if (config.installBanner && domainConfig.features.installation !== false && domainConfig.pwa.enabled !== false && !isStandalone()) {
       setTimeout(function () {
         if (!isStandalone()) showInstallBanner({});
       }, 2500);
@@ -3138,7 +3373,7 @@
         showPushBanner({});
       }, 4000);
     }
-    if (config.welcome) {
+    if (config.welcome && domainConfig.features.installation !== false && domainConfig.pwa.enabled !== false) {
       var seen = false;
       try {
         seen = window.localStorage.getItem('pwakit:welcome') === '1';
@@ -3170,6 +3405,12 @@
   document.addEventListener('click', function (event) {
     var node = event.target;
     if (!node || !node.closest) return;
+    var diagnosticsButton = node.closest('[data-pwa-diagnostics]');
+    if (diagnosticsButton) {
+      event.preventDefault();
+      showNetworkDiagnostics();
+      return;
+    }
     var button = node.closest('[data-pwa-install]');
     if (!button) return;
     event.preventDefault();

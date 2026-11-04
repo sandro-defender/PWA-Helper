@@ -1,5 +1,5 @@
 /**
- * Minimal Web Push sender for the PWA kit.
+ * Minimal Web Push sender example for You.Ge Assistant.
  *
  * This is an example, not production auth. In a real app, key subscriptions by
  * your logged-in user instead of by endpoint, and protect these routes with your
@@ -138,7 +138,7 @@ const server = createServer(async (request, response) => {
     if (request.method === 'POST' && (url.pathname === '/api/push/send' || url.pathname === '/api/push/test')) {
       const body = await readBody(request);
       const payload = {
-        title: body.title || 'staff.you.ge',
+        title: body.title || 'You.Ge Assistant',
         body: body.body || 'Test notification',
         icon: body.icon || '/icons/icon-192.png',
         url: body.url || '/',

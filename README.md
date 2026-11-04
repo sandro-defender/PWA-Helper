@@ -1,19 +1,21 @@
-# Self-hosted PWA kit
+# You.Ge Assistant
 
-A dependency-free, Progressier-compatible PWA layer you can drop into any web
-project: manifest, service worker, install UI, offline support, share target,
-push notifications, app badge, a QR install dialog and a floating install launcher.
+A dependency-free, multi-domain-aware PWA platform and self-hosted toolkit: manifest,
+service worker, install UI, offline recovery, share target, optional push,
+badges, QR installation and on-demand Cloudflare DNS diagnostics.
 
-Everything runs from your own domain — no third-party script, no account, no
-external requests, no build step, no `npm install`.
+The same runtime supports unrelated domains, subdomains and subpaths. It detects
+the active origin and resolves identity/features from a central public registry,
+with safe defaults for unknown hosts. It requires no account, build step or DNS
+backend. The only built-in external runtime request is the user-triggered
+Cloudflare DoH check; optional push/analytics integrations use the endpoints
+you configure. The former `staff.you.ge` install identity and `/progressier.js` worker
+path remain compatible; that hostname is neither required nor used as a DNS
+test constant.
 
-**Origin.** This kit was written to replace the hosted Progressier client on
-`staff.you.ge`. That site is the worked reference deployment; the runtime is
-generic, while each deployment supplies its app identity through the manifest
-and optional `pwa.js` configuration.
-
-**Live playground:** <https://sandro-defender.github.io/PWA-Helper/> — the full
-feature-test page for install, toolbox, QR, offline, push, share, caches, theme, wording and UI events.
+**Live playground:** <https://sandro-defender.github.io/PWA-Helper/> — test
+install, toolbox, QR, offline recovery, push, share, caches, theme, wording and
+network diagnostics.
 
 **User-facing example:** <https://sandro-defender.github.io/PWA-Helper/example/> —
 a cleaner sample staff workspace showing how the helper can feel inside a real app.
@@ -40,6 +42,7 @@ CRA, SvelteKit):
 
 ```
 pwa.js  pwa.css  progressier.js  manifest.webmanifest  qrcode.js
+domain-config.js  domain-registry.js  dns-diagnostics.js  manifest-handler.js
 offline.html  offline.css  offline.js  browserconfig.xml  favicon.ico  icons/
 ```
 
@@ -49,18 +52,24 @@ offline.html  offline.css  offline.js  browserconfig.xml  favicon.ico  icons/
 <link rel="manifest" href="/manifest.webmanifest" />
 <link rel="icon" href="/favicon.ico" sizes="any" />
 <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />
-<meta name="theme-color" content="#ffffff" />
+<meta name="theme-color" content="#155eef" />
+<script src="/domain-registry.js" defer></script>
+<script src="/domain-config.js" defer></script>
+<script src="/dns-diagnostics.js" defer></script>
 <script src="/pwa.js" defer></script>
 ```
 
-**3. Set two response headers** — the manifest MIME type and a non-cached
-worker:
+**3. Set response headers** — serve the manifest with its JSON MIME type and
+the worker without aggressive caching:
 
 ```
 /manifest.webmanifest   Content-Type: application/manifest+json
 /progressier.js         Cache-Control: no-cache
-                        Service-Worker-Allowed: /
 ```
+
+The worker's default scope is its own directory. Add `Service-Worker-Allowed`
+only when intentionally granting a broader same-origin scope, and set it to the
+smallest required path (for a root install that may be `/`).
 
 Then check the result:
 
@@ -69,7 +78,7 @@ node scripts/check.mjs                              # static files
 node scripts/verify-deployment.mjs https://you.example  # live deployment
 ```
 
-`npm run check` and `npm run verify` do the same thing.
+`npm run check` runs static checks and unit tests; `npm run verify` checks a live deployment.
 
 ---
 
@@ -81,6 +90,10 @@ node scripts/verify-deployment.mjs https://you.example  # live deployment
 | `README.md` | you need the full API, config and server setup (this file) |
 | [`INTEGRATION.md`](INTEGRATION.md) | you want a worked deployment example, upload order and rollback |
 | [`PARITY.md`](PARITY.md) | you need to know what matches the original Progressier client |
+| [`ARCHITECTURE_AUDIT.md`](ARCHITECTURE_AUDIT.md) | you want the baseline audit and architecture plan |
+| [`MULTI_DOMAIN.md`](MULTI_DOMAIN.md) | you need domain registry, manifest, scope and deployment examples |
+| [`DNS_RECOVERY.md`](DNS_RECOVERY.md) | you need DoH behavior, limitations or device recovery steps |
+| [`CHANGELOG.md`](CHANGELOG.md) | you need release notes |
 | [`snippet.html`](snippet.html) | you want to copy the complete `<head>` block |
 | [`examples/push-server/`](examples/push-server/) | you need a runnable Web Push sender |
 | [`reference/`](reference/) | you want to inspect the original manifest and client bundle (reference-only; never deployed) |
@@ -108,9 +121,14 @@ behaviour in readable code and adds proper offline support.
 ## Files
 
 ```
-manifest.webmanifest      Web app manifest (from your progressier.json)
-progressier.js            Service worker — keep this exact path
-pwa.js                    Client SDK — replaces Progressier's script.js
+manifest.webmanifest      Valid static fallback manifest
+domain-config.js          Central hostname/origin/config resolver
+domain-registry.js         Public per-domain/subdomain customization
+manifest-handler.js       Validated host-aware manifest response helper
+functions/                Cloudflare Pages Functions manifest adapter
+dns-diagnostics.js         On-demand Cloudflare DoH diagnostics
+progressier.js            Service worker — keep this exact path when migrating
+pwa.js                    Client SDK — PWA controls and domain-aware UI
 pwa.css                   Progressier-compatible component styles
 qrcode.js                 Vendored MIT QR generator (QR install dialog)
 offline.html              Offline fallback page
@@ -120,7 +138,7 @@ browserconfig.xml         Windows tile configuration
 favicon.ico               Multi-size favicon (16/32/48)
 snippet.html              Copy-paste head block
 AGENTS.md                 AI-agent integration playbook
-INTEGRATION.md            Worked deployment example (staff.you.ge)
+INTEGRATION.md            Generic deployment, migration and rollback checklist
 PARITY.md                 Original vs local feature/sizing report
 reference/                Original manifest/client bundle + readable copies (research only; not deployed)
 demo/                     Full-feature GitHub Pages test playground + manifest
@@ -181,8 +199,11 @@ Add:
 ```html
 <link rel="manifest" href="/manifest.webmanifest" />
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
-<meta name="theme-color" content="#ffffff" />
+<meta name="theme-color" content="#155eef" />
 
+<script src="/domain-registry.js" defer></script>
+<script src="/domain-config.js" defer></script>
+<script src="/dns-diagnostics.js" defer></script>
 <script src="/pwa.js" defer></script>
 ```
 
@@ -192,7 +213,7 @@ dynamically added manifests on first load).
 
 `snippet.html` contains the full head block, including the optional push
 attributes. `INTEGRATION.md` has the deployment order, headers, update and
-rollback steps for `staff.you.ge`.
+rollback steps for multi-domain deployments.
 
 ### 3. Add install buttons (optional)
 
@@ -343,6 +364,23 @@ PWA.createAppleSplashScreens();
 
 ---
 
+## Multi-domain architecture
+
+Load `domain-registry.js`, then `domain-config.js`, before `pwa.js`. Exact hostnames
+precede `*.example.com` patterns; unknown hosts use safe You.Ge Assistant defaults.
+The registry supports domain identity, icons/colors, validated Open Graph/Twitter
+metadata, manifest identity/scope, shortcuts and feature flags. It is public configuration only: never put secrets,
+authorization rules or private endpoints there. Hostname detection is not an
+authentication mechanism.
+
+A static JSON manifest cannot vary based on the request hostname. Serve
+`manifest.webmanifest` through `manifest-handler.js` for host-specific identity
+(the Cloudflare Pages adapter is `functions/manifest.webmanifest.js`), or
+generate one manifest per host at build time. The handler uses no-store caching,
+same-origin/in-scope URLs and safe defaults for unknown hosts. See
+[`MULTI_DOMAIN.md`](MULTI_DOMAIN.md) for registry, subpath, deployment and cache
+migration examples. Browser installs and storage stay isolated by origin.
+
 ## Configuration
 
 All options are optional `data-*` attributes on the script tag. Paths are
@@ -355,7 +393,6 @@ without changes.
   src="/pwa.js"
   defer
   data-sw="/progressier.js"
-  data-sw-scope="/"
   data-manifest="/manifest.webmanifest"
   data-analytics="/api/pwa-events"
   data-push-endpoint="/api/push/subscribe"
@@ -367,13 +404,14 @@ without changes.
 | Attribute | Default | Purpose |
 | --- | --- | --- |
 | `data-sw` | `progressier.js` | Service worker URL (next to `pwa.js`) |
-| `data-sw-scope` | worker's directory | Service worker scope |
+| `data-sw-scope` | resolved app scope, bounded by worker directory | Service worker scope |
+| `data-base-path` | directory serving `pwa.js` | Explicit app base path for a subpath deployment |
 | `data-manifest` | `manifest.webmanifest` | Manifest URL (also injected if missing) |
 | `data-css` | `pwa.css` | Component stylesheet URL |
 | `data-icon` | `icons/icon-192.png` | Icon used by banners/modals |
 | `data-splash-icon` | `icons/icon-512.png` | Source image for iOS splash screens |
-| `data-app-name` | `document.title` | Name used in meta tags |
-| `data-theme-color` | `#ffffff` (or existing meta) | Theme color and splash background |
+| `data-app-name` | resolved domain identity | Explicit app name override |
+| `data-theme-color` | resolved domain branding | Explicit theme/splash color override |
 | `data-start-url` | `?launchedfrom=homescreen` | Windows tile start URL |
 | `data-analytics` | — | Optional beacon endpoint for install/launch events |
 | `data-push-endpoint` | — | Default endpoint that receives push subscriptions |
@@ -421,7 +459,8 @@ helpers) so existing calls keep working.
 | `PWA.isStandalone()` | Running as an installed app |
 | `PWA.isInstalled()` | Installed or standalone |
 | `PWA.isIOS()` / `PWA.isSafari()` | Platform checks |
-| `PWA.getState()` | Full state snapshot |
+| `PWA.getState()` | Full state plus hostname, origin and base path |
+| `PWA.config.domain` | Resolved active domain/origin/subdomain/root/base path |
 | `PWA.onChange(fn)` | Subscribe to state changes; returns unsubscribe |
 | `PWA.refresh()` | Re-apply hidden states to the DOM |
 | `PWA.ready` | Promise resolving to the service worker registration |
@@ -442,6 +481,8 @@ helpers) so existing calls keep working.
 | `PWA.showWelcome(options)` / `PWA.showFlow(options)` | Welcome and modal flows |
 | `PWA.showReloadPrompt()` / `PWA.enableReloadPrompt()` | Reload prompt |
 | `PWA.showOfflineAlert()` / `PWA.enableOfflineAlert()` | Offline alert |
+| `PWA.showNetworkDiagnostics()` | Current-host DoH diagnostics and recovery UI |
+| `PWA.runNetworkDiagnostics()` | On-demand classified diagnostics result |
 | `PWA.enableToolbox(options)` / `PWA.showToolbox()` | Create/show the floating install launcher |
 | `PWA.hideToolbox()` / `PWA.disableToolbox()` | Hide or remove the launcher |
 | `PWA.createAppleSplashScreens()` | Regenerate iOS splash links for the current screen |
@@ -469,6 +510,7 @@ document.addEventListener('pwa:installable', () => {});
 document.addEventListener('pwa:installed', () => {});
 document.addEventListener('pwa:update', () => {});
 document.addEventListener('pwa:share', (event) => {});
+document.addEventListener('pwa:diagnostics', (event) => {});
 document.addEventListener('pwa:event', (event) => {
   console.log(event.detail.name, event.detail.detail);
 });
@@ -586,7 +628,7 @@ app.post('/api/push/send', async (req, res) => {
     await webpush.sendNotification(
       subscription,
       JSON.stringify({
-        title: 'staff.you.ge',
+        title: 'You.Ge Assistant',
         body: req.body.message,
         url: '/',
       })
@@ -642,25 +684,50 @@ allowed; set `data-allow-external-protocol` if the app must handle external link
 
 ## Offline behaviour
 
-- Navigations: network-first, 5 s timeout, cached copy, then `/offline.html`.
+- Navigations: network-first, 5 s timeout, then an explicitly public cached copy or `/offline.html`; HTML is not cached unless the response declares `Cache-Control: public`.
 - Static assets (CSS, JS, images, fonts, media, PDFs): stale-while-revalidate.
 - `/api/*`, non-GET requests and cross-origin requests are never cached.
 - Responses with `Cache-Control: no-store` or `private`, and requests carrying an
   `Authorization` header, are never cached.
 - Bump `VERSION` in `progressier.js` on deploy to invalidate old caches.
 
-The worker deliberately does **not** cache HTML indefinitely, so server-rendered
-pages keep working. If your app is a single-page app that always serves the same
-shell, routes the user already visited stay available; deep links that were never
-visited fall back to `/offline.html`.
+The worker deliberately does **not** cache private or unmarked HTML. It only
+stores navigation responses explicitly marked `Cache-Control: public`; set
+`Cache-Control: private, no-store` on authenticated/personalized pages. If your
+app is a single-page app, public shell routes marked public can remain available;
+deep links that were never visited fall back to `/offline.html`.
 
 ---
+
+## Cloudflare DNS diagnostics and recovery
+
+`dns-diagnostics.js` is an on-demand, non-blocking Cloudflare DoH check for the
+current hostname, followed by a no-store same-origin application probe. Open the
+reusable UI with `PWA.showNetworkDiagnostics()` or call
+`PWA.runNetworkDiagnostics()`. Android instructions cover Private DNS provider
+hostname `one.one.one.one`; iPhone/iPad guidance uses Cloudflare's app in
+DNS-only mode (WARP is not required). Recovery remains available from the cached
+offline page and requires no application authentication.
+
+JavaScript cannot inspect the device's normal DNS resolver. A DoH response is
+not proof of ISP DNS blocking; app, TLS, IP routing, CDN, backend, CORS and general
+network failures are distinguished where possible, and uncertain results remain
+inconclusive. See [`DNS_RECOVERY.md`](DNS_RECOVERY.md) for official setup links,
+store links, classifications and test limitations. Allow
+`https://cloudflare-dns.com` in `connect-src` if the site's CSP is restrictive.
 
 ## Server configuration
 
 HTTPS is mandatory for service workers and install prompts (`localhost` excluded).
 Your CSP must allow the worker (`worker-src 'self'`, or `script-src 'self'` if
-`worker-src` is not set).
+`worker-src` is not set) and, for user-triggered DNS diagnostics, allow
+`https://cloudflare-dns.com` in `connect-src`.
+
+The host-aware manifest handler returns `application/manifest+json`,
+`Cache-Control: private, no-store` and `Vary: Host`. Use the included Cloudflare
+Pages Functions adapter or adapt `manifest-handler.js` to a trusted server/edge
+route. Static hosts need a per-domain generated manifest; do not share a cached
+manifest between hosts.
 
 ### nginx
 
@@ -675,7 +742,6 @@ location = /manifest.webmanifest {
 location = /progressier.js {
     default_type application/javascript;
     add_header Cache-Control "no-cache";
-    add_header Service-Worker-Allowed "/";
 }
 
 location = /pwa.js {
@@ -709,7 +775,6 @@ AddType application/javascript .js
 
 <FilesMatch "^(progressier|pwa)\.js$">
     Header set Cache-Control "no-cache"
-    Header set Service-Worker-Allowed "/"
 </FilesMatch>
 
 <Files "pwa.css">
@@ -737,19 +802,19 @@ This repository publishes two GitHub Pages routes through
 
 The workflow publishes `demo/` at `/` with the shared runtime at the Pages root.
 It publishes `example/` at `/example/` with its own runtime copy, manifest,
-service-worker scope and offline page so the user example behaves as a separate
-installable app.
+service-worker scope and offline page so the sample is a separate installable app.
+GitHub Pages is static and uses the example's static manifest; it cannot execute
+the host-aware manifest function.
 
 The project site is served from `/PWA-Helper/`. `pwa.js` resolves its files
-relative to its own URL, and `progressier.js` resolves precache assets relative
-to its own directory, so their paths remain inside that base. Both manifests use
+relative to its own URL, and `progressier.js` resolves precache assets against
+the registered app scope, so their paths remain inside that base. Both manifests use
 relative `scope` and `start_url` values so each install has its own identity and
 launch path. The example build copies the icons into `/example/icons/` so the
 sample worker and offline page stay within the example app's own scope.
 
-The one exception is `offline.html`: it uses root-absolute asset paths so it
-works for deep offline navigations on a domain-root deployment. The Pages build
-rewrites those links to the repository subpath.
+`offline.html` uses paths relative to its own scope, so root and `/example/`
+copies remain inside their respective deployment paths.
 
 To deploy your own copy on Pages:
 
@@ -763,16 +828,17 @@ At a domain root, nothing needs rewriting.
 
 ## Manifest notes
 
-- `id` is `/HIPSBNVemXtM8VMwRfWs`, which resolves to
-  `https://staff.you.ge/HIPSBNVemXtM8VMwRfWs` — the same identity as before, so
-  existing installations are preserved. Change it only if you intentionally want a
-  new app entry.
-- `start_url` keeps `?launchedfrom=homescreen`, matching the previous setup.
+- The static fallback `id` remains `/HIPSBNVemXtM8VMwRfWs` for compatibility with
+  the previous installation. The dynamic registry keeps this ID only for the
+  legacy host; new origins should use a stable `./` or app-specific ID.
+- The dynamic manifest resolves `id`, `start_url` and `scope` from validated
+  per-host configuration. A static-only deployment can use a per-host generated
+  manifest or the safe You.Ge Assistant fallback.
 - `protocol_handlers` registers both original schemes: `web+pwa:` and
   `web+loldwyhv:`. Both point at
   `/?launchedfrom=homescreen&pwaprotocolredirect=%s`, matching the old manifest.
-- `scope` is `/`. If you deploy under a subpath, make it relative and update the
-  icon paths.
+- The fallback `scope` is `/`. For a subpath, set `basePath` and use `./`
+  start/scope values; the handler ensures the app stays in that scope.
 - Icons are the originals from your Progressier manifest, now hosted locally.
   Replace them with your own artwork if needed.
 
@@ -794,17 +860,19 @@ At a domain root, nothing needs rewriting.
 ## Testing
 
 - **Chrome DevTools → Application**: Manifest (no errors), Service Workers (activated),
-  Cache Storage (`pwa-static-*`, `pwa-pages-*`).
+  Cache Storage (`you-ge-assistant:<host>:<scope>:static/pages:<version>`).
 - **Lighthouse → PWA**: installability and offline checks.
 - `chrome://web-app-internals`: installability diagnostics.
-- Toggle **Offline** in DevTools and reload a visited page → offline page or cached
-  shell should appear.
+- Toggle **Offline** in DevTools and reload a visited route → a matching public
+  cached page (only with `Cache-Control: public`) or the scoped offline page should appear.
 - Install on Android and use the system share sheet → the app should open with the
   shared file/URL.
 - iOS: open in Safari → Share → Add to Home Screen; verify standalone launch and
   safe-area layout.
 - Push: subscribe, send a test notification, click it, check badge count.
-- Live deployment: `node scripts/verify-deployment.mjs https://staff.you.ge`.
+- Live deployment: `node scripts/verify-deployment.mjs https://your-domain.example`.
+- `npm test`: deterministic domain, manifest-handler and mocked DNS tests; this
+  does not verify real ISP DNS interference.
 
 ---
 
