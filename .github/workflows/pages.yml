@@ -20,6 +20,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: example/package-lock.json
+
+      - name: Build ReactBits example
+        run: npm ci && npm run build
+        working-directory: example
+
       - name: Assemble GitHub Pages site
         run: |
           set -euo pipefail
@@ -43,8 +53,8 @@ jobs:
              offline.html offline.css offline.js \
              browserconfig.xml favicon.ico _site/example/
           cp -r icons _site/example/icons
-          cp example/index.html example/example.css example/example.js \
-             example/manifest.webmanifest _site/example/
+          cp -r example/dist/. _site/example/
+          cp example/example.js example/manifest.webmanifest example/THIRD_PARTY_NOTICES.md _site/example/
 
           # GitHub Pages project sites are served from /<repo>/. Browserconfig
           # still uses absolute tile paths; rewrite each file for its own scope.

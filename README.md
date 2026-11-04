@@ -18,8 +18,10 @@ install, toolbox, QR, offline recovery, push, share, caches, theme, wording and
 network diagnostics.
 
 **User-facing example:** <https://sandro-defender.github.io/PWA-Helper/example/> —
-a cleaner sample staff workspace showing how the helper can feel inside a real app.
-Its schedule/checklist interactions use sample data stored only in the visitor’s browser.
+a polished sample staff workspace with an animated React Bits ElectricLogo. Its
+schedule/checklist interactions use sample data stored only in the visitor’s
+browser. The React/OGL build dependencies are isolated to `example/`; the core PWA
+toolkit remains dependency-free. See [`example/README.md`](example/README.md).
 
 > **For AI coding agents:** start with [`AGENTS.md`](AGENTS.md). It is a
 > step-by-step integration playbook — file placement, manifest adaptation,

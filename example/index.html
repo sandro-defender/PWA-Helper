@@ -10,7 +10,7 @@
     />
     <title>Staff Space — Example</title>
 
-    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" href="favicon.ico" sizes="any" />
     <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png" />
@@ -42,7 +42,9 @@
     <header class="site-header">
       <div class="header-inner">
         <a class="brand" href="./" aria-label="Staff Space home">
-          <img src="icons/icon-192.png" alt="" width="44" height="44" />
+          <span id="assistant-electric-logo" class="brand-emblem" aria-hidden="true">
+            <img class="brand-emblem-fallback" src="icons/icon-192.png" alt="" width="44" height="44" />
+          </span>
           <span class="brand-copy">
             <strong>Staff Space</strong>
             <span>TEAM WORKSPACE</span>
@@ -207,7 +209,10 @@
       <div class="footer-inner">
         <span>Staff Space is a sample interface. Check-ins and checklist items are local to this browser.</span>
         <span>Powered by You.Ge Assistant</span>
+        <span class="footer-attribution">ElectricLogo by React Bits · <a href="./THIRD_PARTY_NOTICES.md">Third-party notices</a></span>
       </div>
     </footer>
+
+    <script type="module" src="./src/main.jsx"></script>
   </body>
 </html>

@@ -107,7 +107,7 @@ copy for a subpath deployment.
 | `examples/push-server/` | example | Minimal Node push sender |
 | `LICENSE`, `package.json` | repo | MIT license and `npm run check` / `verify` / `keys` scripts |
 | `demo/` | example | Full-feature GitHub Pages playground for testing the helper |
-| `example/` | example | Polished, user-facing sample integration and subpath-safe manifest |
+| `example/` | example | ReactBits ElectricLogo sample PWA, isolated React/OGL build, subpath-safe manifest |
 | `.github/workflows/` | repo | `check.yml` static checks, `pages.yml` playground + example deploy |
 
 Keep the directory shape when copying. If the target project uses a `public/`
