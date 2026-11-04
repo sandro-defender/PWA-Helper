@@ -1,66 +1,36 @@
 <!--
-  staff.you.ge PWA — replace the two progressier.app tags with this block.
-
-  Old:
-    <link rel="manifest" href="https://progressier.app/HIPSBNVemXtM8VMwRfWs/progressier.json"/>
-    <script defer src="https://progressier.app/HIPSBNVemXtM8VMwRfWs/script.js"></script>
-
-  Keep the service worker at /progressier.js; do not rename it.
+  You.Ge Assistant PWA integration.
+  Keep /progressier.js at its existing path when migrating an installed app.
+  Load the public domain registry and resolver before pwa.js.
 -->
-
-<!-- Core -->
 <link rel="manifest" href="/manifest.webmanifest" />
 <link rel="icon" href="/favicon.ico" sizes="any" />
 <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png" />
 <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />
 
-<!-- Browser / iOS / Windows chrome -->
-<meta name="theme-color" content="#ffffff" />
-<meta name="application-name" content="staff.you.ge" />
-<meta name="apple-mobile-web-app-title" content="staff.you.ge" />
+<meta name="theme-color" content="#155eef" />
+<meta name="application-name" content="You.Ge Assistant" />
+<meta name="apple-mobile-web-app-title" content="You.Ge" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-<meta name="msapplication-TileColor" content="#ffffff" />
+<meta name="msapplication-TileColor" content="#f8fafc" />
 <meta name="msapplication-TileImage" content="/icons/icon-144.png" />
 <meta name="msapplication-config" content="/browserconfig.xml" />
 
-<!-- Client: install UI, offline alert, banners, push -->
+<script src="/domain-registry.js" defer></script>
+<script src="/domain-config.js" defer></script>
+<script src="/dns-diagnostics.js" defer></script>
 <script
   src="/pwa.js"
   defer
   data-sw="/progressier.js"
-  data-sw-scope="/"
   data-manifest="/manifest.webmanifest"
 ></script>
 
-<!--
-  Optional push. Add these only after the endpoint and VAPID keys exist:
-
-    data-vapid-public-key="BEl62i..."
-    data-push-endpoint="/api/push/subscribe"
-
-  Optional auto-show (off by default so nothing appears unexpectedly):
-
-    data-install-banner
-    data-push-banner
-    data-offline-alert
-    data-welcome
-    data-toolbox
-    data-toolbox-position="right"
-
-  Optional overrides:
-
-    data-css="/pwa.css"
-    data-icon="/icons/icon-192.png"
-    data-splash-icon="/icons/icon-512.png"
-    data-app-name="staff.you.ge"
-    data-theme-color="#ffffff"
-    data-start-url="/?launchedfrom=homescreen"
-    data-no-meta
-    data-no-css
-    data-no-splash
-    data-auto-update
-    data-csp-nonce="..."
-    data-debug
--->
+<!-- Optional attributes for the pwa.js script: data-base-path, data-css,
+     data-icon, data-splash-icon, data-app-name, data-theme-color,
+     data-start-url, data-vapid-public-key, data-push-endpoint,
+     data-install-banner, data-push-banner, data-offline-alert, data-welcome,
+     data-toolbox, data-toolbox-position, data-no-meta, data-no-css,
+     data-no-splash, data-auto-update, data-csp-nonce, data-debug. -->

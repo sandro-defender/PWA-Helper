@@ -39,7 +39,7 @@ console.log(privateKeyValue);
 console.log('\nEnvironment variables:\n');
 console.log('VAPID_PUBLIC_KEY=' + publicKeyValue);
 console.log('VAPID_PRIVATE_KEY=' + privateKeyValue);
-console.log('VAPID_SUBJECT=mailto:admin@staff.you.ge');
+console.log('VAPID_SUBJECT=mailto:admin@example.com  # replace with an address you control');
 
 if (shouldWrite) {
   const target = '.vapid-keys.json';

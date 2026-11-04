@@ -52,6 +52,20 @@ main {
   box-shadow: 0 12px 32px rgb(15 23 42 / 0.12);
 }
 
+.app-name {
+  margin-bottom: 6px;
+  color: var(--fg);
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+
+.domain-context {
+  margin-bottom: 18px;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+}
+
 .badge {
   display: inline-flex;
   align-items: center;
@@ -104,8 +118,44 @@ p {
   cursor: pointer;
 }
 
-.button:active {
-  transform: translateY(1px);
+.secondary-button {
+  margin-top: 10px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--fg);
+}
+
+.button:focus-visible,
+a:focus-visible,
+summary:focus-visible {
+  outline: 3px solid var(--brand, #155eef);
+  outline-offset: 3px;
+}
+
+.recovery-guide {
+  margin-top: 20px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  text-align: left;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.recovery-guide summary {
+  color: var(--fg);
+  cursor: pointer;
+  font-weight: 650;
+}
+
+.recovery-guide p {
+  margin: 12px 0 0;
+  font-size: 13px;
+}
+
+.recovery-guide a {
+  color: var(--brand, #155eef);
 }
 
 .hint {

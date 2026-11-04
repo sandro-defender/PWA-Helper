@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#f4f7f4" />
     <meta
       name="description"
-      content="A polished, installable sample staff workspace powered by the self-hosted PWA kit."
+      content="A polished, installable sample staff workspace powered by You.Ge Assistant."
     />
     <title>Staff Space — Example</title>
 
@@ -16,6 +16,9 @@
     <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png" />
     <link rel="stylesheet" href="example.css" />
 
+    <script src="domain-registry.js" defer></script>
+    <script src="domain-config.js" defer></script>
+    <script src="dns-diagnostics.js" defer></script>
     <script
       src="pwa.js"
       defer
@@ -52,6 +55,7 @@
         </nav>
 
         <div class="header-actions">
+          <button type="button" data-pwa-diagnostics aria-label="Open network diagnostics">Network help</button>
           <span class="connection-pill" id="connection-status" role="status" aria-live="polite">
             <span class="connection-dot" aria-hidden="true"></span>
             <span id="connection-label">Checking connection</span>
@@ -195,14 +199,14 @@
       </section>
 
       <p class="playground-link">
-        Looking for the feature test page? <a href="../">Open the PWA kit playground</a>.
+        Looking for the feature test page? <a href="../">Open the You.Ge Assistant playground</a>.
       </p>
     </main>
 
     <footer class="site-footer">
       <div class="footer-inner">
         <span>Staff Space is a sample interface. Check-ins and checklist items are local to this browser.</span>
-        <span>Powered by the self-hosted PWA kit</span>
+        <span>Powered by You.Ge Assistant</span>
       </div>
     </footer>
   </body>

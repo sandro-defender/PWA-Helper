@@ -31,6 +31,7 @@ jobs:
 
           # Put the shared runtime at the Pages root for the playground.
           cp pwa.js pwa.css progressier.js qrcode.js \
+             domain-config.js domain-registry.js dns-diagnostics.js \
              offline.html offline.css offline.js \
              browserconfig.xml favicon.ico _site/
           cp -r icons _site/icons
@@ -38,31 +39,22 @@ jobs:
           # The user-facing sample is a separate, fully scoped PWA. Its own
           # runtime copy gives it an /example/ service worker and offline page.
           cp pwa.js pwa.css progressier.js qrcode.js \
+             domain-config.js domain-registry.js dns-diagnostics.js \
              offline.html offline.css offline.js \
              browserconfig.xml favicon.ico _site/example/
           cp -r icons _site/example/icons
           cp example/index.html example/example.css example/example.js \
              example/manifest.webmanifest _site/example/
 
-          # GitHub Pages project sites are served from /<repo>/. The worker and
-          # client resolve assets relative to their own URL. The offline pages
-          # use root-absolute links, so rewrite each copy for its own scope.
+          # GitHub Pages project sites are served from /<repo>/. Browserconfig
+          # still uses absolute tile paths; rewrite each file for its own scope.
           BASE="/${GITHUB_REPOSITORY#*/}"
-
           sed -i "s|src=\"/icons/|src=\"${BASE}/icons/|g" _site/browserconfig.xml
           sed -i "s|src=\"/icons/|src=\"${BASE}/example/icons/|g" _site/example/browserconfig.xml
 
-          sed -i "s|=\"/icons/|=\"${BASE}/icons/|g" _site/offline.html
-          sed -i "s|=\"/offline[.]css\"|=\"${BASE}/offline.css\"|g" _site/offline.html
-          sed -i "s|=\"/offline[.]js\"|=\"${BASE}/offline.js\"|g" _site/offline.html
-          sed -i "s|href=\"/\"|href=\"${BASE}/\"|g" _site/offline.html
-          sed -i "s|staff[.]you[.]ge|PWA Kit playground|g" _site/offline.html
-
-          sed -i "s|=\"/icons/|=\"${BASE}/example/icons/|g" _site/example/offline.html
-          sed -i "s|=\"/offline[.]css\"|=\"${BASE}/example/offline.css\"|g" _site/example/offline.html
-          sed -i "s|=\"/offline[.]js\"|=\"${BASE}/example/offline.js\"|g" _site/example/offline.html
-          sed -i "s|href=\"/\"|href=\"${BASE}/example/\"|g" _site/example/offline.html
-          sed -i "s|staff[.]you[.]ge|Staff Space|g" _site/example/offline.html
+          # The sample app has its own fallback brand when the host is not
+          # explicitly registered. Registered host branding still takes priority.
+          sed -i 's/data-default-app-name="You.Ge Assistant"/data-default-app-name="Staff Space"/' _site/example/offline.html
 
           touch _site/.nojekyll
           find _site -maxdepth 3 -type f | sort

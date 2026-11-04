@@ -8,7 +8,7 @@
   "display_override": ["standalone", "minimal-ui"],
   "dir": "auto",
   "lang": "en",
-  "description": "A sample installable staff workspace powered by the self-hosted PWA kit.",
+  "description": "A sample installable staff workspace powered by You.Ge Assistant.",
   "background_color": "#f4f7f4",
   "theme_color": "#f4f7f4",
   "categories": ["business", "productivity"],

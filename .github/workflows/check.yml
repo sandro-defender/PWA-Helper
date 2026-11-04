@@ -21,9 +21,12 @@ jobs:
 
       - name: Syntax check every script
         run: |
-          for file in pwa.js progressier.js offline.js qrcode.js example/example.js; do
+          for file in pwa.js progressier.js offline.js domain-config.js domain-registry.js dns-diagnostics.js manifest-handler.js functions/manifest.webmanifest.js qrcode.js example/example.js; do
             node --check "$file"
           done
+
+      - name: Unit tests
+        run: npm test
 
       - name: Manifest parses
         run: node -e "JSON.parse(require('fs').readFileSync('manifest.webmanifest','utf8')); console.log('manifest ok')"

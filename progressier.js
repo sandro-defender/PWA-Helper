@@ -16,15 +16,38 @@
  * Configuration
  * ------------------------------------------------------------------ */
 
-const VERSION = '1.0.4';
-const STATIC_CACHE = `pwa-static-${VERSION}`;
-const PAGE_CACHE = `pwa-pages-${VERSION}`;
-const CACHE_PREFIX = 'pwa-'; // only caches with this prefix are ever deleted
+const VERSION = '1.0.5';
+const WORKER_DIRECTORY = new URL('./', self.location.href);
+const REGISTRATION_SCOPE = self.registration && self.registration.scope
+  ? new URL(self.registration.scope, self.location.href)
+  : WORKER_DIRECTORY;
+const SCOPE_PATH = REGISTRATION_SCOPE.pathname;
+try {
+  importScripts(new URL('domain-registry.js', self.location.href).href, new URL('domain-config.js', self.location.href).href);
+} catch (error) {
+  // Older integrations may not yet have the optional domain configuration files.
+}
+const DOMAIN_CONFIG = self.YouGeDomain && typeof self.YouGeDomain.resolve === 'function'
+  ? self.YouGeDomain.resolve({
+      hostname: self.location.hostname,
+      origin: self.location.origin,
+      protocol: self.location.protocol,
+      pathname: SCOPE_PATH,
+      basePath: SCOPE_PATH,
+    })
+  : { features: { offline: true } };
+const OFFLINE_ENABLED = !DOMAIN_CONFIG.features || DOMAIN_CONFIG.features.offline !== false;
+const SHARING_ENABLED = !DOMAIN_CONFIG.features || DOMAIN_CONFIG.features.sharing !== false;
+const PUSH_ENABLED = !DOMAIN_CONFIG.features || DOMAIN_CONFIG.features.push !== false;
+const BADGES_ENABLED = !DOMAIN_CONFIG.features || DOMAIN_CONFIG.features.badges !== false;
+const CACHE_NAMESPACE = `you-ge-assistant:${encodeURIComponent(self.location.hostname.toLowerCase())}:${encodeURIComponent(SCOPE_PATH)}:`;
+const STATIC_CACHE = `${CACHE_NAMESPACE}static:v${VERSION}`;
+const PAGE_CACHE = `${CACHE_NAMESPACE}pages:v${VERSION}`;
+const LEGACY_CACHES = ['pwa-static-1.0.4', 'pwa-pages-1.0.4'];
 
-// Asset URLs are resolved against the directory that serves this worker, so the
-// same file works at the origin root (/) and under a subpath (/app/, GitHub
-// Pages project sites) without editing paths.
-const SCOPE_URL = new URL('./', self.location.href).href;
+// App-shell assets are resolved against the registered app scope, which may be
+// narrower than the worker script directory when explicitly configured.
+const SCOPE_URL = REGISTRATION_SCOPE.href;
 const OFFLINE_URL = new URL('offline.html', SCOPE_URL).href;
 const SHARE_TARGET_PATH = new URL('share-target', SCOPE_URL).pathname;
 const HOME_URL = SCOPE_URL;
@@ -34,7 +57,7 @@ const NOTIF_DB = 'progressierSavedPushNotifications';
 const NOTIF_STORE = 'progressierSavedPushNotifications';
 const META_DB = 'pwakit';
 const META_STORE = 'meta';
-const DEFAULT_ICON = new URL('icons/icon-192.png', SCOPE_URL).href;
+const DEFAULT_ICON = new URL((DOMAIN_CONFIG.branding && DOMAIN_CONFIG.branding.icon) || 'icons/icon-192.png', SCOPE_URL).href;
 const WORKER_PATH = new URL(self.location.href).pathname;
 const CLIENT_PATH = new URL('pwa.js', SCOPE_URL).pathname;
 const MAX_SHARED_FILE_BYTES = 25 * 1024 * 1024;
@@ -48,12 +71,6 @@ const STATIC_EXTENSIONS = /\.(?:css|m?js|png|jpe?g|gif|webp|avif|svg|ico|bmp|wof
  * ------------------------------------------------------------------ */
 
 const noop = () => {};
-
-function timeout(ms) {
-  return new Promise((_, reject) => {
-    setTimeout(() => reject(new Error('timeout')), ms);
-  });
-}
 
 function randomId(length = 12) {
   const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -69,7 +86,10 @@ function isCacheable(response, request) {
   if (response.type !== 'basic') return false;
   if (request && request.headers.has('authorization')) return false;
   const cacheControl = response.headers.get('cache-control') || '';
-  if (cacheControl.includes('no-store') || cacheControl.includes('private')) return false;
+  if (/\b(?:no-store|no-cache|private)\b/i.test(cacheControl)) return false;
+  // Navigation HTML is cached only when the server explicitly marks it public.
+  // This avoids persisting personalized pages by default; APIs are excluded below.
+  if (request && request.mode === 'navigate' && !/\bpublic\b/i.test(cacheControl)) return false;
   const length = Number(response.headers.get('content-length') || 0);
   if (length > MAX_CACHEABLE_BYTES) return false;
   return true;
@@ -79,10 +99,42 @@ function deletedCaches(currentCaches) {
   return caches.keys().then((names) =>
     Promise.all(
       names
-        .filter((name) => name.startsWith(CACHE_PREFIX) && !currentCaches.includes(name))
+        .filter((name) => name.startsWith(CACHE_NAMESPACE) && !currentCaches.includes(name))
         .map((name) => caches.delete(name))
     )
   );
+}
+
+// Copy only URLs that belong to this worker's scope from the last known kit
+// cache names. Leave legacy caches in place: older versions used shared names,
+// so deleting them could erase another app's cache on a shared origin.
+async function migrateLegacyCaches() {
+  const [staticCache, pageCache] = await Promise.all([
+    caches.open(STATIC_CACHE),
+    caches.open(PAGE_CACHE),
+  ]);
+  for (const legacyName of LEGACY_CACHES) {
+    if (!(await caches.has(legacyName))) continue;
+    const legacy = await caches.open(legacyName).catch(() => null);
+    if (!legacy) continue;
+    const keys = await legacy.keys();
+    for (const request of keys) {
+      const url = new URL(request.url);
+      if (url.origin !== self.location.origin || !url.pathname.startsWith(SCOPE_PATH)) continue;
+      const response = await legacy.match(request);
+      if (!response) continue;
+      if (legacyName.indexOf('pages') !== -1) {
+        const cacheControl = response.headers.get('cache-control') || '';
+        if (request.headers.has('authorization') || !/\bpublic\b/i.test(cacheControl) || /\b(?:private|no-store|no-cache)\b/i.test(cacheControl)) continue;
+      }
+      try {
+        const targetCache = legacyName.indexOf('static') !== -1 ? staticCache : pageCache;
+        if (!(await targetCache.match(request))) await targetCache.put(request, response);
+      } catch (error) {
+        noop();
+      }
+    }
+  }
 }
 
 /* ------------------------------------------------------------------ *
@@ -183,6 +235,7 @@ async function getBadgeCount() {
 }
 
 async function setBadgeCount(count) {
+  if (!BADGES_ENABLED) return;
   const safe = Math.max(0, Math.floor(count) || 0);
   try {
     await idbPut(META_DB, META_STORE, { id: 'unread', count: safe });
@@ -236,19 +289,24 @@ function base64ToUint8Array(base64) {
 self.addEventListener('install', (event) => {
   event.waitUntil(
     (async () => {
-      const cache = await caches.open(STATIC_CACHE);
-      const precache = [
-        OFFLINE_URL,
-        new URL('offline.js', SCOPE_URL).href,
-        new URL('offline.css', SCOPE_URL).href,
-        new URL('pwa.css', SCOPE_URL).href,
-        new URL('qrcode.js', SCOPE_URL).href,
-        DEFAULT_ICON,
-        new URL('icons/icon-512.png', SCOPE_URL).href,
-      ];
-      await Promise.allSettled(
-        precache.map((url) => cache.add(new Request(url, { cache: 'reload' })))
-      );
+      if (OFFLINE_ENABLED) {
+        const cache = await caches.open(STATIC_CACHE);
+        const precache = [
+          OFFLINE_URL,
+          new URL('offline.js', SCOPE_URL).href,
+          new URL('offline.css', SCOPE_URL).href,
+          new URL('domain-config.js', SCOPE_URL).href,
+          new URL('domain-registry.js', SCOPE_URL).href,
+          new URL('dns-diagnostics.js', SCOPE_URL).href,
+          new URL('pwa.css', SCOPE_URL).href,
+          new URL('qrcode.js', SCOPE_URL).href,
+          DEFAULT_ICON,
+          new URL('icons/icon-512.png', SCOPE_URL).href,
+        ];
+        await Promise.allSettled(
+          precache.map((url) => cache.add(new Request(url, { cache: 'reload' })))
+        );
+      }
       // Do NOT skipWaiting here. Updates wait until the page asks for them,
       // which prevents mixing old HTML with new JS.
     })()
@@ -258,6 +316,7 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     (async () => {
+      if (OFFLINE_ENABLED) await migrateLegacyCaches();
       await deletedCaches([STATIC_CACHE, PAGE_CACHE]);
       if (self.registration.navigationPreload) {
         try {
@@ -280,13 +339,15 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
 
   // Share target POST — always handled, never cached.
-  if (request.method === 'POST' && url.origin === self.location.origin && url.pathname === SHARE_TARGET_PATH) {
+  if (SHARING_ENABLED && request.method === 'POST' && url.origin === self.location.origin && url.pathname === SHARE_TARGET_PATH) {
     event.respondWith(handleShareTarget(request));
     return;
   }
 
+  if (!OFFLINE_ENABLED) return;
   if (request.method !== 'GET') return;
   if (url.origin !== self.location.origin) return;
+  if (!url.pathname.startsWith(SCOPE_PATH)) return;
   if (request.headers.has('range')) return;
   if (url.pathname.indexOf('/api/') !== -1) return;
   if (url.pathname === WORKER_PATH || url.pathname === CLIENT_PATH) return;
@@ -302,13 +363,28 @@ self.addEventListener('fetch', (event) => {
   }
 });
 
+async function scopeOfflineResponse(response) {
+  const source = await response.text();
+  const safeBase = SCOPE_PATH.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '%3C');
+  const html = source.replace(/<head(\b[^>]*)>/i, (opening) => `${opening}<base href="${safeBase}">`);
+  const headers = new Headers(response.headers);
+  ['content-length', 'content-encoding', 'content-md5', 'etag', 'last-modified'].forEach((name) => headers.delete(name));
+  headers.set('Content-Type', 'text/html; charset=utf-8');
+  return new Response(html, { status: response.status, statusText: response.statusText, headers });
+}
+
 async function networkFirstPage(request) {
   const cache = await caches.open(PAGE_CACHE);
+  const controller = typeof AbortController === 'function' ? new AbortController() : null;
+  let timer;
   try {
     const response = await Promise.race([
-      fetch(request),
-      timeout(NAVIGATION_TIMEOUT_MS).then(() => {
-        throw new Error('timeout');
+      controller ? fetch(request, { signal: controller.signal }) : fetch(request),
+      new Promise((_, reject) => {
+        timer = setTimeout(() => {
+          if (controller) controller.abort();
+          reject(new Error('timeout'));
+        }, NAVIGATION_TIMEOUT_MS);
       }),
     ]);
     if (isCacheable(response, request)) {
@@ -321,13 +397,15 @@ async function networkFirstPage(request) {
 
     const staticCache = await caches.open(STATIC_CACHE);
     const offline = (await staticCache.match(OFFLINE_URL)) || (await caches.match(OFFLINE_URL));
-    if (offline) return offline;
+    if (offline) return scopeOfflineResponse(offline);
 
     return new Response(
       '<!doctype html><meta charset="utf-8"><title>Offline</title>' +
         '<p>You are offline. Reconnect and try again.</p>',
       { status: 503, headers: { 'Content-Type': 'text/html; charset=utf-8' } }
     );
+  } finally {
+    if (timer) clearTimeout(timer);
   }
 }
 
@@ -489,6 +567,7 @@ async function markNotificationClicked(id) {
 }
 
 self.addEventListener('push', (event) => {
+  if (!PUSH_ENABLED) return;
   event.waitUntil(
     (async () => {
       const payload = normalizePushPayload(event);
@@ -573,6 +652,7 @@ self.addEventListener('notificationclick', (event) => {
 });
 
 self.addEventListener('pushsubscriptionchange', (event) => {
+  if (!PUSH_ENABLED) return;
   event.waitUntil(
     (async () => {
       try {
@@ -669,8 +749,8 @@ self.addEventListener('message', (event) => {
           .then((names) =>
             Promise.all(
               names
-                .filter((name) => name.startsWith(CACHE_PREFIX))
-                .filter((name) => includeStatic || !name.startsWith('pwa-static-'))
+                .filter((name) => name.startsWith(CACHE_NAMESPACE))
+                .filter((name) => includeStatic || !name.includes(':static:'))
                 .map((name) => caches.delete(name))
             )
           )

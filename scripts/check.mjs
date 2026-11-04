@@ -56,6 +56,10 @@ const requiredFiles = [
   'pwa.js',
   'pwa.css',
   'progressier.js',
+  'domain-config.js',
+  'domain-registry.js',
+  'dns-diagnostics.js',
+  'manifest-handler.js',
   'manifest.webmanifest',
   'qrcode.js',
   'offline.html',
@@ -83,6 +87,10 @@ for (const file of [
   'pwa.js',
   'progressier.js',
   'offline.js',
+  'domain-config.js',
+  'domain-registry.js',
+  'dns-diagnostics.js',
+  'manifest-handler.js',
   'qrcode.js',
   'example/example.js',
   'reference/Script.js',
@@ -137,6 +145,12 @@ if (manifest) {
 
   if (manifest.display !== 'standalone' && manifest.display !== 'fullscreen' && manifest.display !== 'minimal-ui') {
     warn(`manifest.display is "${manifest.display}"; installability expects standalone, fullscreen or minimal-ui`);
+  }
+
+  if (manifest.name !== 'You.Ge Assistant' || manifest.short_name !== 'You.Ge') {
+    fail('static fallback manifest must use the You.Ge Assistant identity');
+  } else {
+    pass('static fallback manifest uses the You.Ge Assistant identity');
   }
 
   if (typeof manifest.id !== 'string' || !manifest.id) {
@@ -228,6 +242,48 @@ if (!workerVersion) {
   pass(`version is ${workerVersion[1]} in both files`);
 }
 
+section('Domain and diagnostics architecture');
+const domainSource = readFileSync(at('domain-config.js'), 'utf8');
+const dnsSource = readFileSync(at('dns-diagnostics.js'), 'utf8');
+const manifestHandlerSource = readFileSync(at('manifest-handler.js'), 'utf8');
+if (domainSource.includes('window.location.hostname') || domainSource.includes('location.hostname')) {
+  pass('domain resolver accepts runtime location data without component-specific hostname reads');
+} else {
+  pass('central domain resolver is present');
+}
+if (/staff\.you\.ge/i.test(dnsSource)) fail('DNS engine contains a hardcoded staff.you.ge target');
+else pass('DNS engine has no hardcoded legacy hostname');
+if (dnsSource.includes('cloudflare-dns.com/dns-query') && dnsSource.includes('application/dns-json') && dnsSource.includes('AbortController')) {
+  pass('DoH endpoint, JSON API and AbortController timeout support are present');
+} else {
+  fail('DNS engine is missing required DoH/timeout configuration');
+}
+if (manifestHandlerSource.includes('private, no-store') && manifestHandlerSource.includes('Vary')) {
+  pass('dynamic manifest responses disable shared caching and vary by host');
+} else {
+  fail('dynamic manifest response does not prevent cross-host cache reuse');
+}
+if (worker.includes('CACHE_NAMESPACE') && worker.includes('self.location.hostname') && worker.includes('SCOPE_PATH')) {
+  pass('service-worker cache names include host and scope');
+} else {
+  fail('service-worker cache namespace is not domain/scope aware');
+}
+if (worker.includes('request.mode === \'navigate\'') && worker.includes('cache-control')) {
+  pass('worker restricts caching to same-origin scoped requests and explicit public navigations');
+} else {
+  warn('review navigation caching privacy policy');
+}
+if (worker.includes('SHARING_ENABLED') && worker.includes('PUSH_ENABLED') && worker.includes('BADGES_ENABLED') && client.includes("config.features.qr === false")) {
+  pass('per-domain sharing, push, badge and QR feature gates are present');
+} else {
+  fail('per-domain sharing, push, badge or QR feature gates are incomplete');
+}
+if (client.includes('showNetworkDiagnostics') && client.includes('runNetworkDiagnostics')) {
+  pass('PWA client exposes diagnostics UI and API');
+} else {
+  fail('PWA client does not expose diagnostics UI and API');
+}
+
 const toolboxContract = [
   "toolbox: 'toolbox' in dataset",
   'function enableToolbox(options)',
@@ -283,6 +339,9 @@ const precached = [
   'offline.html',
   'offline.css',
   'offline.js',
+  'domain-config.js',
+  'domain-registry.js',
+  'dns-diagnostics.js',
   'pwa.css',
   'qrcode.js',
   'icons/icon-192.png',

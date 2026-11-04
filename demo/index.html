@@ -3,14 +3,14 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <title>PWA Kit playground</title>
+    <title>You.Ge Assistant — PWA playground</title>
 
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="icon" href="favicon.ico" sizes="any" />
     <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png" />
     <meta name="theme-color" content="#ffffff" />
-    <meta name="description" content="Live demo of the self-hosted PWA kit: install, QR, offline, banners and push." />
+    <meta name="description" content="Explore You.Ge Assistant PWA installation, offline support, QR sharing and network diagnostics." />
 
     <style>
       :root {
@@ -188,14 +188,14 @@
       against the directory that serves pwa.js. That is why this demo works from
       a GitHub Pages subpath (/PWA-Helper/) with no path configuration.
     -->
+    <script src="domain-registry.js" defer></script>
+    <script src="domain-config.js" defer></script>
+    <script src="dns-diagnostics.js" defer></script>
     <script
       src="pwa.js"
       defer
       data-desktop-qr
       data-toolbox
-      data-app-name="PWA Kit playground"
-      data-theme-color="#ffffff"
-      data-start-url="?launchedfrom=homescreen"
     ></script>
   </head>
 
@@ -204,8 +204,8 @@
       <header>
         <img src="icons/icon-192.png" alt="" width="56" height="56" />
         <div>
-          <h1>PWA Kit playground</h1>
-          <p class="sub">Test install, QR, offline, push, share, cache, theme, wording and UI components.</p>
+          <h1>You.Ge Assistant</h1>
+          <p class="sub">PWA playground · <span id="current-domain"></span></p>
         </div>
       </header>
 
@@ -237,6 +237,12 @@
         to install there. <strong>Android/Chrome:</strong> the real
         <code>beforeinstallprompt</code> flow runs when the browser offers it.
       </p>
+
+      <h2>Network diagnostics</h2>
+      <div class="actions">
+        <button type="button" id="btn-diagnostics">Run diagnostics for this domain</button>
+      </div>
+      <p class="note">Cloudflare DoH checks the current hostname only. JavaScript cannot inspect the device’s normal DNS resolver, and a host failure is not proof of DNS interference.</p>
 
       <h2>Notifications</h2>
       <div class="actions">
@@ -334,6 +340,7 @@
         }
 
         PWA.onChange(refresh);
+        document.getElementById('current-domain').textContent = window.location.hostname;
         refresh();
         setInterval(refresh, 1000);
 
@@ -346,7 +353,7 @@
           write('service workers are not supported in this browser');
         }
 
-        ['pwa:installable', 'pwa:installed', 'pwa:update', 'pwa:share', 'pwa:event'].forEach(function (name) {
+        ['pwa:installable', 'pwa:installed', 'pwa:update', 'pwa:share', 'pwa:event', 'pwa:diagnostics'].forEach(function (name) {
           document.addEventListener(name, function (event) {
             var detail = event.detail ? JSON.stringify(event.detail).slice(0, 160) : '';
             write(name + (detail ? '  ' + detail : ''));
@@ -355,6 +362,10 @@
 
         document.getElementById('btn-help').addEventListener('click', function () {
           PWA.showInstallHelp(PWA.isIOS() ? 'ios' : 'generic');
+        });
+
+        document.getElementById('btn-diagnostics').addEventListener('click', function () {
+          PWA.showNetworkDiagnostics();
         });
 
         document.getElementById('btn-permission').addEventListener('click', function () {

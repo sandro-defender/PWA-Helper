@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Verify a deployed copy of this PWA kit.
+ * Verify a deployed copy of You.Ge Assistant.
  *
  *   node scripts/verify-deployment.mjs https://your-domain.example
  *   node scripts/verify-deployment.mjs http://localhost:3000
@@ -12,7 +12,7 @@ const target = process.argv[2];
 
 if (!target) {
   console.error('Usage: node scripts/verify-deployment.mjs <deployed-url>');
-  console.error('Example: node scripts/verify-deployment.mjs https://staff.you.ge');
+  console.error('Example: node scripts/verify-deployment.mjs https://your-domain.example');
   process.exit(2);
 }
 
