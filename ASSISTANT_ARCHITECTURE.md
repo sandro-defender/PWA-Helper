@@ -251,6 +251,38 @@ The failover module (Phase 4, **not implemented here**) will support:
 > authentication, endpoint ownership, write semantics and failover policy all
 > require inspecting the real `staff.you.ge` implementation first.
 
+## 9.5. Intelligent Floating Assistant (implemented on this branch)
+
+Phase 1.5 delivers the reusable widget described in [`WIDGET.md`](WIDGET.md).
+It is a core SDK feature, not dashboard decoration, and is available on every
+configured page after initialization:
+
+- `assistant-state.js` is the centralized, event-driven state model. It owns
+  project identity, install capability/status, network/DNS/primary/backup/
+  session state, available actions, the fixed priority ladder, badge,
+  appearance and dismissed/acknowledged notices.
+- `assistant-widget.js` (dependency-free DOM) and `example/src/main.jsx`
+  (React + React Bits) are thin renderers of that one snapshot. Neither owns a
+  second state model, calls `fetch`, registers a service worker, polls, or
+  auto-opens.
+- The existing `pwa.js` install flow and `progressier.js` worker are preserved.
+  Install/diagnostics actions delegate through `[data-pwa-install]` /
+  `[data-pwa-diagnostics]` rather than issuing duplicate prompts or requests.
+- `YOU_GE_ASSISTANT_CONFIG` is a data-only SDK interface for enablement,
+  branding, position/offsets, modules, notification behavior, project actions,
+  features and theme. No dashboard is contacted after initialization.
+- Project-published `youge:endpoint-status`, `youge:session-status`,
+  `youge:dns-result` and `pwa:*` events drive updates. Endpoint/session health
+  is published, not probed; domain detection is never authentication.
+- `demo/index.html`, `example/index.html`, `offline.html` and `snippet.html`
+  demonstrate the same state model across vanilla DOM, React and offline
+  surfaces. The Pages workflow and Vite middleware deploy/serve the three new
+  runtime files to both app scopes; the worker precaches them.
+
+This does **not** implement a management dashboard, published SDK package,
+remote config service, production failover, `staff.you.ge` integration or
+backup authentication. Those remain in the roadmap below.
+
 ## 10. Planned integration with staff.you.ge (deferred)
 
 Sequence once the implementation is available for inspection:
@@ -299,7 +331,8 @@ backup URL; no production infrastructure in this phase.
 | --- | --- | --- | --- |
 | **0 — Audit & identity** | Re-audit repo, freeze install contract, define platform/security model, documentation, design system, tests | — | **This PR** |
 | **1 — Contract hardening** | Behavioral install tests, manifest/SW/domain regression gates, TypeScript check for React example, incremental UI polish | Phase 0 | **This PR** |
-| **2 — SDK extraction** | Create `@you-ge/assistant-sdk` (private first): resolver, config, install, manifest, offline-shell, diagnostics modules behind tested adapters; keep `window.PWA` shim | Phase 1 | Next |
+| **1.5 — Intelligent Floating Assistant** | Centralized event-driven state, real-condition badges, priority ladder, in-place panel, configurable SDK interface, DOM + React Bits renderers, offline/Pages integration, tests | Phase 1 | **This branch** |
+| **2 — SDK extraction** | Create `@you-ge/assistant-sdk` (private first): resolver, config, install, manifest, offline-shell, diagnostics modules behind tested adapters; keep `window.PWA` shim | Phase 1.5 | Next |
 | **3 — Dashboard foundation** | Project/domain registration, domain verification, admin auth, schema-validated config drafts, publishing UI and read-only health views | Phase 2 (config schema), staff app inspection | Later |
 | **4 — Resilience pilot** | Primary/backup config, read-only health checks, idempotent failover + recovery, accessible notifications | Phase 3, staff API/auth inspection, endpoint approval | Later |
 | **5 — staff.you.ge pilot** | Opt-in integration with rollback plan; no identity/scope changes | Phases 2–4 | Later |
@@ -319,3 +352,6 @@ publish before integration validation.
 - Tests pass before and after; build + type checks pass; no dashboard, SDK
   package, npm publish, staff integration, production config or deployment in
   this PR.
+- The Intelligent Floating Assistant is implemented as a reusable core widget
+  with one centralized state model; see `WIDGET.md`. PR #6 stays open and
+  unmerged.

@@ -15,6 +15,18 @@
   in `DESIGN_FOUNDATION.md`. Incremental install-sheet and banner accessibility
   improvements (visible focus, 44px close target, contrast-safe note,
   `aria-labelledby`/`aria-describedby`, reduced motion) preserve all behavior.
+- Implemented the **Intelligent Floating Assistant** as a reusable core widget:
+  `assistant-state.js` (one centralized, event-driven state model and
+  configurable SDK API), `assistant-widget.js` / `assistant-widget.css`
+  (dependency-free DOM renderer), and a React renderer in `example/src/main.jsx`
+  using `useSyncExternalStore` plus the already-vendored React Bits
+  `GlareHover`, `SpotlightCard` and `LatticeLoader` sources. Real-condition
+  badges, the fixed 1–5 priority ladder, in-place panel, dismissal/acknowledgement,
+  project-scoped repeat suppression, safe-area/reduced-motion support and
+  single-flight diagnostics are covered by `WIDGET.md` and 24 new tests in
+  `tests/assistant-widget.test.mjs`. `pwa.js` install delegation and the single
+  `progressier.js` worker remain intact; no dashboard, remote config service,
+  production failover or `staff.you.ge` integration was added.
 - Added `tests/install-experience.test.mjs` (DOM-harness verification of the
   existing install flow, platform detection, dismissal and worker registration)
   and `tests/foundation-contracts.test.mjs` (manifest, offline, identity,

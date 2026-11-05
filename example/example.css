@@ -654,3 +654,112 @@ article.foundation-card {
   .foundation-actions { align-items: flex-start; flex-direction: column; }
   .glare-hover.foundation-cta-glare, .foundation-cta { width: 100%; }
 }
+
+/* ------------------------------------------------------------------ *
+ * Intelligent floating Assistant — state-driven React renderer
+ * React Bits: GlareHover (hover-only FAB feedback), SpotlightCard
+ * (connection status), LatticeLoader (bounded diagnostics feedback).
+ * ------------------------------------------------------------------ */
+
+.assistant-fab-glare {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none;
+  overflow: visible !important;
+}
+.assistant-fab-glare .glare-hover__glare {
+  border-radius: 50%;
+  clip-path: inset(0 round 50%);
+}
+.assistant-fab-glare .assistant-fab { width: 100%; height: 100%; }
+
+.assistant-panel { max-height: min(72vh, calc(100dvh - 104px)); }
+.assistant-panel-brand { width: 32px; height: 32px; border-radius: 10px; object-fit: cover; border: 1px solid #eee9f4; }
+.assistant-panel-header .assistant-panel-title { flex: 1; margin: 0; }
+
+.assistant-badge {
+  position: absolute;
+  z-index: 3;
+  top: -4px;
+  right: -4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border: 2px solid #fff;
+  border-radius: 999px;
+  background: #475467;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 750;
+  line-height: 1;
+  box-sizing: border-box;
+}
+.assistant-badge[data-tone="critical"] { background: #b42318; }
+.assistant-badge[data-tone="auth"] { background: #b54708; color: #101828; }
+.assistant-badge[data-tone="backup"] { background: #175cd3; }
+.assistant-badge[data-tone="install"] { background: #067647; }
+.assistant-badge[data-tone="info"] { background: #475467; }
+
+.spotlight-card.assistant-status-card {
+  padding: 0;
+  margin: 2px 0 12px;
+  border: 1px solid #e4eee8;
+  border-radius: 14px;
+  background: #f7faf8;
+  box-shadow: none;
+  overflow: hidden;
+}
+.assistant-status-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  padding: 12px;
+  font-size: 11px;
+  font-weight: 650;
+  color: #475467;
+}
+.assistant-status-grid span { display: inline-flex; align-items: center; gap: 7px; text-transform: capitalize; }
+.assistant-status-grid .connection-dot { width: 8px; height: 8px; flex: none; }
+.assistant-loader { padding: 0 12px 12px; color: #17634f; font-size: 11px; }
+
+.assistant-notice-block { margin-bottom: 12px; }
+.assistant-notice-list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.assistant-notice {
+  display: grid;
+  gap: 8px;
+  padding: 10px 11px;
+  border: 1px solid #eee9f4;
+  border-left: 4px solid #475467;
+  border-radius: 12px;
+  background: #fbfaff;
+}
+.assistant-notice.priority-1 { border-left-color: #b42318; }
+.assistant-notice.priority-2 { border-left-color: #b54708; }
+.assistant-notice.priority-3 { border-left-color: #175cd3; }
+.assistant-notice.priority-4 { border-left-color: #067647; }
+.assistant-notice-copy strong { display: block; font-size: 12px; color: #30283a; }
+.assistant-notice-copy p { margin: 3px 0 0; font-size: 11px; line-height: 1.45; color: #70697a; }
+.assistant-notice-controls { display: flex; flex-wrap: wrap; gap: 6px; }
+.assistant-notice-controls button {
+  min-height: 36px;
+  min-width: 44px;
+  padding: 6px 10px;
+  border: 1px solid #ded4ec;
+  border-radius: 9px;
+  background: #fff;
+  color: #4b3d60;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 650;
+  cursor: pointer;
+}
+.assistant-notice-controls button:focus-visible { outline: 3px solid #ad6dff; outline-offset: 2px; }
+.assistant-panel-empty { margin: 0; padding: 10px 11px; border: 1px dashed #ded4ec; border-radius: 12px; color: #70697a; font-size: 11.5px; }
+
+@media (max-width: 480px) {
+  .assistant-panel { width: min(330px, calc(100vw - 24px - env(safe-area-inset-left) - env(safe-area-inset-right))); }
+  .assistant-status-grid { grid-template-columns: 1fr; }
+}

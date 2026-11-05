@@ -188,3 +188,65 @@ The design skill guided hierarchy, consistency, accessibility and responsive
 behavior; React Bits supplied the reusable card, CTA and loading source. Neither
 overrode the existing application's technical requirements: the PWA install flow
 was audited first and its behavior is unchanged.
+
+---
+
+## 8. Intelligent Floating Assistant (Phase 1.5)
+
+The floating Assistant was added as a core widget on the same working branch.
+The mandatory `ui-ux-pro-max-skill` was applied again; exact searches are
+recorded in [`WIDGET.md`](WIDGET.md) §6. The official React Bits installation
+docs were re-read at <https://reactbits.dev/get-started/installation> (source
+ownership, per-component dependencies, TS-CSS variant by hand).
+
+### Adopted again, zero new dependencies
+
+| Component | New use | Local adaptation |
+| --- | --- | --- |
+| `GlareHover` | Hover-only feedback around the React example's floating launcher. | `mode="hover"`, `playOnce`; root `overflow: visible` and a circular `clip-path` on the glare so the existing ElectricLogo stage is not clipped. Reduced-motion override retained. |
+| `SpotlightCard` | Connection-status card inside the Assistant panel. | Light theme, `ambient=false`, `flare=false`, `grain=0`, project tokens override the vendored skin; reduced-motion override retained. |
+| `LatticeLoader` | Bounded diagnostics "checking" state. | Rendered only while `network.dns.status === 'running'`; `role="status"`, reduced-motion override retained. |
+
+`example/src/main.jsx` now consumes `window.YouGeAssistant` through
+`useSyncExternalStore`, so the React example and the dependency-free
+`assistant-widget.js` renderer share one state model. No GSAP, Motion,
+HugeIcons, Tailwind, shaders, continuous WebGL backgrounds or component
+collections were added. The existing `ElectricLogo`/`ogl` launcher is retained
+for visual continuity; the new widget does not introduce another WebGL effect.
+
+### Skill influence on the widget UI
+
+- **Accessibility CRITICAL:** one `role="status" aria-live="polite"` region with
+  a complete contextual phrase; labelled FAB, `aria-expanded`, `aria-controls`,
+  Escape/close route, focus restoration, 3px `:focus-visible` outlines.
+- **Touch CRITICAL:** 56px launcher, 44px controls, 8px gaps,
+  `cursor: pointer`, `touch-action: manipulation`, press feedback,
+  `env(safe-area-inset-*)` offsets; playground uses `bottom-left` to avoid the
+  existing toolbox.
+- **Performance HIGH:** one stable snapshot, deferred classic scripts, no
+  polling, no `fetch`, no duplicate SW registration, offline-shell precache.
+- **Style/layout HIGH:** consistent inline SVG icon set (no emoji), semantic
+  tokens, single elevation scale, 480px clamp, `100dvh` max-height, no
+  horizontal scroll, light/dark tokens defined together.
+- **Animation/feedback MEDIUM:** 150–180ms transitions, no looping badge or
+  bounce, `@media (prefers-reduced-motion: reduce)` fallback, empty state,
+  progressive-disclosure recovery guidance.
+- **Pre-delivery checklist:** 375/768/1024/1440px responsive contracts, 4.5:1
+  contrast tokens, visible focus, descriptive labels, no obscured focus.
+
+The `--design-system` query again returned the SaaS/General direction already
+persisted in `MASTER.md`. Its Glassmorphism, Google Font and GSAP scroll-reveal
+suggestions were deliberately rejected: the repository uses system fonts and
+plain CSS, and the user excluded unnecessary dependencies and heavy animation.
+`MASTER.md` was not overwritten (no `--force`).
+
+### Files influenced
+
+`assistant-state.js`, `assistant-widget.js`, `assistant-widget.css`,
+`example/src/main.jsx`, `example/example.css`, `example/index.html`,
+`demo/index.html`, `offline.html`, `offline.js`, `snippet.html`,
+`progressier.js`, `example/vite.config.js`, `.github/workflows/pages.yml`,
+`.github/workflows/check.yml`, `scripts/check.mjs`,
+`tests/assistant-widget.test.mjs`, `WIDGET.md`, `README.md`, `AGENTS.md`,
+`CHANGELOG.md`, `ASSISTANT_ARCHITECTURE.md`, `example/README.md`,
+`example/THIRD_PARTY_NOTICES.md`.

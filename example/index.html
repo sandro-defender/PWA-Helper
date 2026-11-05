@@ -32,6 +32,37 @@
       data-offline-alert
       data-auto-update
     ></script>
+    <!-- Centralized, data-only widget configuration. No dashboard is needed
+         after these scripts initialize. The React renderer below consumes
+         window.YouGeAssistant instead of owning a second state model. -->
+    <script>
+      window.YOU_GE_ASSISTANT_CONFIG = {
+        projectId: 'staff-space-example',
+        position: 'bottom-right',
+        offsets: { x: 16, y: 16 },
+        branding: {
+          name: 'Staff Space',
+          shortName: 'Staff Space',
+          icon: 'icons/icon-192.png',
+          themeColor: '#17634f'
+        },
+        theme: 'light',
+        modules: {
+          installation: true,
+          diagnostics: true,
+          recovery: true,
+          failover: true,
+          help: true,
+          updates: true
+        },
+        notifications: {
+          dismissible: true,
+          suppressRepeats: true,
+          criticalPersistent: true
+        }
+      };
+    </script>
+    <script src="assistant-state.js" defer></script>
     <script src="example.js" defer></script>
   </head>
 

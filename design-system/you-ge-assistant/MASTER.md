@@ -248,3 +248,19 @@ and no Google Fonts request was added. The applied subset is accessibility,
 visible focus, touch targets, reduced motion, subtle feedback, semantic tokens
 and responsive layout. See [`DESIGN_FOUNDATION.md`](../../DESIGN_FOUNDATION.md)
 for the exact rule-to-file mapping and the React Bits adoption report.
+
+## Local application notes (Intelligent Floating Assistant)
+
+Re-applied on 2026-11-05 with the verified query `"developer tooling SaaS
+floating assistant widget notification panel"` and the same dials
+`--variance 4 --motion 2 --density 7` (no `--persist`, so this file was not
+overwritten). The result reaffirmed SaaS/General with `#2563EB` primary,
+`#EA580C` CTA, `#F8FAFC` background, and the anti-patterns/pre-delivery
+checklist above. Glassmorphism, Google Fonts and a GSAP scroll reveal were
+rejected for this repository: system fonts and plain CSS are already in use, and
+the widget must add no runtime dependencies or heavy animation. Targeted
+`--domain ux` / `--domain web` / `--domain product` searches drove the live
+badge region, Escape/focus route, 44px targets, safe-area offsets, status-card
+hierarchy and reduced-motion fallback. Exact commands and file mapping are in
+[`WIDGET.md`](../../WIDGET.md) §6 and
+[`DESIGN_FOUNDATION.md`](../../DESIGN_FOUNDATION.md) §8.

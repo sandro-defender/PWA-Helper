@@ -33,9 +33,14 @@ management and infrastructure platform: a standalone management dashboard and a
 single future SDK package, `@you-ge/assistant-sdk`. This repository remains the
 working, dependency-free toolkit; no dashboard, SDK package, central
 configuration service, failover engine or `staff.you.ge` integration is
-implemented here. Read the [foundation audit](FOUNDATION_AUDIT.md),
+implemented here. The reusable **Intelligent Floating Assistant** widget is
+implemented in this repository as a core SDK feature: one centralized,
+event-driven state model with real-condition badges, a fixed priority ladder and
+an in-place panel. It works without a dashboard once initialized; see
+[`WIDGET.md`](WIDGET.md). Read the [foundation audit](FOUNDATION_AUDIT.md),
 [platform architecture and roadmap](ASSISTANT_ARCHITECTURE.md),
-[installation preservation contract](INSTALLATION_EXPERIENCE.md) and
+[installation preservation contract](INSTALLATION_EXPERIENCE.md),
+[widget implementation](WIDGET.md) and
 [design/React Bits report](DESIGN_FOUNDATION.md) before starting a later phase.
 
 ---
@@ -107,6 +112,7 @@ node scripts/verify-deployment.mjs https://you.example  # live deployment
 | [`ASSISTANT_ARCHITECTURE.md`](ASSISTANT_ARCHITECTURE.md) | you want the future dashboard, SDK, multi-domain, publishing, security, failover architecture, diagram and roadmap |
 | [`INSTALLATION_EXPERIENCE.md`](INSTALLATION_EXPERIENCE.md) | you need the preserved install behavior and the future SDK install contract |
 | [`DESIGN_FOUNDATION.md`](DESIGN_FOUNDATION.md) | you need the ui-ux-pro-max-skill application record and React Bits adoption report |
+| [`WIDGET.md`](WIDGET.md) | you need the Intelligent Floating Assistant state model, SDK config, events, React Bits/skill record and test matrix |
 | [`design-system/you-ge-assistant/MASTER.md`](design-system/you-ge-assistant/MASTER.md) | you are making UI decisions for the Assistant |
 | [`MULTI_DOMAIN.md`](MULTI_DOMAIN.md) | you need domain registry, manifest, scope and deployment examples |
 | [`DNS_RECOVERY.md`](DNS_RECOVERY.md) | you need DoH behavior, limitations or device recovery steps |

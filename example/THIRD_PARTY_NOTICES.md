@@ -19,8 +19,13 @@ documentation recommends copying component source into the project (or using
 `shadcn`/`jsrepo`); no React Bits npm package is installed. Local adaptations:
 removal of the Next.js-specific `'use client'` directive, safe
 `window.matchMedia?.()` access, reduced-motion overrides for the decorative
-highlights/glare/loader, and design-token overrides in `example.css`. See
-[`DESIGN_FOUNDATION.md`](../DESIGN_FOUNDATION.md) for the full adoption report.
+highlights/glare/loader, and design-token overrides in `example.css`. The
+Intelligent Floating Assistant reuses these same owned sources: `GlareHover`
+around the launcher (with a local circular `clip-path` and `overflow: visible`
+override so the existing logo stage is not clipped), `SpotlightCard` for the
+connection-status card, and `LatticeLoader` only while diagnostics run. See
+[`DESIGN_FOUNDATION.md`](../DESIGN_FOUNDATION.md) §8 and
+[`WIDGET.md`](../WIDGET.md) §6 for the full adoption report.
 
 `src/ElectricLogo.jsx` depends on `ogl`. The three new TypeScript components add
 **no runtime dependencies**; `typescript`, `@types/react` and

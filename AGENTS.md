@@ -16,13 +16,17 @@ Current runtime version: **1.0.5** (`PWA.version` and `VERSION` in
 [`FOUNDATION_AUDIT.md`](FOUNDATION_AUDIT.md).
 
 **For any future UI work:** read
-[`design-system/you-ge-assistant/MASTER.md`](design-system/you-ge-assistant/MASTER.md)
-and [`DESIGN_FOUNDATION.md`](DESIGN_FOUNDATION.md) first. The
+[`design-system/you-ge-assistant/MASTER.md`](design-system/you-ge-assistant/MASTER.md),
+[`DESIGN_FOUNDATION.md`](DESIGN_FOUNDATION.md) and
+[`WIDGET.md`](WIDGET.md) first. The
 `ui-ux-pro-max-skill` is mandatory for interface changes; React Bits sources
 are vendored under `example/src/react-bits/` and must keep their license notice,
 reduced-motion overrides and zero-runtime-dependency constraint. Do not
 redesign the installation flow without reading
-[`INSTALLATION_EXPERIENCE.md`](INSTALLATION_EXPERIENCE.md).
+[`INSTALLATION_EXPERIENCE.md`](INSTALLATION_EXPERIENCE.md). The floating
+Assistant has one centralized state model in `assistant-state.js`; renderers
+must not create a second model, poll, call `fetch`, register another service
+worker or auto-open the panel.
 
 ---
 
@@ -95,6 +99,8 @@ copy for a subpath deployment.
 | `manifest-handler.js`, `functions/manifest.webmanifest.js` | hosting-dependent | Host-aware manifest response/helper and Cloudflare Pages adapter |
 | `pwa.js` | yes | Client SDK: config, SW registration, install/push UI, floating toolbox, QR, banners, meta, splash |
 | `pwa.css` | yes (unless `data-no-css`) | All component styles and Progressier CSS variables |
+| `assistant-state.js` | yes | Centralized, event-driven state + configurable SDK API for the Intelligent Floating Assistant |
+| `assistant-widget.js`, `assistant-widget.css` | yes (unless disabled) | Dependency-free DOM renderer, fixed placement, safe areas, badges and in-place panel |
 | `progressier.js` | yes | Service worker: offline cache, push display, share target, badge |
 | `manifest.webmanifest` | yes | App identity, icons, share target, protocol handlers |
 | `qrcode.js` | only for QR | Vendored MIT `qrcode-generator` 2.0.4 |
@@ -112,10 +118,12 @@ copy for a subpath deployment.
 | `ASSISTANT_ARCHITECTURE.md` | reference | Future dashboard, SDK, config publishing, security, failover and roadmap |
 | `INSTALLATION_EXPERIENCE.md` | reference | Frozen install behavior and future SDK install contract |
 | `DESIGN_FOUNDATION.md` | reference | ui-ux-pro-max-skill application and React Bits adoption report |
+| `WIDGET.md` | reference | Floating Assistant architecture, SDK config, events, priority, skill/React Bits record and tests |
 | `ARCHITECTURE_AUDIT.md` | reference | Baseline audit and phased architecture plan |
 | `PARITY.md` | reference | What matches the original Progressier client |
 | `reference/` | research only | Original manifest/client source and readable copies; never deploy |
-| `scripts/check.mjs` | tool | Static checks for manifests, assets, versions, domain/DNS contracts |
+| `scripts/check.mjs` | tool | Static checks for manifests, assets, versions, domain/DNS and floating-Assistant contracts |
+| `tests/assistant-widget.test.mjs` | tool | 24 state/renderer/priority/a11y/lifecycle tests |
 | `scripts/verify-deployment.mjs` | tool | Live deployment checker |
 | `scripts/generate-vapid-keys.mjs` | tool | VAPID key generator |
 | `examples/push-server/` | example | Minimal Node push sender |

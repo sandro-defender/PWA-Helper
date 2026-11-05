@@ -4,6 +4,7 @@
   Load the public domain registry and resolver before pwa.js.
 -->
 <link rel="manifest" href="/manifest.webmanifest" />
+<link rel="stylesheet" href="/assistant-widget.css" />
 <link rel="icon" href="/favicon.ico" sizes="any" />
 <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png" />
 <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />
@@ -34,3 +35,40 @@
      data-install-banner, data-push-banner, data-offline-alert, data-welcome,
      data-toolbox, data-toolbox-position, data-no-meta, data-no-css,
      data-no-splash, data-auto-update, data-csp-nonce, data-debug. -->
+
+<!-- Intelligent Floating Assistant. Configuration is data-only and must be
+     set before assistant-state.js. Replace projectId/branding/position with
+     the values published for this project; no dashboard is contacted after
+     initialization. Use assistant-widget.js for a dependency-free DOM page,
+     or mount a React renderer over window.YouGeAssistant instead. -->
+<script>
+  window.YOU_GE_ASSISTANT_CONFIG = {
+    projectId: 'your-project-id',
+    position: 'bottom-right',
+    offsets: { x: 20, y: 20 },
+    branding: {
+      name: 'Your project',
+      shortName: 'Project',
+      icon: '/icons/icon-192.png',
+      themeColor: '#155eef'
+    },
+    theme: 'auto',
+    modules: {
+      installation: true,
+      diagnostics: true,
+      recovery: true,
+      failover: true,
+      help: true,
+      updates: true
+    },
+    notifications: {
+      dismissible: true,
+      suppressRepeats: true,
+      criticalPersistent: true
+    },
+    actions: [],
+    features: []
+  };
+</script>
+<script src="/assistant-state.js" defer></script>
+<script src="/assistant-widget.js" defer></script>
