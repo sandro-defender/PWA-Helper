@@ -12,7 +12,17 @@ package install.
 
 Current runtime version: **1.0.5** (`PWA.version` and `VERSION` in
 `progressier.js`). For architecture findings and risks, see
-[`ARCHITECTURE_AUDIT.md`](ARCHITECTURE_AUDIT.md).
+[`ARCHITECTURE_AUDIT.md`](ARCHITECTURE_AUDIT.md) and
+[`FOUNDATION_AUDIT.md`](FOUNDATION_AUDIT.md).
+
+**For any future UI work:** read
+[`design-system/you-ge-assistant/MASTER.md`](design-system/you-ge-assistant/MASTER.md)
+and [`DESIGN_FOUNDATION.md`](DESIGN_FOUNDATION.md) first. The
+`ui-ux-pro-max-skill` is mandatory for interface changes; React Bits sources
+are vendored under `example/src/react-bits/` and must keep their license notice,
+reduced-motion overrides and zero-runtime-dependency constraint. Do not
+redesign the installation flow without reading
+[`INSTALLATION_EXPERIENCE.md`](INSTALLATION_EXPERIENCE.md).
 
 ---
 
@@ -98,6 +108,10 @@ copy for a subpath deployment.
 | `INTEGRATION.md` | reference | Multi-domain deployment, migration and rollback checklist |
 | `README.md` | reference | Full API and server config |
 | `MULTI_DOMAIN.md`, `DNS_RECOVERY.md` | reference | Domain registry, manifest, DNS diagnostics and recovery |
+| `FOUNDATION_AUDIT.md` | reference | Phase 0 re-audit: preserved behavior, gaps and risks |
+| `ASSISTANT_ARCHITECTURE.md` | reference | Future dashboard, SDK, config publishing, security, failover and roadmap |
+| `INSTALLATION_EXPERIENCE.md` | reference | Frozen install behavior and future SDK install contract |
+| `DESIGN_FOUNDATION.md` | reference | ui-ux-pro-max-skill application and React Bits adoption report |
 | `ARCHITECTURE_AUDIT.md` | reference | Baseline audit and phased architecture plan |
 | `PARITY.md` | reference | What matches the original Progressier client |
 | `reference/` | research only | Original manifest/client source and readable copies; never deploy |

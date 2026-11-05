@@ -18,8 +18,8 @@ jobs:
           cache: npm
           cache-dependency-path: example/package-lock.json
 
-      - name: Build ReactBits example
-        run: npm ci && npm run build
+      - name: Install, type-check and build ReactBits example
+        run: npm ci && npm run typecheck && npm run build
         working-directory: example
 
       - name: Static checks

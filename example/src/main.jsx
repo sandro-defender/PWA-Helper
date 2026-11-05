@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import ElectricLogo from './ElectricLogo.jsx';
+import FoundationPreview from './FoundationPreview.tsx';
 import assistantMark from './assistant-mark.png';
 import './ElectricLogo.css';
 
@@ -19,8 +20,26 @@ class LogoBoundary extends React.Component {
   }
 }
 
+function useOnlineStatus() {
+  const [online, setOnline] = useState(navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => setOnline(true);
+    const handleOffline = () => setOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  return online;
+}
+
 function AssistantFloatingWidget() {
   const [open, setOpen] = useState(false);
+  const online = useOnlineStatus();
   const widgetRef = useRef(null);
   const toggleRef = useRef(null);
 
@@ -50,7 +69,7 @@ function AssistantFloatingWidget() {
   return (
     <div className="assistant-widget" ref={widgetRef}>
       <section
-        className="assistant-panel"
+        className={`assistant-panel${open ? ' is-open' : ''}`}
         id="assistant-panel"
         role="dialog"
         aria-label="You.Ge Assistant quick actions"
@@ -71,6 +90,10 @@ function AssistantFloatingWidget() {
         </header>
         <p className="assistant-panel-description" id="assistant-panel-description">
           Quick help for this sample workspace.
+        </p>
+        <p className="assistant-panel-connection" role="status" aria-live="polite">
+          <span className={`connection-dot${online ? '' : ' is-offline'}`} aria-hidden="true" />
+          {online ? 'Connected' : 'Offline — cached pages may still work'}
         </p>
         <button
           className="assistant-panel-action"
@@ -140,3 +163,6 @@ function AssistantFloatingWidget() {
 
 const mount = document.getElementById('assistant-floating-root');
 if (mount) createRoot(mount).render(<AssistantFloatingWidget />);
+
+const foundationMount = document.getElementById('assistant-foundation-root');
+if (foundationMount) createRoot(foundationMount).render(<FoundationPreview />);

@@ -644,6 +644,107 @@ for (const file of ['example/example.css', 'example/example.js']) {
 }
 
 /* ------------------------------------------------------------------ *
+ * 7b. Platform foundation, design and install contracts
+ * ------------------------------------------------------------------ */
+
+section('You.Ge Assistant foundation contracts');
+
+function contract(condition, message) {
+  if (condition) pass(message);
+  else fail(message);
+}
+
+const foundationDocs = [
+  'FOUNDATION_AUDIT.md',
+  'ASSISTANT_ARCHITECTURE.md',
+  'INSTALLATION_EXPERIENCE.md',
+  'DESIGN_FOUNDATION.md',
+  'design-system/you-ge-assistant/MASTER.md',
+];
+for (const file of foundationDocs) {
+  contract(existsSync(at(file)), `${file} is present`);
+}
+
+const architectureSource = existsSync(at('ASSISTANT_ARCHITECTURE.md'))
+  ? readFileSync(at('ASSISTANT_ARCHITECTURE.md'), 'utf8') : '';
+contract(/```mermaid[\s\S]*flowchart TB/.test(architectureSource), 'architecture includes a Mermaid diagram');
+contract(/## 12\. Implementation roadmap/.test(architectureSource), 'architecture includes a phased roadmap');
+contract(architectureSource.includes('https://staff-you-ge.sandro-1990.workers.dev')
+  && architectureSource.includes('Example only'), 'backup URL is documented as a project-specific example only');
+contract(architectureSource.includes('Preview Worker URL') && architectureSource.includes('never'), 'Preview Worker is explicitly ruled out as production backup');
+
+const installDoc = existsSync(at('INSTALLATION_EXPERIENCE.md'))
+  ? readFileSync(at('INSTALLATION_EXPERIENCE.md'), 'utf8') : '';
+for (const token of ['beforeinstallprompt', 'event.prompt()', 'appinstalled', 'showHelp(\'ios\')', 'showHelp(\'generic\')', 'pwa.js']) {
+  contract(installDoc.includes(token), `installation record documents ${token}`);
+}
+
+const installMarkers = [
+  'aria-labelledby\', \'pwa-install-title\'',
+  'aria-describedby\', \'pwa-install-steps\'',
+  '.close:focus-visible,.ok:focus-visible',
+  'min-width:44px;min-height:44px',
+  '@media (prefers-reduced-motion:reduce)',
+  'var(--progressierNote,#475569)',
+];
+contract(installMarkers.every((token) => client.includes(token)), 'install help sheet keeps its behavior with improved focus/contrast/motion');
+contract(styles.includes('.progressier-install-banner :focus-visible'), 'install banner restores a visible keyboard focus ring');
+
+const designSource = existsSync(at('DESIGN_FOUNDATION.md'))
+  ? readFileSync(at('DESIGN_FOUNDATION.md'), 'utf8') : '';
+contract(designSource.includes('SKILL.md') && designSource.includes('search.py'), 'design skill usage is reported with exact instructions and commands');
+contract(designSource.includes('SpotlightCard') && designSource.includes('GlareHover') && designSource.includes('LatticeLoader'), 'React Bits adoption report names adopted components');
+const masterSource = existsSync(at('design-system/you-ge-assistant/MASTER.md'))
+  ? readFileSync(at('design-system/you-ge-assistant/MASTER.md'), 'utf8') : '';
+contract(masterSource.includes('SaaS (General)') && !masterSource.includes('Luxury/Premium Brand'), 'design system uses the verified-fit SaaS match, not the rejected luxury match');
+
+const reactBitsFiles = [
+  'example/src/react-bits/SpotlightCard.tsx',
+  'example/src/react-bits/SpotlightCard.css',
+  'example/src/react-bits/GlareHover.tsx',
+  'example/src/react-bits/GlareHover.css',
+  'example/src/react-bits/LatticeLoader.tsx',
+  'example/src/react-bits/LatticeLoader.css',
+  'example/src/FoundationPreview.tsx',
+  'example/tsconfig.json',
+];
+for (const file of reactBitsFiles) {
+  contract(existsSync(at(file)), `${file} is vendored into the example`);
+}
+const reactBitsSources = reactBitsFiles
+  .filter((file) => file.endsWith('.tsx'))
+  .map((file) => readFileSync(at(file), 'utf8'));
+contract(reactBitsSources.every((text) => !/from ['"](?:gsap|motion|@hugeicons)/.test(text)), 'adopted React Bits sources add no runtime dependencies');
+contract(reactBitsSources.every((text) => !text.includes("'use client'")), 'Next.js-only use client directives were removed from vendored sources');
+const reactBitsStyles = reactBitsFiles
+  .filter((file) => file.endsWith('.css'))
+  .map((file) => readFileSync(at(file), 'utf8'));
+contract(reactBitsStyles.every((text) => text.includes('prefers-reduced-motion')), 'every adopted React Bits stylesheet has a reduced-motion override');
+const examplePackage = JSON.parse(readFileSync(at('example/package.json'), 'utf8'));
+contract(Boolean(examplePackage.scripts && examplePackage.scripts.typecheck), 'React example exposes a typecheck script');
+const noticeSource = readFileSync(at('example/THIRD_PARTY_NOTICES.md'), 'utf8');
+for (const name of ['ElectricLogo', 'SpotlightCard', 'GlareHover', 'LatticeLoader']) {
+  contract(noticeSource.includes(name), `third-party notices list ${name}`);
+}
+
+const exampleHtmlSource = readFileSync(at('example/index.html'), 'utf8');
+contract(exampleHtmlSource.includes('id="assistant-foundation-root"') && exampleHtmlSource.includes('<article class="foundation-card">'), 'foundation preview has a no-JS static fallback');
+const mainSource = readFileSync(at('example/src/main.jsx'), 'utf8');
+contract(mainSource.includes('<FoundationPreview />'), 'React example mounts the foundation preview');
+
+const runtimeFiles = [
+  'pwa.js', 'progressier.js', 'domain-config.js', 'domain-registry.js',
+  'dns-diagnostics.js', 'manifest-handler.js', 'offline.js', 'example/example.js',
+];
+const runtimeText = runtimeFiles.map((file) => readFileSync(at(file), 'utf8')).join('\n');
+contract(!runtimeText.includes('staff-you-ge.sandro-1990.workers.dev'), 'example backup URL is absent from runtime code');
+contract(runtimeText.includes('data-pwa-install') && runtimeText.includes('promptInstall'), 'installation delegation and public API remain in the runtime');
+contract(worker.includes('CLIENT_PATH'), 'worker continues to exclude pwa.js from caching (documented offline limitation)');
+
+const packageText = readFileSync(at('package.json'), 'utf8');
+contract(packageText.includes('"name": "you-ge-assistant"') && packageText.includes('You.Ge Assistant'), 'package identity remains You.Ge Assistant');
+
+/* ------------------------------------------------------------------ *
  * 8. Optional files worth having
  * ------------------------------------------------------------------ */
 
