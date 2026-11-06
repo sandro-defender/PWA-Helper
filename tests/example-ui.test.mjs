@@ -185,3 +185,22 @@ test('storage failures are reported instead of claiming sample changes were save
   assert.match(page.nodes.checklistFootnote.textContent, /may not persist/i);
   assert.equal(page.nodes['task-count'].textContent, '1 of 3 done');
 });
+
+test('React notice actions reuse the toolkit hooks instead of being inert', () => {
+  const jsx = readFileSync(new URL('../example/src/main.jsx', import.meta.url), 'utf8');
+  const controls = /<div className="assistant-notice-controls">[\s\S]*?<\/div>/.exec(jsx);
+  assert.ok(controls, 'the notice controls still render');
+  assert.match(
+    controls[0],
+    /'data-pwa-install': ''/,
+    'an install notice triggers the real install flow through the delegated hook',
+  );
+  assert.match(
+    controls[0],
+    /'data-pwa-diagnostics': ''/,
+    'a diagnostics notice opens the toolkit diagnostics dialog',
+  );
+  assert.match(controls[0], /noticeActionLabel\(state, notice\)/, 'the label says what the button does');
+  assert.match(jsx, /const NOTICE_ACTION_LABELS = \{/, 'fallback wording lives beside the widget');
+  assert.match(jsx, /NOTICE_ACTION_LABELS\[notice\.actionId\] \|\| 'Open'/, 'an unknown action still reads as Open');
+});

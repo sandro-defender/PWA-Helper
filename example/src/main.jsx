@@ -67,6 +67,24 @@ function dispatchWidgetAction(id, kind) {
   });
 }
 
+// A notice action must read like the action it performs. Project-supplied
+// actions carry the right wording (including "Install this app" versus manual
+// instructions); these labels only cover ids no project action list declares.
+const NOTICE_ACTION_LABELS = {
+  install: 'Installation instructions',
+  diagnostics: 'Run network diagnostics',
+  recovery: 'Recovery guidance',
+  help: 'Get help',
+  'backup-status': 'Backup status',
+  update: 'Apply app update',
+};
+
+function noticeActionLabel(state, notice) {
+  const match = (state.availableActions || []).find((action) => action.id === notice.actionId);
+  if (match && match.label) return match.label;
+  return NOTICE_ACTION_LABELS[notice.actionId] || 'Open';
+}
+
 function AssistantFloatingWidget() {
   const state = useSyncExternalStore(
     assistantStore.subscribe,
@@ -178,7 +196,17 @@ function AssistantFloatingWidget() {
                     <p>{notice.message}</p>
                   </div>
                   <div className="assistant-notice-controls">
-                    <button type="button" onClick={() => dispatchWidgetAction(notice.actionId || notice.id, 'notice')}>Open</button>
+                    <button
+                      type="button"
+                      {...(notice.actionId === 'install'
+                        ? { 'data-pwa-install': '' }
+                        : notice.actionId === 'diagnostics'
+                          ? { 'data-pwa-diagnostics': '' }
+                          : {})}
+                      onClick={() => dispatchWidgetAction(notice.actionId || notice.id, 'notice')}
+                    >
+                      {noticeActionLabel(state, notice)}
+                    </button>
                     {notice.critical ? (
                       <button type="button" onClick={() => YouGeAssistant.attach().acknowledge(notice.id)}>Acknowledge</button>
                     ) : (

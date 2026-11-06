@@ -733,3 +733,93 @@ test('widget renderer has no network, polling, SW registration, auto-open or hea
   const afterOnState = code.split('function onState')[1] || '';
   assert.doesNotMatch(afterOnState, /openPanel\(\s*\);/, 'state updates never open the panel');
 });
+
+/* ------------------------------------------------------------------ *
+ * Audit regressions (2026-11): working notice actions, Escape ownership,
+ * defensive appearance handling and touch/contrast CSS floors
+ * ------------------------------------------------------------------ */
+
+test('a diagnostics notice exposes a working toolkit action instead of an inert button', () => {
+  const ctx = createContext({ richDocument: true });
+  const widget = loadWidget(ctx);
+  const root = widget.getRoot();
+  ctx.api.setDnsResult({ status: 'complete', classification: 'dns_resolution_failure', message: 'NXDOMAIN for this hostname.' });
+  fire(ctx.document, root.querySelector('[data-role="toggle"]'), 'click');
+
+  const action = root.querySelector('[data-pwa-diagnostics]');
+  assert.ok(action, 'the notice action carries the delegated diagnostics hook');
+  assert.equal(action.getAttribute('data-action'), 'diagnostics');
+  assert.match(action.querySelector('.youge-btn-label').textContent, /diagnostics/i);
+  widget.destroy();
+});
+
+test('an install notice action reuses the toolkit install flow and its real wording', () => {
+  const ctx = createContext({ richDocument: true, pwaState: { canInstall: true } });
+  const widget = loadWidget(ctx);
+  const root = widget.getRoot();
+  fire(ctx.document, root.querySelector('[data-role="toggle"]'), 'click');
+
+  const noticeButton = root.querySelectorAll('[data-pwa-install]').find((node) => node.matches('.youge-btn-small'));
+  assert.ok(noticeButton, 'the notice itself has an install action, not only the section below it');
+  assert.equal(noticeButton.getAttribute('data-action'), 'install');
+  assert.match(noticeButton.querySelector('.youge-btn-label').textContent, /Install this app/, 'wording comes from the real capability');
+  widget.destroy();
+});
+
+test('Escape stays with an open toolkit dialog and still closes the panel on its own', () => {
+  const ctx = createContext({ richDocument: true });
+  const widget = loadWidget(ctx);
+  const root = widget.getRoot();
+  const panel = ctx.document.getElementById('youge-assistant-panel');
+  const escape = () => ctx.document.dispatchEvent(Object.assign(new ctx.win.CustomEvent('keydown'), { key: 'Escape', type: 'keydown' }));
+
+  fire(ctx.document, root.querySelector('[data-role="toggle"]'), 'click');
+  assert.equal(panel.hidden, false, 'panel opens');
+
+  const flow = ctx.document.createElement('div');
+  flow.classList.add('pwa-flow');
+  ctx.document.body.appendChild(flow);
+  escape();
+  assert.equal(panel.hidden, false, 'Escape while a toolkit dialog is on top must not close the panel behind it');
+
+  ctx.document.body.removeChild(flow);
+  escape();
+  assert.equal(root.querySelector('[data-role="toggle"]').getAttribute('aria-expanded'), 'false', 'Escape still closes the panel when nothing else is open');
+  widget.destroy();
+});
+
+test('hand-built appearance values are re-validated before they reach the DOM', () => {
+  const ctx = createContext({ richDocument: true });
+  const state = {
+    enabled: true,
+    project: { name: 'Odd Host', hostname: 'host.test' },
+    network: { online: true, endpoints: {}, dns: {} },
+    installation: { status: 'unavailable', support: 'none' },
+    notifications: [],
+    availableActions: [],
+    badge: { count: 0, tone: 'none', label: 'No alerts' },
+    appearance: {
+      position: 'middle-right',
+      theme: 'neon',
+      offsets: { x: 'lots' },
+      themeColor: 'red; background-image: url(//evil.test/x)',
+    },
+  };
+  ctx.win.YouGeAssistant = { getState: () => state, subscribe(fn) { fn(state); return () => {}; } };
+  const widget = loadWidget(ctx);
+  const root = widget.getRoot();
+
+  assert.equal(root.getAttribute('data-position'), 'bottom-right', 'unsupported positions fall back');
+  assert.equal(root.getAttribute('data-theme'), 'auto', 'unsupported themes fall back');
+  assert.equal(root.style['--youge-offset-x'], '20px', 'a non-numeric offset never becomes "undefinedpx"');
+  assert.equal(root.style['--youge-offset-y'], '20px');
+  assert.equal(root.style['--youge-brand'], undefined, 'only a plain hex color may set the brand token');
+  widget.destroy();
+});
+
+test('widget CSS holds the touch-target floor and dark-mode badge contrast', () => {
+  assert.match(widgetCss, /\.youge-btn-small \{[^}]*min-height:\s*44px/, 'small notice buttons stay 44px targets');
+  assert.match(widgetCss, /\.youge-badge\[data-tone="auth"\] \{ background: var\(--youge-auth\); color: #ffffff; \}/, 'light auth badge clears AA');
+  assert.match(widgetCss, /\[data-theme="dark"\] \.youge-badge\[data-tone="auth"\]/, 'explicit dark theme flips badge ink');
+  assert.match(widgetCss, /\[data-theme="auto"\] \.youge-badge\[data-tone="auth"\]/, 'auto dark theme must flip badge ink too');
+});

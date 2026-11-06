@@ -199,10 +199,15 @@ duplicate prompts and duplicate network checks.
   The playground uses `bottom-left` to avoid the existing install toolbox.
 - Click opens a responsive in-place panel. No separate page, no new tab, no
   auto-open. Escape and a labelled close button dismiss it; focus returns to
-  the launcher.
+  the launcher. While a toolkit dialog is open on top of the panel
+  (`[data-pwa-flow]`, `.pwa-flow`) the panel leaves Escape to that dialog, so
+  one keypress never closes two layers at once.
 - The panel shows identity/branding, connection status, prioritized notices,
   installation assistance, network diagnostics, recovery guidance and
-  app-specific help.
+  app-specific help. Notice actions reuse the toolkit's delegated hooks
+  (`data-pwa-install`, `data-pwa-diagnostics`) and carry the action's own
+  wording, so a notice button performs the same flow as the section below it
+  instead of being an inert label.
 - Subtle count/tone badge, never a flashing decoration. A visually hidden
   `role="status" aria-live="polite"` region announces a complete contextual
   phrase without moving focus.

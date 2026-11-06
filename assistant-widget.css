@@ -137,14 +137,28 @@
 }
 .youge-badge[hidden] { display: none !important; }
 .youge-badge[data-tone="critical"] { background: var(--youge-critical); color: #ffffff; }
-.youge-badge[data-tone="auth"] { background: var(--youge-auth); color: #101828; }
+/* #101828 on --youge-auth measured 3.27:1, below the 4.5:1 AA floor for the
+   11px badge text; white on #b54708 is 5.68:1. */
+.youge-badge[data-tone="auth"] { background: var(--youge-auth); color: #ffffff; }
 .youge-badge[data-tone="backup"] { background: var(--youge-backup); color: #ffffff; }
 .youge-badge[data-tone="install"] { background: var(--youge-install); color: #ffffff; }
 .youge-badge[data-tone="info"] { background: var(--youge-info); color: #ffffff; }
+/* Dark surfaces swap --youge-* tone colors to light variants, so the white
+   badge text set above must flip to ink. Without the prefers-color-scheme
+   twin, data-theme="auto" on a dark OS painted white text on pale tones
+   (contrast as low as 1.55:1). */
 .youge-assistant-widget[data-theme="dark"] .youge-badge[data-tone="critical"],
+.youge-assistant-widget[data-theme="dark"] .youge-badge[data-tone="auth"],
 .youge-assistant-widget[data-theme="dark"] .youge-badge[data-tone="backup"],
 .youge-assistant-widget[data-theme="dark"] .youge-badge[data-tone="install"],
 .youge-assistant-widget[data-theme="dark"] .youge-badge[data-tone="info"] { color: #0b1220; }
+@media (prefers-color-scheme: dark) {
+  .youge-assistant-widget[data-theme="auto"] .youge-badge[data-tone="critical"],
+  .youge-assistant-widget[data-theme="auto"] .youge-badge[data-tone="auth"],
+  .youge-assistant-widget[data-theme="auto"] .youge-badge[data-tone="backup"],
+  .youge-assistant-widget[data-theme="auto"] .youge-badge[data-tone="install"],
+  .youge-assistant-widget[data-theme="auto"] .youge-badge[data-tone="info"] { color: #0b1220; }
+}
 
 /* ------------------------------------------------------------------ *
  * In-place panel. Never a separate page or new tab.
@@ -312,7 +326,9 @@
 .youge-btn:active { transform: translateY(0) scale(0.99); }
 .youge-btn:focus-visible { outline: 3px solid var(--youge-focus); outline-offset: 3px; }
 .youge-btn .youge-icon svg { width: 18px; height: 18px; display: block; }
-.youge-btn-small { min-height: 40px; min-width: 44px; padding: 8px 10px; font-size: 12px; }
+/* 44px minimum (not 40px) so the small notice controls stay reachable for
+   touch input — they are the most-tapped buttons in the panel. */
+.youge-btn-small { min-height: 44px; min-width: 44px; padding: 8px 10px; font-size: 12px; }
 .youge-btn-quiet { background: var(--youge-surface-soft); color: var(--youge-ink); border-color: var(--youge-line); }
 .youge-assistant-widget[data-theme="dark"] .youge-btn { color: #0b1220; }
 @media (prefers-color-scheme: dark) {
