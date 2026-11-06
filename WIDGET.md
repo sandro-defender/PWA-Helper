@@ -214,10 +214,34 @@ duplicate prompts and duplicate network checks.
 - 56px launcher, 44px minimum controls, visible `:focus-visible` outlines,
   `cursor: pointer`, `touch-action: manipulation`, SVG icons (no emoji),
   `aria-label`, `aria-expanded`, `aria-controls`, `role="dialog"`.
-- 150–180ms purposeful transitions; `@media (prefers-reduced-motion: reduce)`
-  disables them and the JS close path. Every essential action works without
-  animation. Dark mode follows the OS only for `theme: 'auto'`; contrast-safe
-  light/dark tokens are defined together.
+- The launcher is a **true circle**: `border-radius: 50%` on a square 56px box
+  (54px below 480px), so it stays circular at every size and position. Any
+  decorative layer inside it is a circle of its own (`::before` inset 0), so no
+  square edge or glow can escape the button and the glyph stays clipped above it.
+- The resting state is deliberately calm: one low-saturation fill
+  (`--youge-fab-bg`), a hairline ring, one short elevation shadow, no glow, no
+  blur, no `@keyframes`. Hover lifts 1px and press scales to 0.98 — feedback
+  without theatre. Icon ink on the resting fill measures 9.45:1 (light) and
+  11.01:1 (dark); on the red fill 6.57:1 and 10.32:1.
+- **Red means "act on this".** The button owns no opinion about urgency: its
+  `data-tone` is `state.badge.tone`, the tone of the highest-priority notice the
+  user has not dismissed or acknowledged. `critical`, `auth` and `install`
+  (connection loss, DNS failure, dead primary endpoint, session attention, an
+  available install action) paint the button with the toolkit's own
+  `--youge-critical` red. `info`, `backup` and `none` stay neutral: an optional
+  update, a restored connection, a feature announcement, the app already running
+  on a backup endpoint, or a diagnostic in progress are not user actions.
+  Dismissing the event clears the color on the next state emit, with no polling.
+  The count badge (inverted to stay legible on red) and the `aria-label` phrase
+  repeat the message, because color is never the only signal.
+- Two shared motion tokens instead of one duration everywhere:
+  `--youge-motion-fast: 160ms` for hover/press feedback and
+  `--youge-motion-state: 240ms` for the state color, border and shadow change.
+  `@media (prefers-reduced-motion: reduce)` drops both durations and removes
+  the travel, so the state still changes — instantly, without motion — and the
+  JS close path stays immediate. Every essential action works without animation.
+  Dark mode follows the OS only for `theme: 'auto'`; contrast-safe light/dark
+  tokens are defined together.
 - Safe-area insets (`env(safe-area-inset-*)`), `100dvh` mobile max-height,
   `max-width: 480px` breakpoint, and panel width clamped to the viewport.
 

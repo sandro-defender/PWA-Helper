@@ -204,3 +204,88 @@ test('React notice actions reuse the toolkit hooks instead of being inert', () =
   assert.match(jsx, /const NOTICE_ACTION_LABELS = \{/, 'fallback wording lives beside the widget');
   assert.match(jsx, /NOTICE_ACTION_LABELS\[notice\.actionId\] \|\| 'Open'/, 'an unknown action still reads as Open');
 });
+
+/* ------------------------------------------------------------------ *
+ * Floating entry point refinement (November 2026): the sample button must
+ * stay circular, stay clipped to its own circle, and follow the same
+ * actionable-tone rule as the shipped widget.
+ * ------------------------------------------------------------------ */
+
+const exampleCss = readFileSync(new URL('../example/example.css', import.meta.url), 'utf8');
+const widgetCss = readFileSync(new URL('../assistant-widget.css', import.meta.url), 'utf8');
+const widgetSource = readFileSync(new URL('../example/src/main.jsx', import.meta.url), 'utf8');
+
+function actionableTones(css, selector) {
+  return [...new Set([...css.matchAll(new RegExp(`\\.${selector}\\[data-tone="([a-z]+)"\\]`, 'g'))].map((match) => match[1]))].sort();
+}
+
+function ruleBody(css, selector) {
+  const at = css.indexOf('.' + selector + ' {');
+  assert.ok(at >= 0, selector + ' rule exists');
+  return css.slice(at, css.indexOf('\n}', at));
+}
+
+test('the sample floating button is a clipped circle, not a glowing square', () => {
+  const fab = ruleBody(exampleCss, 'assistant-fab');
+  assert.match(fab, /border-radius: 50%/, 'still a true circle');
+  assert.match(fab, /background: var\(--assistant-fab-fill\)/, 'a single flat fill instead of a lit gradient');
+  assert.doesNotMatch(fab, /radial-gradient\(circle at 50% 37%/, 'the bright inner spotlight is gone');
+  assert.doesNotMatch(fab, /box-shadow: 0 9px 30px|0 14px 38px/, 'no big bloom shadow at rest or on hover');
+  assert.match(fab, /box-shadow: 0 6px 16px/, 'one short elevation shadow instead');
+
+  const stage = ruleBody(exampleCss, 'assistant-fab-stage');
+  assert.match(stage, /inset: 0;/, 'the WebGL layer no longer hangs 12px outside the button');
+  assert.match(stage, /overflow: hidden;/);
+  assert.match(stage, /border-radius: 50%;/, 'the accent is clipped to the disc, so no square edge appears');
+  assert.match(exampleCss, /\.assistant-fab-stage canvas \{ filter: none; \}/, 'no drop-shadow halo around the canvas');
+  assert.doesNotMatch(exampleCss, /\.assistant-fab::before \{[^}]*filter: blur\(/, 'the blurred outer halo is removed');
+  assert.doesNotMatch(exampleCss, /\.assistant-mark-image \{[^}]*filter: drop-shadow/, 'the mark itself is not glowing');
+  assert.match(exampleCss, /\.assistant-fab:focus-visible \{ outline: 3px solid/, 'keyboard focus stays visible');
+});
+
+test('the sample button shares the shipped widget’s actionable-tone rule', () => {
+  assert.deepEqual(
+    actionableTones(exampleCss, 'assistant-fab'),
+    actionableTones(widgetCss, 'youge-fab'),
+    'the sample and the shipped widget must agree on what counts as actionable',
+  );
+  assert.deepEqual(actionableTones(widgetCss, 'youge-fab'), ['auth', 'critical', 'install']);
+  assert.match(widgetSource, /const ACTIONABLE_TONES = new Set\(\['critical', 'auth', 'install'\]\);/, 'and the React code reads the same set');
+  assert.match(widgetSource, /const actionable = ACTIONABLE_TONES\.has\(badge\.tone\);/, 'derived from badge tone, never stored separately');
+  assert.match(widgetSource, /data-tone=\{badge\.tone\}/, 'the button publishes that tone for CSS to consume');
+  for (const calm of ['info', 'backup']) {
+    assert.doesNotMatch(exampleCss, new RegExp(`\\.assistant-fab\\[data-tone="${calm}"\\]`), `${calm} stays non-red in both`);
+  }
+});
+
+test('the sample button animates only while it is being used', () => {
+  assert.match(widgetSource, /const \[engaged, setEngaged\] = useState\(false\);/, 'a hover/focus gate exists');
+  assert.match(widgetSource, /\{engaged \|\| open \? \(/, 'the electric accent mounts on interaction only, so an idle assistant shows no motion');
+  assert.match(widgetSource, /onPointerEnter=\{\(\) => setEngaged\(true\)\}/);
+  assert.match(widgetSource, /onPointerLeave=\{\(\) => setEngaged\(false\)\}/);
+  assert.match(widgetSource, /onFocus=\{\(\) => setEngaged\(true\)\}/);
+  assert.match(widgetSource, /onBlur=\{\(\) => setEngaged\(false\)\}/);
+  assert.match(widgetSource, /interactive=\{false\}/, 'no cursor-chasing lightning');
+  assert.match(widgetSource, /flicker=\{0\}/, 'no flicker');
+  assert.match(widgetSource, /arcs=\{open \? 0\.4 : 0\}/, 'ambient arcs only while the panel is open');
+  assert.match(widgetSource, /glareOpacity=\{0\.08\}/, 'the glare highlight is dimmed');
+  assert.doesNotMatch(widgetSource, /<script|dangerouslySetInnerHTML/, 'and nothing new is injected');
+  assert.match(
+    exampleCss,
+    /@media \(prefers-reduced-motion: reduce\) \{[\s\S]*?\.assistant-fab:hover, \.assistant-fab:active[^{]*\{ transform: none !important; \}/,
+    'reduced motion drops the travel as well as the duration',
+  );
+});
+
+test('the sample keeps the accessibility contract while restyling', () => {
+  assert.match(widgetSource, /aria-controls="assistant-panel"/);
+  assert.match(widgetSource, /aria-expanded=\{open\}/);
+  assert.match(widgetSource, /aria-haspopup="dialog"/);
+  assert.ok(widgetSource.includes('aria-label={open ? '), 'the FAB keeps a spoken label that changes with state');
+  assert.ok(
+    widgetSource.includes('Open You.Ge Assistant menu') && widgetSource.includes('badge.count ? '),
+    'the label still names the alert count and the highest priority in words',
+  );
+  assert.match(widgetSource, /className="assistant-badge" data-tone=\{badge\.tone\} aria-hidden="true"/, 'the visual chip stays decorative');
+  assert.match(widgetSource, /<span className="visually-hidden" role="status" aria-live="polite">/, 'announcements keep their live region');
+});

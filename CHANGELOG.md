@@ -2,6 +2,44 @@
 
 ## Unreleased
 
+- Refined the floating assistant entry point (visual only, no API change):
+  - `assistant-widget.css`: `.youge-fab` is now a **true circle**
+    (`border-radius: 50%` on a square 56px box, 54px below 480px) with a calm,
+    low-saturation fill, a hairline ring, one short elevation shadow and a soft
+    inner sheen that is itself circular — no glow, no blur, no `@keyframes`.
+    Measured glyph contrast: 9.45:1 (light) and 11.01:1 (dark/auto-dark), up
+    from 5.41:1 and **2.23:1** (the old light-blue dark fill was below the 3:1
+    non-text floor).
+  - The button turns the toolkit's **red only for actionable events**: its
+    `data-tone` is the existing `state.badge.tone`, and `critical`, `auth` and
+    `install` (connection loss, DNS failure, dead primary endpoint, session
+    attention, an available install) paint it with `--youge-critical`. `info`,
+    `backup` and `none` stay neutral, so an optional update, a restored
+    connection, a feature announcement, a backup endpoint already serving the
+    app, a diagnostic in progress, an idle or dismissed assistant never read as
+    urgent. No new state, no second source of truth, no polling; the count badge
+    (inverted for legibility on red) and the `aria-label` phrase repeat the
+    message so color is never the only signal.
+  - Two shared motion tokens replace one duration everywhere
+    (`--youge-motion-fast: 160ms` for hover/press feedback,
+    `--youge-motion-state: 240ms` for the state color/border/shadow change);
+    hover travel dropped to 1px and press to `scale(0.98)`;
+    `prefers-reduced-motion` removes both durations and the travel while the
+    color state still changes.
+  - `example/`: the sample launcher keeps its circular geometry but clips the
+    `ElectricLogo` layer to the disc (`inset: 0` + `overflow: hidden` +
+    `border-radius: 50%`, no `filter: drop-shadow`), loses its blurred outer
+    halo, dims the spotlight/glow/flicker/strands and the `GlareHover`
+    highlight, no longer chases the cursor, and mounts only while hovered,
+    focused or open — an idle assistant now runs no animation loop at all. Its
+    fill follows the same actionable-tone list as the shipped widget, asserted by
+    a parity test.
+  - Tests: `tests/assistant-widget.test.mjs` gained 7 and
+    `tests/example-ui.test.mjs` 4 assertions covering the circle, the subdued
+    resting state, computed WCAG contrast of the FAB tokens in light/dark/
+    auto-dark, the actionable-tone list (and that `info`/`backup`/`none` never
+    match), the motion tokens, reduced-motion behavior, the tone following real
+    state through dismiss/connectivity changes, and the accessibility contract.
 - Fixed the defects found by the November 2026 audit (full findings table in the
   bug-fix pull request). Summary by area:
   - **React adapter**: `getExternalStoreBindings` memoizes the resolved assistant
