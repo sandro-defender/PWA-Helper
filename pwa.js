@@ -1002,6 +1002,36 @@
       'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
   }
 
+  // Notification.requestPermission() is promise-based in modern browsers but
+  // callback-only in older Safari/WebKit builds. Resolve from whichever channel
+  // the browser actually uses, exactly once, and always return a promise so a
+  // granted permission is never read as `undefined` (and hosts can always
+  // chain `.then()` on PWA.requestPushPermission()).
+  function requestNotificationPermission() {
+    if (!('Notification' in window) || typeof Notification.requestPermission !== 'function') {
+      return Promise.resolve('denied');
+    }
+    if (Notification.permission === 'granted' || Notification.permission === 'denied') {
+      return Promise.resolve(Notification.permission);
+    }
+    return new Promise(function (resolve) {
+      var settled = false;
+      function done(value) {
+        if (settled) return;
+        settled = true;
+        resolve(value === 'granted' ? 'granted' : 'denied');
+      }
+      try {
+        var result = Notification.requestPermission(done);
+        if (result && typeof result.then === 'function') {
+          result.then(done, function () { done('denied'); });
+        }
+      } catch (error) {
+        done('denied');
+      }
+    });
+  }
+
   function subscribePush(options) {
     options = options || {};
     if (!pushSupported()) {
@@ -1020,16 +1050,7 @@
 
     // Call requestPermission synchronously: iOS requires a user gesture and
     // awaiting the service worker first can lose that gesture.
-    var permissionPromise;
-    if (Notification.permission === 'granted') {
-      permissionPromise = Promise.resolve('granted');
-    } else {
-      try {
-        permissionPromise = Promise.resolve(Notification.requestPermission());
-      } catch (error) {
-        permissionPromise = Promise.resolve('denied');
-      }
-    }
+    var permissionPromise = requestNotificationPermission();
 
     return permissionPromise
       .then(function (permission) {
@@ -1592,6 +1613,19 @@
     return element;
   }
 
+  // Button labels are plain text, but they can originate from host markup
+  // (`data-install="…"`, `data-subscribed="…"`) or host configuration, so they
+  // are escaped before being composed into innerHTML. Without this, any page
+  // that renders untrusted content into those attributes becomes DOM XSS.
+  function escapeHtml(value) {
+    return String(value == null ? '' : value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
   function ensureStyles() {
     if (config.noCss) return;
     if (document.querySelector('link[data-pwa-css]')) return;
@@ -1739,7 +1773,7 @@
       var label = installedNow ? data.installedLabel : data.installLabel;
       var inner = '<span class="pwa-btn-inner">';
       if (data.icons) inner += '<span class="pwa-btn-icon">' + icon + '</span>';
-      inner += '<span class="pwa-btn-label">' + label + '</span></span>';
+      inner += '<span class="pwa-btn-label">' + escapeHtml(label) + '</span></span>';
       node.innerHTML = inner;
       node.classList.add('initialized');
     }
@@ -1875,7 +1909,7 @@
 
           var inner = '<span class="pwa-btn-inner">';
           if (data.icons) inner += '<span class="pwa-btn-icon">' + icon + '</span>';
-          inner += '<span class="pwa-btn-label">' + label + '</span></span>';
+          inner += '<span class="pwa-btn-label">' + escapeHtml(label) + '</span></span>';
           node.innerHTML = inner;
           node.classList.add('initialized');
         })
@@ -3184,7 +3218,7 @@
     requestPushPermission: function () {
       if (config.features && config.features.push === false) return Promise.resolve('denied');
       if (!('Notification' in window)) return Promise.resolve('denied');
-      return Notification.requestPermission();
+      return requestNotificationPermission();
     },
 
     // badge

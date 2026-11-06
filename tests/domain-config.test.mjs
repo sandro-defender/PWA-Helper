@@ -149,3 +149,49 @@ test('creates a domain-relative manifest with isolated identity and scope', () =
   assert.equal(manifest.share_target.action, '/app/share-target');
   assert.equal(manifest.icons.length, 4);
 });
+
+/* ------------------------------------------------------------------ *
+ * Audit regression (2026-11): navigation targets carried by push
+ * payloads and host markup must be validated by the classic resolver
+ * too, because the service worker imports this file, not the SDK.
+ * ------------------------------------------------------------------ */
+
+test('safeNavigationUrl keeps in-app paths and http(s), rejects the rest', () => {
+  assert.equal(typeof domain.safeNavigationUrl, 'function', 'the classic surface exposes the guard');
+
+  assert.equal(domain.safeNavigationUrl('/inbox?x=1'), '/inbox?x=1');
+  assert.equal(domain.safeNavigationUrl('settings/notifications'), 'settings/notifications');
+  assert.equal(domain.safeNavigationUrl('#top'), '#top');
+  assert.equal(
+    domain.safeNavigationUrl('https://app.example.test/deep/link'),
+    'https://app.example.test/deep/link',
+  );
+  assert.equal(domain.safeNavigationUrl('http://localhost:5173/'), 'http://localhost:5173/');
+});
+
+test('safeNavigationUrl cannot be walked into a script or another origin', () => {
+  const hostile = [
+    'javascript:alert(1)',
+    '   JaVaScRiPt:alert(1)',
+    'java\tscript:alert(1)',
+    'data:text/html,<script>alert(1)</script>',
+    'vbscript:msgbox(1)',
+    '//evil.example/pwn',
+    '  //evil.example',
+    '\\evil.example\\pwn',
+    '/\\evil.example',
+    'mailto:someone@example.test',
+  ];
+  for (const value of hostile) {
+    assert.equal(domain.safeNavigationUrl(value, '/'), '/', `${JSON.stringify(value)} must fall back`);
+    assert.equal(domain.safeNavigationUrl(value, '/home'), '/home', 'an explicit fallback is honoured');
+  }
+});
+
+test('safeNavigationUrl treats blank and non-string input as "no target"', () => {
+  for (const value of [null, undefined, '', '   ', 42, {}, [], true]) {
+    assert.equal(domain.safeNavigationUrl(value, '/home'), '/home');
+  }
+  // Called with no fallback at all, the guard still yields a usable in-app URL.
+  assert.equal(domain.safeNavigationUrl('javascript:alert(1)'), '/');
+});

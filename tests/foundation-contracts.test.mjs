@@ -229,3 +229,37 @@ test('build and type-check gates are wired into CI', () => {
   assert.equal(JSON.parse(read('example/package.json')).scripts.typecheck, 'tsc --noEmit -p tsconfig.json');
   assert.ok(has('example/tsconfig.json'));
 });
+
+/* ------------------------------------------------------------------ *
+ * Audit regressions (2026-11): push payload navigation and the offline
+ * status announcement.
+ * ------------------------------------------------------------------ */
+
+test('push payload navigation targets are validated before the client is moved', () => {
+  assert.match(worker, /function resolveNotificationTarget\(raw\)/, 'the worker funnels every target through one guard');
+  assert.match(worker, /self\.YouGeDomain\.safeNavigationUrl\(raw, self\.location\.href\)/, 'the guard comes from the imported classic resolver');
+  assert.match(
+    worker,
+    /if \(url\.protocol !== 'https:' && url\.protocol !== 'http:'\) return REGISTRATION_SCOPE\.href;/,
+    'the fallback path still refuses script-capable schemes when domain-config.js is missing',
+  );
+  assert.match(worker, /targetUrl = new URL\(resolveNotificationTarget\(target\), self\.location\.origin\);/);
+  assert.match(
+    worker,
+    /if \(targetUrl\.protocol !== 'https:' && targetUrl\.protocol !== 'http:'\) \{\s*targetUrl = new URL\(REGISTRATION_SCOPE\);/,
+    'a re-check after URL construction, so an unusable value cannot reach navigate/openWindow',
+  );
+  const handler = /self\.addEventListener\('notificationclick'[\s\S]*?\n\}\);/.exec(worker);
+  assert.ok(handler, 'the notificationclick handler exists');
+  assert.doesNotMatch(handler[0], /new URL\(\s*\(?\s*data\.url/, 'no raw payload url is ever turned into a navigation target');
+});
+
+test('the offline page announces connection changes once, atomically', () => {
+  assert.match(
+    offlineHtml,
+    /<span class="badge" role="status" aria-live="polite" aria-atomic="true">/,
+    'the offline badge is the live region offline.js rewrites',
+  );
+  assert.match(offlineHtml, /<span class="dot" id="dot" aria-hidden="true"><\/span>/, 'the decorative dot is not announced');
+  assert.match(offlineHtml, /id="diagnosticsResult" role="status" aria-live="polite"/, 'diagnostics results stay announced');
+});
