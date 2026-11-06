@@ -580,8 +580,8 @@ components inherit whatever the page sets.
   publishes `example/` at `/example/` with its own worker scope and offline page.
   Enable Pages
   with **Source: GitHub Actions** once. The pages are
-  <https://sandro-defender.github.io/PWA-Helper/> and
-  <https://sandro-defender.github.io/PWA-Helper/example/>.
+  <https://sandro-defender.github.io/you-ge-assistant/> and
+  <https://sandro-defender.github.io/you-ge-assistant/example/>.
 
 ---
 

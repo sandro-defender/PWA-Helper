@@ -43,6 +43,18 @@ follows under *Unreleased*.
 
 ## Unreleased
 
+- **Repository rename maintenance (2026-11-06):** the GitHub repository was
+  renamed `sandro-defender/PWA-Helper` → **`sandro-defender/you-ge-assistant`**.
+  Updated all active GitHub repository URLs, GitHub Pages links
+  (`sandro-defender.github.io/you-ge-assistant/`), the clone command, the demo
+  footer links, the documented Pages subpath (`/you-ge-assistant/`), and the
+  SDK package's npm metadata (`repository`/`homepage`/`bugs`) to the canonical
+  URL. The `foundation-contracts` suite now asserts the canonical URL and
+  rejects stale `github.com`/`github.io` links. Intentionally kept: session
+  branch slugs (`arena/*-pwa-helper`), local sandbox paths
+  (`/home/user/PWA-Helper`) in historical command records, and "pwa-helper"
+  product language for the existing toolkit. No SDK release logic, package
+  version, or runtime behavior changed.
 - **Package rename:** the SDK's npm identity is corrected to
   **`@youge/assistant-sdk`** (was `@you-ge/assistant-sdk`, based on an
   incorrect assumption about the organization scope). The final identity is

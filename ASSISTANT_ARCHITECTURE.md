@@ -23,7 +23,7 @@ It has two independent deliverables:
    integrated projects embed to consume published configuration and reuse
    installation, manifest, offline and diagnostics capabilities.
 
-The current repository (`sandro-defender/PWA-Helper`) is the toolkit the platform
+The current repository (`sandro-defender/you-ge-assistant`) is the toolkit the platform
 grew from. Its runtime files, public `window.PWA` API, worker path, install
 identity and dependency-free embedding model stay intact. The Assistant adds
 management and distribution around them; it does not become a runtime

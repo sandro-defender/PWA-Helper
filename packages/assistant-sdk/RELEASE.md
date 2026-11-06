@@ -77,7 +77,7 @@ task.** Ownership of the org `youge` stays with the project owner's npm user
 release).
 
 GitHub Packages note (conclusion unchanged): the `@youge` scope still cannot
-be published from `sandro-defender/PWA-Helper`, because GitHub Packages
+be published from `sandro-defender/you-ge-assistant`, because GitHub Packages
 requires the npm scope to match the **publishing repository's owner**
 (`@sandro-defender/*`). Public npm therefore remains the recommended
 destination ([§3](#3-publishing-destination-evaluation)).
@@ -129,7 +129,7 @@ destination ([§3](#3-publishing-destination-evaluation)).
 | **Cloudflare build compatibility** | **Frictionless** — `npm ci` works in Cloudflare Pages/Workers builds with no secrets | Requires a build secret (see below) and `.npmrc` plumbing on every build |
 | staff.you.ge installation | Exact-version pin, works in any CI and locally, no onboarding | Every dev + CI + Cloudflare build needs a token before `npm ci` works |
 | Long-term maintenance | Default ecosystem path; lockfiles, Dependabot, provenance | Extra auth surface, token rotation, broken forks/PRs without secrets |
-| Ownership & naming | Scope `@youge` (org `youge`, user `you-ge`) is confirmed and verified available ([§2](#2-package-identity-decisions)) | Scope must match the **publishing repository's owner** — `sandro-defender/PWA-Helper` can only publish `@sandro-defender/*`, so the `@youge` name **cannot be published from this repository at all** |
+| Ownership & naming | Scope `@youge` (org `youge`, user `you-ge`) is confirmed and verified available ([§2](#2-package-identity-decisions)) | Scope must match the **publishing repository's owner** — `sandro-defender/you-ge-assistant` can only publish `@sandro-defender/*`, so the `@youge` name **cannot be published from this repository at all** |
 
 ### Recommendation: **public npm** (`registry.npmjs.org`), scoped package, `access: public`
 

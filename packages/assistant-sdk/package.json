@@ -64,12 +64,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/sandro-defender/PWA-Helper.git",
+    "url": "https://github.com/sandro-defender/you-ge-assistant.git",
     "directory": "packages/assistant-sdk"
   },
-  "homepage": "https://github.com/sandro-defender/PWA-Helper/tree/main/packages/assistant-sdk#readme",
+  "homepage": "https://github.com/sandro-defender/you-ge-assistant/tree/main/packages/assistant-sdk#readme",
   "bugs": {
-    "url": "https://github.com/sandro-defender/PWA-Helper/issues"
+    "url": "https://github.com/sandro-defender/you-ge-assistant/issues"
   },
   "scripts": {
     "test": "node --test tests/*.test.mjs",
