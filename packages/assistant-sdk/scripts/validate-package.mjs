@@ -12,7 +12,10 @@
  *   - package contents: files whitelist, npm pack list, README, LICENSE
  *   - dependency requirements: zero runtime deps, optional react peer only
  *   - source hygiene: relative imports only, nothing escapes the package root
- *   - the "private: true" accidental-publish guard is still in place
+ *   - publishability and release gates (prepublishOnly authorization + the
+ *     sdk-release-prep workflow's manual-only trigger, confirm input, approval
+ *     variable, protected environment, secret reference and publish
+ *     authorization env)
  *
  * Exits 1 on failure.
  */
@@ -313,23 +316,62 @@ for (const file of sourceFiles) {
 if (relativeOnly) pass(`all ${sourceFiles.length} source modules use package-relative imports only`);
 if (allResolve) pass('every relative import resolves inside the package (no repository-specific paths)');
 
-/* 7. Accidental-publish guard --------------------------------------------- */
+/* 7. Publishability and release gates ------------------------------------- */
 
-section('Accidental-publish guard');
+section('Publishability and release gates');
 
-// In a release context (npm prepublishOnly or --release-context) the approved
-// release PR has already removed the private flag; report the state instead of
-// blocking. Everywhere else (CI, npm run check, manual runs) the guard is strict.
-const releaseContext =
-  process.argv.includes('--release-context') || process.env.npm_lifecycle_event === 'prepublishOnly';
-
+// The 0.1.0 release PR (RELEASE.md §4 step 1) removed the private lock by
+// design. Accidental-publish protection now comes from the sdk-release-prep
+// workflow gates and the absence of registry credentials — both are verified
+// below so they can never be silently removed.
 if (pkg.private === true) {
-  pass('package is marked "private": true — npm publish is impossible until the approved release PR removes the flag');
-  note('the flag is the package-level publishing lock; see RELEASE.md for the release procedure');
-} else if (releaseContext) {
-  note('"private" flag absent in release context — publishing is possible; confirm this run is explicitly approved (RELEASE.md)');
+  note('package is still marked "private": true — npm publish is impossible (pre-release state)');
 } else {
-  fail('the "private": true guard is missing — publishing must remain disabled until explicitly approved (RELEASE.md)');
+  pass('package is publishable (release-ready state; the private lock was removed by the approved 0.1.0 release PR)');
+}
+
+if (typeof pkg.scripts?.prepublishOnly === 'string') {
+  pass('prepublishOnly re-runs this validation as the final net for any publish attempt');
+} else {
+  fail('prepublishOnly script is missing — every publish attempt must re-run package validation');
+}
+
+// A real publish attempt (npm runs this script as prepublishOnly) must carry
+// the explicit authorization that only the gated sdk-release-prep publish job
+// sets. A stray local `npm publish` therefore fails prepublishOnly and aborts
+// (npm >= 7 aborts a publish when a lifecycle script exits non-zero).
+if (process.env.npm_lifecycle_event === 'prepublishOnly') {
+  if (process.env.SDK_RELEASE_CONFIRM === 'publish') {
+    pass('publish attempt carries the explicit SDK_RELEASE_CONFIRM authorization set by the gated release workflow');
+  } else {
+    fail('publish attempt without SDK_RELEASE_CONFIRM authorization — direct npm publish is refused; use the gated sdk-release-prep workflow (RELEASE.md §4 step 4)');
+  }
+}
+
+const workflowPath = join(repoRoot, '.github', 'workflows', 'sdk-release-prep.yml');
+if (existsSync(workflowPath)) {
+  const workflow = readFileSync(workflowPath, 'utf8');
+  const gates = [
+    ['workflow_dispatch-only trigger', /^on:\s*\n\s+workflow_dispatch:/m.test(workflow) && !/^\s+(push|pull_request):/m.test(workflow)],
+    ['confirm_publish explicit-authorization input', workflow.includes('confirm_publish')],
+    ['SDK_RELEASE_ENABLED approval variable', workflow.includes('SDK_RELEASE_ENABLED')],
+    ['sdk-npm-publish protected environment', workflow.includes('environment: sdk-npm-publish')],
+    ['NPM_TOKEN secret reference (value never committed)', workflow.includes('secrets.NPM_TOKEN')],
+    ['SDK_RELEASE_CONFIRM publish authorization (set only by the publish job)', workflow.includes('SDK_RELEASE_CONFIRM: publish')],
+  ];
+  let gatesOk = true;
+  for (const [name, ok] of gates) {
+    if (ok) pass(`release workflow gate intact: ${name}`);
+    else {
+      gatesOk = false;
+      fail(`release workflow gate missing: ${name}`);
+    }
+  }
+  if (gatesOk) {
+    note('publishing stays disabled until the owner completes the runbook (RELEASE.md §4 steps 3-5)');
+  }
+} else {
+  fail('release workflow .github/workflows/sdk-release-prep.yml is missing');
 }
 
 /* -------------------------------------------------------------------------- */

@@ -62,8 +62,18 @@ test('user-facing identity is You.Ge Assistant across the toolkit', () => {
   assert.match(offlineHtml, /Offline — You\.Ge Assistant/);
   assert.match(read('snippet.html'), /content="You\.Ge Assistant"/);
   assert.match(read('README.md'), /# You\.Ge Assistant/);
-  // Repository URLs and legacy technical identifiers are intentionally retained.
-  assert.match(read('README.md'), /github\.com\/sandro-defender\/PWA-Helper/);
+  // Canonical GitHub repository URL after the PWA-Helper -> you-ge-assistant
+  // rename (2026-11-06). Old-name remnants are allowed only as intentional
+  // history (session branch slugs, local sandbox paths, product language) —
+  // never as github.com or github.io URLs.
+  assert.match(read('README.md'), /github\.com\/sandro-defender\/you-ge-assistant/);
+  const docsWithUrls = [
+    'README.md', 'AGENTS.md', 'ASSISTANT_ARCHITECTURE.md', 'ARCHITECTURE_AUDIT.md',
+    'demo/index.html', 'packages/assistant-sdk/package.json', 'packages/assistant-sdk/RELEASE.md',
+    'packages/assistant-sdk/MIGRATION.md', 'packages/assistant-sdk/README.md',
+  ].map(read).join('\n');
+  assert.doesNotMatch(docsWithUrls, /github\.com\/sandro-defender\/PWA-Helper/, 'no stale github.com repository URLs');
+  assert.doesNotMatch(docsWithUrls, /github\.io\/PWA-Helper/, 'no stale GitHub Pages URLs');
 });
 
 test('installation implementation keeps every documented browser path', () => {

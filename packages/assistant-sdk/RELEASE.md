@@ -1,10 +1,13 @@
 # `@youge/assistant-sdk` — Release Preparation & Publishing Decision
 
-> **Status: release preparation only. Publishing is disabled.**
+> **Status: 0.1.0 release PR prepared (runbook §4 steps 1–2). Not published.**
 > Nothing in this repository publishes the package on push, pull request or
-> merge. The package is locked with `"private": true`, the release workflow is
-> manual and gated, and no registry account or token is configured.
-> See [§5](#5-publishing-remains-disabled).
+> merge. The package-level `"private": true` lock has been removed by the
+> approved release PR so the tarball is publishable; **publication remains
+> disabled** until the repository owner completes [§4](#4-release-runbook-when-a-release-is-approved)
+> steps 3–5 (registry credential, protected environment, approval variable,
+> manual publish dispatch). This document does **not** claim the package has
+> been released. See [§5](#5-publishing-remains-disabled).
 
 This document records (1) the package-metadata review, (2) the evaluation of
 publishing destinations with a recommendation, (3) the release procedure to use
@@ -22,8 +25,8 @@ Related documents: [`README.md`](README.md) (public API and consumption) ·
 | Item | Value | Notes |
 | --- | --- | --- |
 | Package name | `@youge/assistant-sdk` | Scope `@youge` (npm org `youge`, npm user `you-ge`) — confirmed by the project owner, see [§2](#2-package-identity-decisions); available and unpublished on npm |
-| Version | `0.1.0` (pre-1.0) | Synced with `SDK_VERSION` in `src/core/constants.js` |
-| Visibility | `"private": true` | Deliberate accidental-publish lock (added in Phase 2) |
+| Version | `0.1.0` (initial release) | Synced with `SDK_VERSION` in `src/core/constants.js` |
+| Visibility | release-ready (publishable) | `"private": true` lock removed in the 0.1.0 release PR per [§4](#4-release-runbook-when-a-release-is-approved) step 1; publication still gated ([§5](#5-publishing-remains-disabled)) |
 | Publish config | `publishConfig.access: "public"` | Ready for an approved first scoped publish |
 | Module system | ESM only (`"type": "module"`) | Buildless: `src/` **is** the published runtime |
 | TypeScript | Paired `.d.ts` per export entry | `.`, `./domain`, `./config`, `./diagnostics`, `./installation`, `./react` |
@@ -36,8 +39,10 @@ Related documents: [`README.md`](README.md) (public API and consumption) ·
 
 Why the package was marked `private`: Phase 2 (PR #7) extracted the SDK
 locally and explicitly wanted to make an accidental `npm publish` impossible
-until a real release decision was made. That remains correct today — the flag
-stays until an approved release PR removes it ([§4](#4-release-runbook-when-a-release-is-approved)).
+until a real release decision was made. That lock held through the release
+preparation (PR #9) and identity correction (PR #10), and is removed only now,
+in the approved 0.1.0 release PR, exactly as [§4](#4-release-runbook-when-a-release-is-approved)
+step 1 prescribes.
 
 ## 2. Package identity decisions
 
@@ -72,7 +77,7 @@ task.** Ownership of the org `youge` stays with the project owner's npm user
 release).
 
 GitHub Packages note (conclusion unchanged): the `@youge` scope still cannot
-be published from `sandro-defender/PWA-Helper`, because GitHub Packages
+be published from `sandro-defender/you-ge-assistant`, because GitHub Packages
 requires the npm scope to match the **publishing repository's owner**
 (`@sandro-defender/*`). Public npm therefore remains the recommended
 destination ([§3](#3-publishing-destination-evaluation)).
@@ -124,7 +129,7 @@ destination ([§3](#3-publishing-destination-evaluation)).
 | **Cloudflare build compatibility** | **Frictionless** — `npm ci` works in Cloudflare Pages/Workers builds with no secrets | Requires a build secret (see below) and `.npmrc` plumbing on every build |
 | staff.you.ge installation | Exact-version pin, works in any CI and locally, no onboarding | Every dev + CI + Cloudflare build needs a token before `npm ci` works |
 | Long-term maintenance | Default ecosystem path; lockfiles, Dependabot, provenance | Extra auth surface, token rotation, broken forks/PRs without secrets |
-| Ownership & naming | Scope `@youge` (org `youge`, user `you-ge`) is confirmed and verified available ([§2](#2-package-identity-decisions)) | Scope must match the **publishing repository's owner** — `sandro-defender/PWA-Helper` can only publish `@sandro-defender/*`, so the `@youge` name **cannot be published from this repository at all** |
+| Ownership & naming | Scope `@youge` (org `youge`, user `you-ge`) is confirmed and verified available ([§2](#2-package-identity-decisions)) | Scope must match the **publishing repository's owner** — `sandro-defender/you-ge-assistant` can only publish `@sandro-defender/*`, so the `@youge` name **cannot be published from this repository at all** |
 
 ### Recommendation: **public npm** (`registry.npmjs.org`), scoped package, `access: public`
 
@@ -160,47 +165,68 @@ Prerequisites: the registry identity `@youge/assistant-sdk` is confirmed and
 verified available ([§2](#2-package-identity-decisions)); the maintainer has
 decided the registry ([§3](#3-publishing-destination-evaluation)).
 
-1. **Release PR** (one deliberate, reviewable change set):
-   - bump `version` in `packages/assistant-sdk/package.json` **and**
-     `SDK_VERSION` in `src/core/constants.js` together;
-   - add a `CHANGELOG.md` entry;
-   - remove `"private": true` from `packages/assistant-sdk/package.json`;
-   - update the two explicit guard assertions that lock publishing today:
-     `scripts/check.mjs` (`private === true` contract) and the
-     accidental-publish guard in
-     `packages/assistant-sdk/scripts/validate-package.mjs` (strict mode) —
-     both are intentional review signals;
-   - run `npm run check` and
-     `node packages/assistant-sdk/scripts/validate-package.mjs`.
+1. **Release PR** (one deliberate, reviewable change set) — **DONE (0.1.0
+   release PR):**
+   - ✅ version set to exactly `0.1.0` in `packages/assistant-sdk/package.json`
+     and `SDK_VERSION` in `src/core/constants.js` (already synchronized; no
+     bump beyond `0.1.0`);
+   - ✅ `CHANGELOG.md` `0.1.0` initial-release entry added;
+   - ✅ `"private": true` removed from `packages/assistant-sdk/package.json`;
+   - ✅ the two explicit guard assertions updated as intentional review
+     signals: `scripts/check.mjs` now asserts release-ready state, and
+     `packages/assistant-sdk/scripts/validate-package.mjs` now verifies
+     publishability **and** that the workflow publishing gates stay intact;
+   - ✅ `npm run check` and `node packages/assistant-sdk/scripts/validate-package.mjs`
+     green.
 2. **Verify** — run the `sdk-release-prep` workflow with `action: verify`
-   (manual dispatch only). All jobs green.
+   (manual dispatch only). All jobs green. **Status: to be dispatched by the
+   maintainer** (or recorded from the release PR's CI run).
 3. **Configure the registry secret** at publish time only: `NPM_TOKEN`
    (npm automation token or npm Trusted Publishing) as a repository **secret**,
    and the `sdk-npm-publish` **environment** with required reviewers. Set the
    repository variable `SDK_RELEASE_ENABLED = true` — this is the explicit
-   "publishing approved" switch.
+   "publishing approved" switch. **Status: OWNER ACTION — see
+   [§7](#7-required-follow-ups-before-the-first-publish).**
 4. **Publish** — run the `sdk-release-prep` workflow with `action: publish`
    and `confirm_publish: publish`. The publish job runs only with all gates
-   from step 3 and only on this manual dispatch.
+   from step 3 and only on this manual dispatch. Direct `npm publish` is
+   refused: the `prepublishOnly` hook aborts any publish attempt that lacks
+   the `SDK_RELEASE_CONFIRM` authorization injected by this job. **Status:
+   NOT DONE — no authorization to publish has been given.**
 5. **Post-publish smoke test** — `npm view @youge/assistant-sdk version`,
    install the exact version in a scratch project and in staff.you.ge's
-   lockfile (see [`MIGRATION.md`](MIGRATION.md)).
+   lockfile (see [`MIGRATION.md`](MIGRATION.md)). **Status: pending step 4.**
 6. Optionally tag the release commit **after** a successful publish (tags are
    created only as part of an approved release, never by automation on merge).
+   **Status: pending step 4.**
 
 ## 5. Publishing remains disabled
 
-As of 2026-11-06 three independent locks prevent any publish:
+The 0.1.0 release PR removed the package-level `"private": true` lock — that
+is runbook step 1 and its intentional review signal. Publishing is still
+impossible in practice: every remaining gate below is closed, and the publish
+job requires **all** of them at once.
 
-| Lock | Mechanism | State |
+| Gate | Mechanism | State |
 | --- | --- | --- |
-| Package level | `"private": true` — `npm publish` refuses private packages | **Active** |
-| Workflow level | `sdk-release-prep.yml` runs on `workflow_dispatch` **only** (never on push/PR/merge); its publish job additionally requires the `SDK_RELEASE_ENABLED` repository variable (unset), the `confirm_publish` input, the protected `sdk-npm-publish` environment and an `NPM_TOKEN` secret (not configured) | **Active** |
-| Account level | `@youge/assistant-sdk` is unpublished on npm and **no publish credential exists anywhere** in this repository (no `NPM_TOKEN` secret configured, no committed `.npmrc`, no automation token) | **Active** |
+| Workflow trigger | `sdk-release-prep.yml` runs on `workflow_dispatch` **only** (never on push/PR/merge/tag) | **Closed** |
+| Explicit authorization | Publish requires manual `action=publish` **and** `confirm_publish=publish` **and** `SDK_RELEASE_ENABLED = 'true'` (the approval variable is not set; repository variables are not readable by this automation — treat as unset) | **Closed** |
+| Protected environment | `sdk-npm-publish` with required reviewers. **Verified missing (2026-11-06):** only the `github-pages` environment exists. Create `sdk-npm-publish` **with required reviewers before** any publish run — GitHub silently auto-creates an unprotected environment on first use otherwise | **Missing — owner action** |
+| Registry credential | `NPM_TOKEN` repository secret (masked). Nothing is committed; secret existence is not readable by this automation (HTTP 403) — configure at publish time only | **Missing — owner action** |
+| Package-level publish authorization | The `prepublishOnly` hook **refuses any `npm publish` that lacks `SDK_RELEASE_CONFIRM=publish`** — a variable injected only by the gated publish job. A stray direct `npm publish` (even by someone with npm org rights) aborts at `prepublishOnly` | **Closed** |
 
-`prepublishOnly` also re-runs the full package validation as a final net.
+Defense in depth: `validate-package.mjs` fails CI if any workflow gate is
+removed (standing contracts in `scripts/check.mjs` and regression tests in
+`tests/release-gates.test.mjs` enforce this by mutation), and
+`npm publish` cannot succeed without the `NPM_TOKEN` credential regardless of
+workflow state. Honest limits: an actor who can edit the repository *and*
+holds npm publish rights can always bypass any in-repo guard (e.g.
+`npm publish --ignore-scripts`) — the real credential boundary is npm org
+membership; the guards above stop every accidental or ordinary path.
 
 ## 6. Verification results (2026-11-06)
+
+### Release-preparation pass (PR #9/#10 era)
 
 | Check | Command | Result |
 | --- | --- | --- |
@@ -214,18 +240,44 @@ As of 2026-11-06 three independent locks prevent any publish:
 | Registry state (post-rename) | `registry.npmjs.org` lookups | `@youge/assistant-sdk` unpublished (404); `@youge/*` empty (no conflict); org/scope `youge` exists |
 | Name consistency | repo-wide `@you-ge` grep | ✅ only intentional rename-history mentions remain (CHANGELOG rename entry, this file §2) |
 
+### 0.1.0 release-PR pass
+
+| Check | Result |
+| --- | --- |
+| Version `0.1.0` not yet on npm | ✅ `GET /@youge%2fassistant-sdk` → HTTP 404 (2026-11-06) |
+| Identity consistency | ✅ `@youge/assistant-sdk@0.1.0` in metadata; `SDK_VERSION` `0.1.0`; `KIT_COMPAT_VERSION` `1.0.5` |
+| Full test suite + contracts | ✅ see the release PR for the run log |
+| Publishability + workflow-gate validation | ✅ `validate-package.mjs` "Publishability and release gates" section passes (5/5 gates intact) |
+| GitHub environment inventory | ⚠️ `sdk-npm-publish` **missing** (only `github-pages`); owner action §7 |
+| `NPM_TOKEN` / `SDK_RELEASE_ENABLED` visibility | ⚠️ not readable by automation (HTTP 403); treat as unconfigured, owner verifies |
+| Consumer install smoke test (packed tarball, exact name/version) | ✅ see the release PR for the run log |
+
+### Independent pre-merge audit pass (PR #11 review)
+
+| Check | Result |
+| --- | --- |
+| Standing-contract mutation tests | ✅ `check.mjs` and `validate-package.mjs` both fail (exit 1, named gate) when any of the 5 workflow gates, the `prepublishOnly` script, or the release-ready version contract is removed/weakened |
+| Stray-publish refusal | ✅ `prepublishOnly` aborts `npm publish` without `SDK_RELEASE_CONFIRM=publish` (regression-tested in `tests/release-gates.test.mjs`) |
+| Provenance/OIDC consistency | ✅ `npm publish --access public --provenance` matches the granted `id-token: write` and the §3 provenance recommendation |
+| Runbook ↔ workflow accuracy | ✅ §4/§5 updated to describe the `SDK_RELEASE_CONFIRM` package-level gate; no-op `--release-context` flag removed from the workflow |
+
 ## 7. Required follow-ups (before the first publish)
 
-1. **Naming is settled** — `@youge/assistant-sdk` is confirmed and verified
-   available. Owner-side check on npmjs.com: the publishing npm user (`you-ge`)
-   has publish rights on the org `youge`.
-2. Approve the registry decision ([§3](#3-publishing-destination-evaluation)) —
-   recommendation is public npm.
-3. Configure `NPM_TOKEN` (or npm Trusted Publishing) and the `sdk-npm-publish`
-   environment with required reviewers; set `SDK_RELEASE_ENABLED=true` only
-   when publishing is explicitly approved.
-4. Execute the release runbook ([§4](#4-release-runbook-when-a-release-is-approved)).
-5. Migrate staff.you.ge off the vendored copy per
+Owner actions remaining (nothing in this repository can complete them):
+
+1. **npmjs.com:** confirm the publishing npm user (`you-ge`) has publish
+   rights on the org `youge` (registry APIs do not expose org membership).
+2. **Create the protected environment `sdk-npm-publish`** with required
+   reviewers (verified missing — do this **before** any publish run).
+3. **Configure `NPM_TOKEN`** (npm automation token, or npm Trusted Publishing
+   via OIDC) as a masked repository/environment secret. Never commit it.
+4. **Approve publication** by setting the repository variable
+   `SDK_RELEASE_ENABLED = true` (the explicit "publishing approved" switch).
+5. **Publish** — run `sdk-release-prep` with `action=publish` and
+   `confirm_publish: publish` ([§4](#4-release-runbook-when-a-release-is-approved)
+   step 4), then the post-publish smoke tests (step 5) and optional tag
+   (step 6).
+6. Migrate staff.you.ge off the vendored copy per
    [`MIGRATION.md`](MIGRATION.md) after the first published version.
 
 ---

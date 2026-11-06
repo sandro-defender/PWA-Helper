@@ -1,7 +1,60 @@
 # Changelog
 
+## 0.1.0 — 2026-11-06 (initial release)
+
+First release of **`@youge/assistant-sdk`** — the framework-independent SDK
+core for You.Ge Assistant (npm org `youge`, scope `@youge`; corrects the
+never-published working name `@you-ge/assistant-sdk`).
+
+- **Public API:** `YouGeAssistant.create()` / `.attach()` / `.getGlobal()`
+  shared-singleton lifecycle with `getState`, `subscribe`, `configure`,
+  `runDiagnostics`, `requestInstall`, `dismiss`, `acknowledge`, `destroy`;
+  subpath exports `./domain`, `./config`, `./diagnostics`, `./installation`,
+  `./react`, each with paired TypeScript declarations. Notification priority
+  ladder frozen: `1 critical → 2 auth → 3 backup → 4 install → 5 info`.
+- **Configuration:** data-only `publishedConfig` validation (schema `1`) with
+  bundled defaults → validated published revision → project overrides →
+  Last-Known-Good fallback; executable-JS payloads, dangerous URLs and
+  secret-shaped keys are rejected before they reach state or storage.
+- **Architecture:** zero runtime dependencies (`react` optional peer for the
+  `useSyncExternalStore` adapter only), ESM-only, buildless `src/` runtime,
+  wildcard-free `exports` map (internal sources unreachable), `sideEffects:
+  false`, no `fetch`, no polling, no telemetry, no service-worker registration.
+- **Packaging:** MIT license, progressive-disclosure README (quick start →
+  subpath table → config/security pipeline → API reference → host-integration
+  example), `files` whitelist (19 files, ~33 kB packed / ~132 kB unpacked),
+  `publishConfig.access: "public"`, `prepublishOnly` validation **and**
+  publish-authorization gate (any `npm publish` without the gated workflow's
+  `SDK_RELEASE_CONFIRM` is refused).
+- **Release engineering:** `packages/assistant-sdk/scripts/validate-package.mjs`
+  (identity, version sync, export map + declarations, tarball contents,
+  dependency policy, source hygiene, publishing-gate checks) wired into
+  `npm run check`, the `check` workflow and `prepublishOnly`; manual-only
+  `sdk-release-prep.yml` release workflow with explicit-authorization publish
+  gates; release runbook and registry decision in
+  [`packages/assistant-sdk/RELEASE.md`](packages/assistant-sdk/RELEASE.md);
+  vendored-copy migration guide in
+  [`packages/assistant-sdk/MIGRATION.md`](packages/assistant-sdk/MIGRATION.md).
+
+Release prepared per [`RELEASE.md`](packages/assistant-sdk/RELEASE.md) §4;
+npm publication is executed separately by the repository owner (runbook
+steps 3–5) and is **not** claimed by this entry. The detailed development log
+follows under *Unreleased*.
+
 ## Unreleased
 
+- **Repository rename maintenance (2026-11-06):** the GitHub repository was
+  renamed `sandro-defender/PWA-Helper` → **`sandro-defender/you-ge-assistant`**.
+  Updated all active GitHub repository URLs, GitHub Pages links
+  (`sandro-defender.github.io/you-ge-assistant/`), the clone command, the demo
+  footer links, the documented Pages subpath (`/you-ge-assistant/`), and the
+  SDK package's npm metadata (`repository`/`homepage`/`bugs`) to the canonical
+  URL. The `foundation-contracts` suite now asserts the canonical URL and
+  rejects stale `github.com`/`github.io` links. Intentionally kept: session
+  branch slugs (`arena/*-pwa-helper`), local sandbox paths
+  (`/home/user/PWA-Helper`) in historical command records, and "pwa-helper"
+  product language for the existing toolkit. No SDK release logic, package
+  version, or runtime behavior changed.
 - **Package rename:** the SDK's npm identity is corrected to
   **`@youge/assistant-sdk`** (was `@you-ge/assistant-sdk`, based on an
   incorrect assumption about the organization scope). The final identity is
@@ -17,8 +70,9 @@
   (README, RELEASE, MIGRATION, AGENTS, architecture/audit docs, design-skill
   record). Unrelated You.Ge branding is untouched (`you-ge-assistant` root
   package, `YouGeAssistant` API, `youge-assistant:*` storage keys, product
-  name You.Ge, `staff.you.ge`). The package stays `"private": true` with all
-  publishing guards intact; nothing was published, released or tagged.
+  name You.Ge, `staff.you.ge`). At that point the package still carried
+  `"private": true` with all publishing guards intact (the lock is removed
+  later, in the 0.1.0 release PR); nothing was published, released or tagged.
 
 - Prepared `@youge/assistant-sdk` for versioned distribution (**release
   preparation only — publishing stays disabled, nothing was published, no
@@ -28,8 +82,9 @@
     entry, explicit subpath `exports` map with no wildcards (deep imports of
     internal sources stay blocked), `publishConfig.access: "public"`,
     `homepage`/`bugs` added, zero runtime dependencies preserved (`react`
-    remains an optional peer). The `"private": true` flag stays as the
-    accidental-publish lock and is now documented as such.
+    remains an optional peer). The `"private": true` flag served as the
+    accidental-publish lock at the time and is documented as such (removed in
+    the 0.1.0 release PR per the runbook).
   - New release gate `packages/assistant-sdk/scripts/validate-package.mjs`
     (zero dependencies, offline): package identity, semver, version
     synchronization (`package.json` ↔ `SDK_VERSION` ↔ `KIT_COMPAT_VERSION` ↔

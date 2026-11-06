@@ -10,10 +10,17 @@ name: sdk-release-prep
 # - The `publish` job is STRUCTURE ONLY and stays disabled until a release is
 #   explicitly approved. It requires ALL of:
 #     1. manual dispatch with action=publish and confirm_publish=publish
-#     2. the repository variable SDK_RELEASE_ENABLED == 'true' (unset today)
-#     3. the protected `sdk-npm-publish` environment (add required reviewers)
-#     4. an NPM_TOKEN repository secret (not configured)
-#     5. the release PR having removed "private": true (npm refuses otherwise)
+#     2. the repository variable SDK_RELEASE_ENABLED == 'true' (not set)
+#     3. the protected `sdk-npm-publish` environment with required reviewers
+#        (create it BEFORE any publish run — GitHub auto-creates an
+#        unprotected environment on first use otherwise)
+#     4. an NPM_TOKEN repository secret (configure at publish time only)
+#     5. the SDK_RELEASE_CONFIRM env that this publish job injects — the
+#        package's prepublishOnly refuses any npm publish without it, so a
+#        stray direct `npm publish` can never release the package
+#   The 0.1.0 release PR satisfied the former package-level requirement
+#   ("private": true removed per the runbook); gates 1-5 remain closed.
+#   Releases are signed with npm provenance (--provenance + id-token: write).
 #   See packages/assistant-sdk/RELEASE.md for the full runbook. Never commit
 #   tokens; NPM_TOKEN lives only as an encrypted Actions secret.
 
@@ -105,11 +112,15 @@ jobs:
           node-version: 22
           registry-url: https://registry.npmjs.org
 
-      - name: Final package validation (release context)
-        run: node packages/assistant-sdk/scripts/validate-package.mjs --release-context
+      - name: Final package validation
+        run: node packages/assistant-sdk/scripts/validate-package.mjs
 
       - name: Publish to npm (requires explicit release approval)
-        run: npm publish --access public
+        run: npm publish --access public --provenance
         working-directory: packages/assistant-sdk
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          # Explicit publish authorization: prepublishOnly refuses any npm
+          # publish that lacks this variable, so a stray direct `npm publish`
+          # outside this gated job can never release the package.
+          SDK_RELEASE_CONFIRM: publish

@@ -4,10 +4,10 @@
 > SDK under `packages/assistant-sdk/` with a `VENDORING.md` pin, as done in
 > `staff.you.ge` PR #249).
 >
-> **Status:** `@youge/assistant-sdk` is **not published yet**. This is the
-> migration plan; execute it only after the first approved release
-> ([`RELEASE.md`](RELEASE.md)). Nothing in this document modifies
-> `staff.you.ge`.
+> **Status:** `@youge/assistant-sdk@0.1.0` is **release-ready but not yet
+> published** (publication is the owner's runbook step, [`RELEASE.md`](RELEASE.md)
+> §4 steps 3–5). This is the migration plan; execute it only after the first
+> version appears on npm. Nothing in this document modifies `staff.you.ge`.
 
 Compatibility references: **SDK `0.1.0`** (public API per [`README.md`](README.md)),
 **kit compatibility `1.0.5`** (`KIT_COMPAT_VERSION`), **config schema `1`**.
@@ -18,12 +18,13 @@ Compatibility references: **SDK `0.1.0`** (public API per [`README.md`](README.m
 
 `staff.you.ge` keeps a **vendored copy** of the SDK sources at
 `staff.you.ge/packages/assistant-sdk/`, with `staff.you.ge/packages/assistant-sdk/VENDORING.md`
-recording the pin (source repository `sandro-defender/PWA-Helper`, the pinned
+recording the pin (source repository `sandro-defender/you-ge-assistant` —
+recorded there before the GitHub repository rename — the pinned
 commit, and the SDK version). PR #249 introduced that copy so the staff app can
 consume the SDK before any package registry existed.
 
-> **Inspection note:** `staff.you.ge` is a private repository that the
-> PWA-Helper automation cannot read (GitHub API returns *Resource not
+> **Inspection note:** `staff.you.ge` is a private repository that this
+> repository's automation cannot read (GitHub API returns *Resource not
 > accessible by integration*). This plan is written against the vendor-pin
 > model recorded there and against SDK `0.1.0` as the compatibility reference.
 > Before executing the migration, re-verify the exact contents of

@@ -13,11 +13,11 @@ you configure. The former `staff.you.ge` install identity and `/progressier.js` 
 path remain compatible; that hostname is neither required nor used as a DNS
 test constant.
 
-**Live playground:** <https://sandro-defender.github.io/PWA-Helper/> — test
+**Live playground:** <https://sandro-defender.github.io/you-ge-assistant/> — test
 install, toolbox, QR, offline recovery, push, share, caches, theme, wording and
 network diagnostics.
 
-**User-facing example:** <https://sandro-defender.github.io/PWA-Helper/example/> —
+**User-facing example:** <https://sandro-defender.github.io/you-ge-assistant/example/> —
 a polished sample staff workspace with a fixed, interactive React Bits ElectricLogo
 assistant launcher. Its schedule/checklist interactions use sample data stored
 only in the visitor’s browser. The React/OGL build dependencies are isolated to `example/`; the core PWA
@@ -51,7 +51,7 @@ Read the [foundation audit](FOUNDATION_AUDIT.md),
 ## Quick start
 
 ```bash
-git clone https://github.com/sandro-defender/PWA-Helper.git
+git clone https://github.com/sandro-defender/you-ge-assistant.git
 ```
 
 Then copy what you need into your project (or use **Use this template** on
@@ -823,8 +823,8 @@ If the worker lives in a subdirectory but must control the root, set
 This repository publishes two GitHub Pages routes through
 `.github/workflows/pages.yml`:
 
-- <https://sandro-defender.github.io/PWA-Helper/> — the full feature-test playground.
-- <https://sandro-defender.github.io/PWA-Helper/example/> — a polished sample
+- <https://sandro-defender.github.io/you-ge-assistant/> — the full feature-test playground.
+- <https://sandro-defender.github.io/you-ge-assistant/example/> — a polished sample
   staff workspace showing the helper in a user-facing page.
 
 The workflow publishes `demo/` at `/` with the shared runtime at the Pages root.
@@ -833,7 +833,7 @@ service-worker scope and offline page so the sample is a separate installable ap
 GitHub Pages is static and uses the example's static manifest; it cannot execute
 the host-aware manifest function.
 
-The project site is served from `/PWA-Helper/`. `pwa.js` resolves its files
+The project site is served from `/you-ge-assistant/`. `pwa.js` resolves its files
 relative to its own URL, and `progressier.js` resolves precache assets against
 the registered app scope, so their paths remain inside that base. Both manifests use
 relative `scope` and `start_url` values so each install has its own identity and
