@@ -887,6 +887,19 @@ contract(
   ),
   'sdk-release-prep keeps SDK_RELEASE_ENABLED a repository variable (never hardcoded)',
 );
+// The in-repo gates must never be described as making direct publishing
+// impossible: SDK_RELEASE_CONFIRM / confirm_publish / SDK_RELEASE_ENABLED are
+// accidental-publish guards, not authorization boundaries (RELEASE.md §5).
+contract(
+  !/can never release|cannot publish directly|impossible to publish|makes publishing impossible/i.test(
+    releaseWorkflow,
+  ),
+  'sdk-release-prep must not claim the in-repo gates make direct publishing impossible',
+);
+contract(
+  /accidental-publish guard/i.test(releaseWorkflow),
+  'sdk-release-prep must frame SDK_RELEASE_CONFIRM as an accidental-publish guard only',
+);
 contract(typeof sdkPkg.scripts?.prepublishOnly === 'string', 'SDK package keeps prepublishOnly validation as the final publish net');
 
 function listSdkSourceFiles(dir, acc = []) {

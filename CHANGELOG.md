@@ -23,26 +23,47 @@
   authorization boundaries**. The real boundaries are npm organization
   permissions / account security (2FA), the protected environment's required
   reviewers, and the npm Trusted Publisher registration. Direct manual
-  publishing is not claimed to be impossible.
-- **First-publication procedure documented (§6.4):** npm only configures a
-  trusted publisher for a package that **already exists**, so the first
-  release must be bootstrapped by hand. Interactive browser auth
-  (`npm login --auth-type=web` / `npm publish --auth-type=web`, npm ≥ 8.15.0)
-  publishes a new package with **no long-lived token**; the bootstrap publish
-  sets `SDK_RELEASE_CONFIRM=publish` for that one command (the guard is not a
-  security boundary) and has **no OIDC provenance**. A pre-release under
-  `next` is the recommended bootstrap when provenance on the first version
-  matters. After registration, all subsequent releases use OIDC.
+  publishing is not claimed to be impossible — the workflow header, its
+  publish-step comment and §4/§5 no longer say that `prepublishOnly` makes a
+  direct `npm publish` impossible (`tests/release-security-wording.test.mjs`
+  locks the wording in).
+- **First-publication procedure corrected (§6.4).** `npm login` is **not** a
+  tokenless path: the `npm-login` reference states it *"automatically generates
+  a legacy token of `publish` type"* and saves credentials to `.npmrc`, and the
+  current *About access tokens* page says legacy tokens were **removed in
+  November 2025**. Every "no token"/"tokenless" claim was removed. The
+  documented bootstrap now uses a **minimum-permission granular access token**
+  created on npmjs.com (website-only), scoped to the package, **Bypass 2FA
+  off**, shortest available expiry, used for that one publish and **revoked
+  immediately** — never committed, logged or stored in a secret. Two paths are
+  documented: **staged publishing** (`npm stage publish` + maintainer approval
+  with 2FA — recommended) and direct publishing (deprecated by npm, **removed
+  January 2027**). Both set `SDK_RELEASE_CONFIRM=publish` for that one command,
+  pass `--access public`, and produce **no OIDC provenance**; a `--tag next`
+  pre-release is the way to keep provenance for the real first release. After
+  the package exists, the trusted publisher is registered and all subsequent
+  releases use OIDC.
+- **Trusted-publisher limits reconciled (§6.3):** the npm website allows **up
+  to 10 trusted publisher connections per package** (independently
+  add/deleted); the CLI reference still says one per package. Where the two
+  disagree the website UI is treated as authoritative. Also documented: the
+  2-day first-publish validation window, immutable connections (delete +
+  re-create), automatic provenance over OIDC (no `--provenance` flag needed),
+  dist-tag permission (npm ≥ 11.21.0 / 12.2.0) and stage-only as the
+  maximum-security posture.
 - **Enforcement extended:** `validate-package.mjs` and the standing contracts
   in `scripts/check.mjs` now also require the OIDC configuration (`id-token:
   write`, registry URL, hosted runner, Node 24, no token anywhere, canonical
-  `repository.url`), plus two structural contracts — **the `verify` job never
-  publishes** and **`SDK_RELEASE_ENABLED` is never hardcoded** in the workflow.
-  `tests/release-gates.test.mjs` gains mutation coverage for each.
+  `repository.url`), plus structural contracts — **the `verify` job never
+  publishes**, **`SDK_RELEASE_ENABLED` is never hardcoded**, and **the
+  workflow never claims direct publishing is impossible**.
+  `tests/release-gates.test.mjs` gains mutation coverage for the first two; the
+  new `tests/release-security-wording.test.mjs` locks in the corrected security
+  wording.
 - **Documentation:** `packages/assistant-sdk/RELEASE.md` gains §6 (OIDC
   requirements, workflow configuration, trusted-publisher registration via
   `npm trust` ≥ 11.15.0, and the first-publish bootstrap); §3/§4/§5/§7/§8
-  updated. Verified with **152/152** tests passing.
+  updated. Verified with **159/159** tests passing.
 
 > **Not published.** The package remains unpublished; no secrets, variables,
 > permissions, tags or releases were created or changed, and the

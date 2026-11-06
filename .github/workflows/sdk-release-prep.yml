@@ -21,8 +21,10 @@ name: sdk-release-prep
 #        anywhere — the runner mints a short-lived OIDC token
 #        (`id-token: write`) that npm exchanges for a publish token.
 #     5. the SDK_RELEASE_CONFIRM env that this publish job injects — the
-#        package's prepublishOnly refuses any npm publish without it, so a
-#        stray direct `npm publish` can never release the package
+#        package's prepublishOnly refuses an npm publish without it. This is
+#        an accidental-publish guard only: it does NOT make direct publishing
+#        impossible, and anyone holding npm publish rights can still publish
+#        directly (see packages/assistant-sdk/RELEASE.md §5).
 #   The 0.1.0 release PR satisfied the former package-level requirement
 #   ("private": true removed per the runbook); gates 1-5 remain closed.
 #   Provenance attestations are generated automatically by npm over OIDC
@@ -138,9 +140,9 @@ jobs:
         run: npm publish --access public --provenance
         working-directory: packages/assistant-sdk
         env:
-          # Explicit publish authorization: prepublishOnly refuses any npm
-          # publish that lacks this variable, so a stray direct `npm publish`
-          # outside this gated job can never release the package.
+          # Explicit publish authorization: prepublishOnly refuses an npm
+          # publish that lacks this variable. This is an accidental-publish
+          # guard only (not a security boundary) — see RELEASE.md §5.
           # NOTE: deliberately no npm auth token is set here — npm
           # authenticates with the short-lived OIDC token minted by
           # `id-token: write` above (npm Trusted Publishing).

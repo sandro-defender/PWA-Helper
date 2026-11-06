@@ -206,10 +206,12 @@ decided the registry ([§3](#3-publishing-destination-evaluation)).
    and `confirm_publish: publish`. The publish job runs only with all gates
    from step 3 and only on this manual dispatch. It authenticates with the
    short-lived OIDC token minted by `id-token: write` — there is no
-   `NODE_AUTH_TOKEN` to leak. Direct `npm publish` is refused: the
-   `prepublishOnly` hook aborts any publish attempt that lacks the
-   `SDK_RELEASE_CONFIRM` authorization injected by this job. **Status: NOT
-   DONE — no authorization to publish has been given.**
+   `NODE_AUTH_TOKEN` to leak. The `prepublishOnly` hook aborts any publish
+   attempt that lacks `SDK_RELEASE_CONFIRM`, but that is an
+   **accidental-publish guard only**: it does not make direct publishing
+   impossible, and a person who already holds npm publish rights can publish
+   directly (see [§5](#5-publishing-remains-disabled)). **Status: NOT DONE — no
+   authorization to publish has been given.**
 5. **Post-publish smoke test** — `npm view @youge/assistant-sdk version`,
    install the exact version in a scratch project and in staff.you.ge's
    lockfile (see [`MIGRATION.md`](MIGRATION.md)). **Status: pending step 4.**
@@ -273,8 +275,9 @@ the OpenSSF *trusted publishers* standard.
 | Registry URL | `registry-url: https://registry.npmjs.org` | `actions/setup-node` |
 | Build cache | `package-manager-cache: false` (recommended for release builds) | `actions/setup-node` |
 | `repository.url` | must exactly match `https://github.com/sandro-defender/you-ge-assistant` | `packages/assistant-sdk/package.json` (machine-checked) |
-| npm auth token | **none** — no `NODE_AUTH_TOKEN` on the publish step | machine-checked |
-| Provenance | generated automatically over OIDC (`--provenance` kept explicit) | publish step |
+| npm auth token | **none** — no `NODE_AUTH_TOKEN` on the publish step; the runner mints the OIDC token | machine-checked |
+| Provenance | generated automatically over OIDC; the `--provenance` flag is optional (kept explicit here) | publish step |
+| `npm trust` / `npm stage publish` CLI | npm CLI **≥ 11.15.0** (owner bootstrap only — §6.3 / §6.4) | owner machine |
 | GitHub environment | `sdk-npm-publish` (optional on npm; used here for approval) | publish job |
 
 ### 6.2 Workflow configuration (`.github/workflows/sdk-release-prep.yml`)
@@ -293,20 +296,23 @@ The `publish` job now:
 
 ### 6.3 Registering the trusted publisher (owner action)
 
-A trusted publisher is configured **from an existing package's settings page**
-on npmjs.com. `@youge/assistant-sdk` does **not** exist on the registry yet, so
-it cannot be registered until the package exists — see §6.4.
+A trusted publisher is configured **from the package's settings page** on
+npmjs.com (or with the `npm trust` CLI). `@youge/assistant-sdk` does **not**
+exist on the registry yet, so it cannot be registered until the package exists —
+see §6.4.
 
-`npm trust` prerequisites (official `npm-trust` docs):
+`npm trust` prerequisites (official `npm-trust` docs, npm CLI 12):
 
 - **npm CLI ≥ 11.15.0** (`npm install -g npm@^11.15.0`, or run via `npx npm@latest`);
 - **write permission** on the package;
 - **2FA enabled** on the account (granular tokens with *bypass 2FA* are **not**
-  accepted for `npm trust`);
+  accepted for `npm trust`; legacy basic auth is also not accepted);
 - **the package must already exist** on the registry.
 
-Once the package exists, open npmjs.com → `@youge/assistant-sdk` → **Settings**
-→ **Trusted Publisher** → **GitHub Actions** and enter:
+#### Configure it on the website (preferred)
+
+Open npmjs.com → `@youge/assistant-sdk` → **Settings** → **Trusted publisher**
+→ **GitHub Actions** and enter:
 
 | Field | Value |
 | --- | --- |
@@ -314,9 +320,9 @@ Once the package exists, open npmjs.com → `@youge/assistant-sdk` → **Setting
 | Repository | `you-ge-assistant` |
 | Workflow filename | `sdk-release-prep.yml` (filename only — no `.github/workflows/` path) |
 | Environment name | `sdk-npm-publish` |
-| Allowed actions | `npm publish` (and/or `npm stage publish`) |
+| Allowed actions | `npm stage publish` is **always** allowed; choose whether this connection may also run `npm publish` and/or manage dist-tags |
 
-Or from the CLI:
+#### Or from the CLI
 
 ```bash
 npm trust github @youge/assistant-sdk \
@@ -327,78 +333,169 @@ npm trust github @youge/assistant-sdk \
 ```
 
 `npm trust github` accepts `--repo/--repository`, `--env/--environment`,
-`--allow-publish` and `--allow-stage-publish` (alias `--allow-staged-publish`);
-at least one of the two `--allow-*` flags is required.
+`--allow-publish`, `--allow-stage-publish` (alias `--allow-staged-publish`),
+plus `--dry-run`, `--json`, `--registry` and `-y/--yes`; at least one of the
+two `--allow-*` flags is required. The first request needs 2FA.
 
-**The registry supports only one trusted-publisher configuration per package.**
-To replace it: `npm trust list @youge/assistant-sdk` → `npm trust revoke --id
-<id> @youge/assistant-sdk` → create the new relationship.
+**Reconciling the documented limits (important).** The npm website's
+*Trusted publishers* page states that **each package can have up to 10
+trusted publisher connections at the same time**, each added or deleted
+independently. The CLI reference for `npm trust` still says *"the registry only
+supports one configuration per package"* and instructs you to
+`npm trust list` → `npm trust revoke --id <id>` → create a new one in order to
+replace it. Where the two disagree, **trust the website UI** — it is the
+current, UI-backed behaviour — and use the CLI for `list`/`revoke`. This
+workflow needs exactly one connection.
 
-**A newly created trusted publisher must complete its first successful publish
-within 2 days** or it expires and must be re-created. Existing connections
-cannot be edited — delete and re-create to change them.
+**Other current behaviours worth knowing:**
+
+- **A newly created trusted publisher must complete its first successful
+  publish within 2 days**, or it expires and must be re-created.
+- **Existing connections cannot be edited** — the provider and required fields
+  are fixed once created; delete the connection and create a new one to change
+  them.
+- **Provenance is generated automatically** when publishing via OIDC from
+  GitHub Actions or GitLab CI/CD, so the `--provenance` flag is not required
+  (the workflow keeps it explicit). It requires a public repository and a
+  public package; it is not supported for CircleCI.
+- **Dist-tags** (`npm dist-tag`) over OIDC require npm CLI ≥ 11.21.0 / 12.2.0
+  and need **"Allow npm dist-tag"** selected for that connection (disabled by
+  default); it is independent of the publish/stage permission.
+- **Stage-only permissions are the maximum-security posture**: allow
+  `npm stage publish` but not `npm publish`, so every CI-published version is
+  reviewed and approved by a maintainer with 2FA.
+- npm does **not** validate the configuration when it is saved; mismatches only
+  surface at publish time. Double-check the repository, the workflow filename
+  (exact, including the `.yml` extension) and the environment.
+- **`repository.url` in `package.json` must exactly match the GitHub
+  repository** — machine-checked by `validate-package.mjs`.
+
+#### Recommended: restrict token access once trusted publishing works
+
+Package **Settings** → **Publishing access** → **"Require two-factor
+authentication and disallow tokens"**, then revoke any automation tokens that
+are no longer needed. This only affects traditional token authentication;
+trusted publishers keep working because they use OIDC.
 
 ### 6.4 The first publish of a new package cannot use OIDC (important)
 
 npm only allows a trusted publisher to be configured **for a package that
-already exists** on the registry (`npm help trust` / the `npm-trust` docs:
-*"Package must exist: The package you're configuring must already exist on the
-npm registry."*). `@youge/assistant-sdk@0.1.0` is unpublished, so the **first**
-release must be bootstrapped by hand before OIDC can be used.
+already exists** on the registry (`npm-trust` docs: *"Package must exist: The
+package you're configuring must already exist on the npm registry."*).
+`@youge/assistant-sdk@0.1.0` is unpublished, so the **first** release must be
+bootstrapped by hand before OIDC can be used for subsequent releases.
 
-#### Bootstrap: publish the first version without a long-lived token
+#### Do not rely on `npm login` for this step
 
-Interactive, browser-based authentication **can** publish a brand-new package
-with **no long-lived token at all** — npm manages a short CLI session and
-prompts for 2FA (security key or OTP). `npm login --auth-type=web` is supported
-from npm ≥ 8.14.0 and `npm publish --auth-type=web` from npm ≥ 8.15.0.
-Publishing also requires 2FA on the account.
+`npm login` (with the default `--auth-type=web`, or `--auth-type=legacy`)
+**saves credentials to `.npmrc`**, and the npm CLI reference states that it
+*"automatically generates a legacy token of `publish` type"*. That token is a
+long-lived credential that sits on disk until you run `npm logout`. This is
+**not** a tokenless path and must not be described as one.
 
-Run this from a clean checkout of the package:
+There is also a conflict inside npm's own documentation: the current *About
+access tokens* page says that **as of November 2025 only granular access tokens
+are supported and legacy access tokens have been removed**, while the (older)
+`npm-login` reference still describes the legacy-token behaviour above. Because
+the two disagree, do **not** depend on `npm login` producing a usable,
+least-privilege credential. The path below avoids that ambiguity entirely.
+
+#### Recommended: a minimum-permission granular access token
+
+As of November 2025 npm supports **granular access tokens** only. They can be
+scoped to specific packages/scopes, restricted by IP range, given a **short
+expiry**, and — importantly for this step — granted **write** access so they
+can publish. Granular tokens cannot be created from the CLI yet: create one on
+npmjs.com. The CLI reference documents the granular options, but the website's
+*Creating and viewing access tokens* page states CLI support *"will be added in
+the future"* — **prefer the website UI**.
+
+Create the token on npmjs.com → profile menu → **Access Tokens** →
+**Generate New Token** → **Granular Access Token**, with the **minimum** set
+of permissions:
+
+| Setting | Value | Why |
+| --- | --- | --- |
+| Token name | e.g. `first-publish-0.1.0` | easy to identify and revoke |
+| Packages and scopes | `@youge/assistant-sdk` (or the `@youge` scope) only | least privilege — never "All Packages" |
+| Permissions | **Read and write (stage only)** for the safest path; **Read and write (publish and stage)** only if a direct publish is wanted | a stage-only token cannot push a version live by itself |
+| Bypass two-factor authentication | **unchecked (false)** | keep account- and package-level 2FA enforced |
+| Allowed IP ranges | your publish machine, if it has a stable address | optional but recommended |
+| Expiration | the **shortest** available date (must be ≥ 1 day in the future) | the token should not outlive the task |
+
+Then use it **only** for the initial publish and **revoke it immediately
+afterwards**.
+
+> ⚠️ **Credential hygiene.** Never put this token in repository files, in a
+> committed `.npmrc`, in shell history, in CI logs, in GitHub secrets, or in any
+> chat/agent transcript. Pass it to the CLI through an environment variable for
+> a single command, then revoke it. Nothing in this repository creates, stores
+> or requests it — it is an owner action documented here so the first release
+> is not a dead end.
+
+Two concrete paths, in order of preference:
+
+**Path A — staged publishing (recommended).** `npm stage publish` uploads the
+version to a staging area; it does **not** go live, and a maintainer with 2FA
+must approve it. It works for brand-new packages: npm publishes a public
+`0.0.0-stage` placeholder, while the real version stays hidden until approved.
+Requires **npm CLI ≥ 11.15.0** and Node ≥ 22.14.0.
 
 ```bash
-# 1. Sign in interactively in the browser (no token is created or stored)
-npm login --auth-type=web
-
-# 2. Publish. The package's prepublishOnly re-runs validation and REQUIRES
-#    SDK_RELEASE_CONFIRM=publish, so set it for this one command. That variable
-#    is an accidental-publish guard only (see §5) — setting it here is
-#    intentional and safe.
+# 1. Create the granular token above (stage-only), then use it for one command.
+#    It is read from the environment — never written to a file or a secret.
 cd packages/assistant-sdk
-SDK_RELEASE_CONFIRM=publish npm publish --access public --auth-type=web
+SDK_RELEASE_CONFIRM=publish npm stage publish --access public
 
-# 3. Optional: drop the local CLI session
-npm logout
+# 2. A maintainer reviews and approves with 2FA (CLI or npmjs.com →
+#    Staged Packages → Approve). The package's prepublishOnly re-runs
+#    validation and REQUIRES SDK_RELEASE_CONFIRM=publish for this command too —
+#    that variable is an accidental-publish guard only (see §5).
+npm stage list
+npm stage view <stage-id>
+npm stage approve <stage-id> --otp <code>
+
+# 3. Revoke the token immediately (or from the website's token list):
+npm token revoke <id>
 ```
 
-Notes:
+**Path B — direct publish with the granular token.** Use
+`SDK_RELEASE_CONFIRM=publish npm publish --access public` instead of the stage
+commands. Note that **direct publishing with a granular access token is being
+deprecated**: npm has announced it will be removed in **January 2027**, so
+prefer Path A.
 
-- `--access public` is passed explicitly so the scoped package is public.
-- **This bootstrap publish has no OIDC provenance.** Provenance is generated
-  automatically only when the publish comes from the registered workflow over
-  OIDC; a manual/browser publish produces none, and `--provenance` must **not**
-  be claimed for it.
-- npm never allows republishing a name+version, so if provenance on the very
-  first version matters, bootstrap a **pre-release** instead: publish e.g.
-  `0.1.0-rc.1` by hand under the `next` tag (`--tag next`), register the
-  trusted publisher, then publish the real `0.1.0` via the OIDC workflow so the
-  public `latest` release carries provenance.
-- Do **not** add an npm token secret, and do **not** store a token anywhere for
-  this step.
+Both paths:
+
+- pass `--access public` explicitly so the scoped package is public;
+- **do not** add `--provenance`: a manual publish produces **no OIDC
+  provenance**, and `--provenance` must not be claimed for it;
+- must not reuse a name+version combination — npm never allows republishing an
+  exact name+version. So if provenance on the very first version matters,
+  bootstrap a **pre-release** instead: publish e.g. `0.1.0-rc.1` by hand under
+  the `next` tag (`--tag next`), register the trusted publisher, then publish
+  the real `0.1.0` through the OIDC workflow so the public `latest` release
+  carries provenance.
 
 #### After the package exists: register OIDC and use it for every release
 
-1. **Register the trusted publisher** (§6.3) — `npm trust github ...` or the
-   npmjs.com settings form.
-2. **Restrict token access** (recommended): package **Settings** →
+1. **Register the trusted publisher** (§6.3) — the website form or
+   `npm trust github ...`.
+2. **Restrict token access** (recommended, §6.3): package **Settings** →
    **Publishing access** → *"Require two-factor authentication and disallow
    tokens"*, then revoke any automation tokens.
 3. **Publish subsequent versions via the workflow** (§4 step 4) — the publish
    job authenticates with the short-lived OIDC token and produces provenance
    automatically.
 
-Nothing in this repository creates, stores or requests the bootstrap credential;
-it is an owner action documented here so the first release is not a dead end.
+#### If none of this is acceptable to the owner
+
+If the owner would rather not create and revoke a granular token at all, stop
+here and ask: the remaining alternative is an interactive browser login
+(`npm login`), which persists a legacy publish token to `.npmrc` and needs
+`npm logout` afterwards — and npm's own docs disagree about whether legacy
+tokens still exist. **Owner approval is required before any such credential is
+created.** This repository does not create, store or request it.
 
 ### 6.5 What is enforced automatically
 
@@ -416,6 +513,9 @@ contracts in `scripts/check.mjs`, plus the mutation tests in
 - the `verify` job contains no `npm publish` step (it stays non-publishing);
 - `SDK_RELEASE_ENABLED` is never hardcoded in the workflow (it stays a
   repository variable);
+- the workflow does **not** claim the in-repo gates make direct publishing
+  impossible, and frames `SDK_RELEASE_CONFIRM` as an accidental-publish guard
+  (an explicit standing contract in `scripts/check.mjs`);
 - the manual-only trigger, `confirm_publish`, `SDK_RELEASE_ENABLED`, the
   protected `sdk-npm-publish` environment and `SDK_RELEASE_CONFIRM: publish`
   are all intact.
@@ -463,6 +563,32 @@ contracts in `scripts/check.mjs`, plus the mutation tests in
 | Trusted publisher registration | owner action | ⚠️ **not done** — requires the package to exist first (§6.4); no secrets created or modified |
 | `sdk-npm-publish` environment | owner-configured | ✅ exists with required reviewers; **not created or changed by this task** |
 
+### npm-authentication / security-wording documentation pass (2026-11-07)
+
+Corrections made after review, with the official npm docs (npm CLI 12 /
+npmjs.com) as the source of truth:
+
+| Finding | Correction |
+| --- | --- |
+| `npm login` was documented as a **tokenless** first-publish path | The `npm-login` reference states it *"automatically generates a legacy token of `publish` type"* and saves credentials to `.npmrc`. Removed every "no token"/"tokenless" claim; documented credential hygiene and `npm logout`. |
+| Legacy vs granular tokens | The current *About access tokens* page says legacy tokens were **removed in November 2025** and only granular access tokens are supported — an internal conflict with the `npm-login` page. Documented the conflict and stopped relying on `npm login`. |
+| No short-lived publish credential was offered | Granular access tokens (website-only creation, ≤ 50 packages/scopes, short expiry, optional CIDR) **can** publish. Documented the minimum-permission token and **immediate revocation**. |
+| Direct token publishing treated as permanent | npm is **deprecating direct publishing with a granular access token — removed January 2027**. Documented **staged publishing** (`npm stage publish` + maintainer approval with 2FA) as the recommended path. |
+| `prepublishOnly` described as making direct publishing impossible | Reworded in the workflow header, the publish-step comment and §4/§5 to an **accidental-publish guard only**, with the real boundaries listed. |
+| Trusted-publisher limit stated as one config per package | The website's *Trusted publishers* page allows **up to 10 connections per package**; the CLI reference still says one. Documented both and prefers the website UI. |
+| Trusted-publisher behaviour gaps | Added the 2-day first-publish validation window, immutable connections (delete + re-create), automatic provenance (no `--provenance` needed), dist-tag permission (npm ≥ 11.21.0 / 12.2.0), and stage-only as the maximum-security posture. |
+
+| Check | Command | Result |
+| --- | --- | --- |
+| Static checks + all tests | `npm run check` (root) | ✅ **275** static `PASS`, **159/159** tests pass, 0 fail |
+| Validator OIDC gates | `node packages/assistant-sdk/scripts/validate-package.mjs` | ✅ 12/12 release-workflow gates pass |
+| Security-wording contracts | `node --test tests/release-security-wording.test.mjs` | ✅ 7/7 pass |
+| Standalone SDK tests | `npm test` (in `packages/assistant-sdk`) | ✅ 29/29 pass |
+| Browser-bundle sync | `node scripts/sync-sdk-browser.mjs --check` | ✅ in sync |
+| Pack contents | `npm pack --dry-run` | ✅ 19 files, 33.5 kB packed / 132.4 kB unpacked |
+| Consumer build | `npm ci && npm run typecheck && npm run build` (in `example/`) | ✅ `tsc --noEmit` clean, `vite build` OK |
+| Registry identity unchanged | `npm view @youge/assistant-sdk version` | ✅ HTTP 404 — still unpublished; **not published by this task** |
+
 ## 8. Required follow-ups (before the first publish)
 
 Owner actions remaining (nothing in this repository can complete them):
@@ -474,8 +600,13 @@ Owner actions remaining (nothing in this repository can complete them):
    automation cannot read its protection rules — HTTP 403 — so the owner
    confirms it before the first publish run). Do **not** recreate it.
 3. **Bootstrap the first publish** of `@youge/assistant-sdk` (the package does
-   not exist yet, so OIDC cannot be used for it) — see
-   [§6.4](#64-the-first-publish-of-a-new-package-cannot-use-oidc-important).
+   not exist yet, so OIDC cannot be used for it). This requires creating a
+   minimum-permission **granular access token** on npmjs.com, using it only for
+   that one publish and **revoking it immediately** — see
+   [§6.4](#64-the-first-publish-of-a-new-package-cannot-use-oidc-important)
+   for both the recommended staged path and the direct-publish alternative.
+   **Owner approval is required before any credential is created**; this
+   repository does not create, store or request one.
 4. **Register the npm Trusted Publisher** for the workflow (§6.3) and, once it
    works, **restrict token access** (Settings → Publishing access → "Require
    two-factor authentication and disallow tokens").
