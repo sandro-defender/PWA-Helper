@@ -828,14 +828,18 @@
       '.head{display:flex;align-items:center;gap:12px;width:90%;margin:0 auto;padding:20px;box-sizing:border-box}',
       '.logo{width:56px;height:56px;border-radius:14px;flex:none;background:var(--progressierElement,#f5f5f5);object-fit:cover}',
       'h2{font-size:17px;line-height:1.35;font-weight:600}',
-      '.close{margin-left:auto;margin-right:-10px;flex:none;width:40px;height:40px;border:0;border-radius:50%;background:transparent;color:var(--progressierTxt,#334155);font-size:20px;line-height:1;cursor:pointer}',
+      '.close{margin-left:auto;margin-right:-6px;flex:none;min-width:44px;min-height:44px;border:0;border-radius:50%;background:transparent;color:var(--progressierTxt,#334155);font-size:20px;line-height:1;cursor:pointer;touch-action:manipulation;transition:background-color 160ms ease}',
       '.close:hover{background:var(--progressierHover,rgba(0,0,0,.06))}',
       'ol{list-style:none;width:90%;margin:0 auto;padding:0 0 8px;counter-reset:step}',
       'li{position:relative;padding:8px 0 8px 38px;font-size:15px;line-height:24px;color:var(--progressierTxt,#334155);counter-increment:step}',
       'li::before{content:counter(step);position:absolute;left:0;top:8px;width:24px;height:24px;border-radius:6px;background:var(--progressierElement,#eef2ff);color:var(--progressierTxt,#3730a3);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center}',
       '.actions{width:90%;margin:0 auto;padding:8px 0 24px}',
-      '.ok{width:100%;min-height:50px;border:0;border-radius:30px;background:var(--progressierAccent,#1a73e8);color:var(--progressierAccentText,#fff);font-size:15px;font-weight:600;padding:0 20px;cursor:pointer}',
-      '.note{width:90%;margin:0 auto;padding:0 0 16px;font-size:13px;color:var(--progressierTxt,#64748b);opacity:.7;line-height:1.45}',
+      '.ok{width:100%;min-height:50px;border:0;border-radius:30px;background:var(--progressierAccent,#1a73e8);color:var(--progressierAccentText,#fff);font-size:15px;font-weight:600;padding:0 20px;cursor:pointer;touch-action:manipulation;transition:background-color 160ms ease,box-shadow 160ms ease}',
+      '.ok:hover{box-shadow:0 6px 18px rgba(26,115,232,.18)}',
+      '.close:focus-visible,.ok:focus-visible{outline:3px solid var(--progressierFocus,#2563eb);outline-offset:3px}',
+      '.note{width:90%;margin:0 auto;padding:0 0 16px;font-size:13px;line-height:1.45;color:var(--progressierNote,#475569)}',
+      '@media (prefers-reduced-motion:reduce){.close,.ok{transition:none}}',
+      '@media (max-width:480px){.sheet{border-radius:22px}.head,ol,.actions,.note{width:calc(100% - 32px)}}',
     ].join('');
     shadow.appendChild(style);
 
@@ -847,7 +851,11 @@
     sheet.className = 'sheet';
     sheet.setAttribute('role', 'dialog');
     sheet.setAttribute('aria-modal', 'true');
+    // aria-label remains as a fallback for engines that do not resolve IDREFs
+    // across a shadow root; aria-labelledby takes precedence where supported.
     sheet.setAttribute('aria-label', title);
+    sheet.setAttribute('aria-labelledby', 'pwa-install-title');
+    sheet.setAttribute('aria-describedby', 'pwa-install-steps');
 
     var head = document.createElement('div');
     head.className = 'head';
@@ -859,18 +867,20 @@
     head.appendChild(logo);
 
     var heading = document.createElement('h2');
+    heading.id = 'pwa-install-title';
     heading.textContent = title;
     head.appendChild(heading);
 
     var close = document.createElement('button');
     close.className = 'close';
     close.type = 'button';
-    close.setAttribute('aria-label', 'Close');
+    close.setAttribute('aria-label', 'Close installation instructions');
     close.textContent = '✕';
     head.appendChild(close);
     sheet.appendChild(head);
 
     var list = document.createElement('ol');
+    list.id = 'pwa-install-steps';
     steps.forEach(function (text) {
       var item = document.createElement('li');
       item.textContent = text;

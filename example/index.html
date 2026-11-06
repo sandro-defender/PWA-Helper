@@ -32,6 +32,37 @@
       data-offline-alert
       data-auto-update
     ></script>
+    <!-- Centralized, data-only widget configuration. No dashboard is needed
+         after these scripts initialize. The React renderer below consumes
+         window.YouGeAssistant instead of owning a second state model. -->
+    <script>
+      window.YOU_GE_ASSISTANT_CONFIG = {
+        projectId: 'staff-space-example',
+        position: 'bottom-right',
+        offsets: { x: 16, y: 16 },
+        branding: {
+          name: 'Staff Space',
+          shortName: 'Staff Space',
+          icon: 'icons/icon-192.png',
+          themeColor: '#17634f'
+        },
+        theme: 'light',
+        modules: {
+          installation: true,
+          diagnostics: true,
+          recovery: true,
+          failover: true,
+          help: true,
+          updates: true
+        },
+        notifications: {
+          dismissible: true,
+          suppressRepeats: true,
+          criticalPersistent: true
+        }
+      };
+    </script>
+    <script src="assistant-state.js" defer></script>
     <script src="example.js" defer></script>
   </head>
 
@@ -194,6 +225,64 @@
         >
           Install Staff Space
         </button>
+      </section>
+
+      <section class="foundation-section" id="foundation" aria-labelledby="foundation-title">
+        <div class="foundation-head">
+          <p class="card-kicker">PLATFORM FOUNDATION</p>
+          <h2 id="foundation-title">One toolkit, many independent projects.</h2>
+          <p class="foundation-intro">
+            A read-only preview of the future You.Ge Assistant dashboard. Nothing here registers
+            projects or publishes configuration yet — the existing install prompt below still works.
+          </p>
+        </div>
+
+        <div id="assistant-foundation-root">
+          <!-- Static fallback: the same information remains readable without React or JS. -->
+          <div class="foundation-preview" aria-busy="false">
+            <p class="foundation-status" role="status">
+              <span class="foundation-status-dot" aria-hidden="true"></span>
+              <span><strong>Platform reference</strong> · Active origin shown by your browser</span>
+            </p>
+            <div class="foundation-grid">
+              <article class="foundation-card">
+                <div class="foundation-card-inner">
+                  <p class="card-kicker">INSTALLATION</p>
+                  <h3>One install experience, many brands</h3>
+                  <p class="foundation-card-body">Native prompts, iOS Safari steps and desktop QR are driven by browser events and project-specific copy.</p>
+                  <p class="foundation-card-status"><span class="foundation-card-status-dot" aria-hidden="true"></span>Preserved in this toolkit</p>
+                </div>
+              </article>
+              <article class="foundation-card">
+                <div class="foundation-card-inner">
+                  <p class="card-kicker">OFFLINE &amp; DNS</p>
+                  <h3>Scoped caches and honest diagnostics</h3>
+                  <p class="foundation-card-body">Host and scope isolated caches, a precached offline fallback and user-triggered DNS checks.</p>
+                  <p class="foundation-card-status"><span class="foundation-card-status-dot" aria-hidden="true"></span>Bundled in this toolkit</p>
+                </div>
+              </article>
+              <article class="foundation-card">
+                <div class="foundation-card-inner">
+                  <p class="card-kicker">RESILIENCE</p>
+                  <h3>Projects work on their own</h3>
+                  <p class="foundation-card-body">Assistant configuration is optional at runtime. Each project keeps its own authentication and business logic.</p>
+                  <p class="foundation-card-status"><span class="foundation-card-status-dot" aria-hidden="true"></span>Architecture principle</p>
+                </div>
+              </article>
+            </div>
+            <div class="foundation-empty" role="status">
+              <div class="foundation-empty-copy">
+                <strong>No projects registered yet</strong>
+                <p>Project registration, domain verification and configuration publishing arrive with the standalone dashboard.</p>
+              </div>
+              <button class="foundation-empty-action" type="button" disabled>Register a project</button>
+            </div>
+            <div class="foundation-actions">
+              <p class="foundation-actions-copy">Installation still uses the existing You.Ge Assistant prompt flow.</p>
+              <button class="foundation-cta" type="button" data-pwa-install>Install You.Ge Assistant</button>
+            </div>
+          </div>
+        </div>
       </section>
 
       <p class="playground-link">

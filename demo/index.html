@@ -11,6 +11,7 @@
     <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png" />
     <meta name="theme-color" content="#ffffff" />
     <meta name="description" content="Explore You.Ge Assistant PWA installation, offline support, QR sharing and network diagnostics." />
+    <link rel="stylesheet" href="assistant-widget.css" />
 
     <style>
       :root {
@@ -197,6 +198,32 @@
       data-desktop-qr
       data-toolbox
     ></script>
+
+    <!-- The reusable DOM widget uses the same centralized state on every
+         configured page. Bottom-left keeps it clear of the install toolbox. -->
+    <script>
+      window.YOU_GE_ASSISTANT_CONFIG = {
+        projectId: 'you-ge-playground',
+        position: 'bottom-left',
+        offsets: { x: 20, y: 20 },
+        branding: {
+          name: 'You.Ge Assistant',
+          shortName: 'You.Ge',
+          icon: 'icons/icon-192.png',
+          themeColor: '#155eef'
+        },
+        theme: 'auto',
+        features: [
+          {
+            id: 'connection-priority',
+            label: 'Live connection priority',
+            message: 'The Assistant now orders real detected conditions by severity.'
+          }
+        ]
+      };
+    </script>
+    <script src="assistant-state.js" defer></script>
+    <script src="assistant-widget.js" defer></script>
   </head>
 
   <body>

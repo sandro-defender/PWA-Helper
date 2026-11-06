@@ -189,7 +189,8 @@ body.force-fixed {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .pwa-toolbox .pwa-toolbox-icon {
+  .pwa-toolbox .pwa-toolbox-icon,
+  .progressier-install-banner-close {
     transition: none;
     -webkit-transition: none;
   }
@@ -228,6 +229,19 @@ body.force-fixed {
   letter-spacing: var(--progressierLetterSpacing) !important;
   font-weight: var(--progressierTextFontWeight) !important;
   font-size: 15px !important;
+}
+
+/* The legacy banner suppresses all outlines; restore a visible keyboard focus
+   ring without changing the banner's original sizing or placement. */
+.progressier-install-banner :focus-visible,
+.progressier-install-banner button:focus-visible,
+.progressier-install-banner [role="button"]:focus-visible {
+  outline: 3px solid var(--progressierFocus, #2563eb) !important;
+  outline-offset: 3px !important;
+}
+
+.progressier-install-banner-close {
+  transition: background-color 160ms ease;
 }
 
 .progressier-install-banner-inner {

@@ -105,9 +105,19 @@
         basePath: workerBase,
         online: navigator.onLine,
       }).then(function (result) {
+        // Publish the result to the centralized Assistant state. This is a
+        // browser event, not a second network request.
+        if (window.CustomEvent && document.dispatchEvent) {
+          document.dispatchEvent(new CustomEvent('youge:dns-result', { detail: result }));
+        }
         if (!diagnosticsResult) return;
         diagnosticsResult.textContent = result.message + (result.caveat ? ' ' + result.caveat : '');
       }).catch(function () {
+        if (window.CustomEvent && document.dispatchEvent) {
+          document.dispatchEvent(new CustomEvent('youge:dns-result', {
+            detail: { classification: 'error', message: 'Diagnostics could not complete.', failed: true }
+          }));
+        }
         if (diagnosticsResult) diagnosticsResult.textContent = 'Diagnostics could not complete. Retry when the connection is available.';
       }).then(function () {
         diagnosticsButton.disabled = false;

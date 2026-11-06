@@ -7,6 +7,7 @@
     <title>Offline — You.Ge Assistant</title>
     <link rel="icon" href="icons/favicon-32.png" sizes="32x32" />
     <link rel="stylesheet" href="offline.css" />
+    <link rel="stylesheet" href="assistant-widget.css" />
   </head>
   <body>
     <main>
@@ -33,6 +34,21 @@
     <script src="domain-registry.js" defer></script>
     <script src="domain-config.js" defer></script>
     <script src="dns-diagnostics.js" defer></script>
+
+    <!-- The Assistant stays available on the offline shell. pwa.js is not
+         loaded here, so installation is explicitly unavailable. -->
+    <script>
+      window.YOU_GE_ASSISTANT_CONFIG = {
+        projectId: 'offline-shell',
+        position: 'bottom-right',
+        offsets: { x: 20, y: 20 },
+        branding: { name: 'You.Ge Assistant', shortName: 'You.Ge', icon: 'icons/icon-192.png' },
+        theme: 'auto',
+        modules: { installation: false, diagnostics: true, recovery: true, failover: true, help: true, updates: false }
+      };
+    </script>
+    <script src="assistant-state.js" defer></script>
+    <script src="assistant-widget.js" defer></script>
     <script src="offline.js" defer></script>
   </body>
 </html>

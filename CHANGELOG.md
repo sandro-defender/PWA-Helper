@@ -2,6 +2,38 @@
 
 ## Unreleased
 
+- Added the You.Ge Assistant platform foundation: a Phase 0 re-audit
+  (`FOUNDATION_AUDIT.md`), the future dashboard/SDK/multi-domain/configuration/
+  security/failover architecture with a diagram and phased roadmap
+  (`ASSISTANT_ARCHITECTURE.md`), and a frozen installation experience record plus
+  future SDK install contract (`INSTALLATION_EXPERIENCE.md`). No dashboard, SDK
+  package, central config service, failover, `staff.you.ge` integration, npm
+  publish or production deployment was added.
+- Applied the ui-ux-pro-max-skill design system and adopted three zero-dependency
+  React Bits TypeScript + CSS components (`SpotlightCard`, `GlareHover`,
+  `LatticeLoader`) in the isolated example; documented every adoption decision
+  in `DESIGN_FOUNDATION.md`. Incremental install-sheet and banner accessibility
+  improvements (visible focus, 44px close target, contrast-safe note,
+  `aria-labelledby`/`aria-describedby`, reduced motion) preserve all behavior.
+- Implemented the **Intelligent Floating Assistant** as a reusable core widget:
+  `assistant-state.js` (one centralized, event-driven state model and
+  configurable SDK API), `assistant-widget.js` / `assistant-widget.css`
+  (dependency-free DOM renderer), and a React renderer in `example/src/main.jsx`
+  using `useSyncExternalStore` plus the already-vendored React Bits
+  `GlareHover`, `SpotlightCard` and `LatticeLoader` sources. Real-condition
+  badges, the fixed 1–5 priority ladder, in-place panel, dismissal/acknowledgement,
+  project-scoped repeat suppression, safe-area/reduced-motion support and
+  single-flight diagnostics are covered by `WIDGET.md` and 24 new tests in
+  `tests/assistant-widget.test.mjs`. `pwa.js` install delegation and the single
+  `progressier.js` worker remain intact; no dashboard, remote config service,
+  production failover or `staff.you.ge` integration was added.
+- Added `tests/install-experience.test.mjs` (DOM-harness verification of the
+  existing install flow, platform detection, dismissal and worker registration)
+  and `tests/foundation-contracts.test.mjs` (manifest, offline, identity,
+  security and design contracts). Added an isolated `tsc --noEmit` type-check
+  gate for the React example; extended `scripts/check.mjs` and CI accordingly.
+  No existing tests were removed or weakened.
+
 - Rebuilt the GitHub Pages user-facing example with an isolated React/Vite app and
   a fixed, interactive React Bits ElectricLogo assistant launcher, persistent
   logo mark, and quick actions; clarified local-storage failures in the sample

@@ -1,13 +1,39 @@
 # Third-party notices
 
-## React Bits ElectricLogo
+## React Bits components
 
-The ElectricLogo component in `src/ElectricLogo.jsx` and its stylesheet are from
-[React Bits](https://github.com/DavidHDev/react-bits), by David Haz. The source
-was obtained from the React Bits ElectricLogo JavaScript + CSS variant and is
-used only as part of this example application. It depends on `ogl`.
+The following component sources are vendored from
+[React Bits](https://github.com/DavidHDev/react-bits), by David Haz, and are now
+owned/maintained as part of this example application:
 
-The upstream repository applies the following license to its source:
+| Component | Local source | Upstream variant | Runtime dependency |
+| --- | --- | --- | --- |
+| ElectricLogo | `src/ElectricLogo.jsx`, `src/ElectricLogo.css` | JavaScript + CSS | `ogl` (already present) |
+| SpotlightCard | `src/react-bits/SpotlightCard.tsx`, `.css` | TypeScript + CSS | none |
+| GlareHover | `src/react-bits/GlareHover.tsx`, `.css` | TypeScript + CSS | none |
+| LatticeLoader | `src/react-bits/LatticeLoader.tsx`, `.css` | TypeScript + CSS | none |
+
+The TypeScript + CSS variants were selected to match the requested TypeScript
+preference and the project's plain-CSS conventions. Official installation
+documentation recommends copying component source into the project (or using
+`shadcn`/`jsrepo`); no React Bits npm package is installed. Local adaptations:
+removal of the Next.js-specific `'use client'` directive, safe
+`window.matchMedia?.()` access, reduced-motion overrides for the decorative
+highlights/glare/loader, and design-token overrides in `example.css`. The
+Intelligent Floating Assistant reuses these same owned sources: `GlareHover`
+around the launcher (with a local circular `clip-path` and `overflow: visible`
+override so the existing logo stage is not clipped), `SpotlightCard` for the
+connection-status card, and `LatticeLoader` only while diagnostics run. See
+[`DESIGN_FOUNDATION.md`](../DESIGN_FOUNDATION.md) §8 and
+[`WIDGET.md`](../WIDGET.md) §6 for the full adoption report.
+
+`src/ElectricLogo.jsx` depends on `ogl`. The three new TypeScript components add
+**no runtime dependencies**; `typescript`, `@types/react` and
+`@types/react-dom` are dev-only, isolated in `example/`, and used by
+`npm run typecheck`.
+
+The upstream repository applies the following license to all of the above
+sources:
 
 ```text
 MIT + Commons Clause License Condition v1.0

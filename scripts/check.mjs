@@ -59,6 +59,9 @@ const requiredFiles = [
   'domain-config.js',
   'domain-registry.js',
   'dns-diagnostics.js',
+  'assistant-state.js',
+  'assistant-widget.js',
+  'assistant-widget.css',
   'manifest-handler.js',
   'manifest.webmanifest',
   'qrcode.js',
@@ -342,6 +345,9 @@ const precached = [
   'domain-config.js',
   'domain-registry.js',
   'dns-diagnostics.js',
+  'assistant-state.js',
+  'assistant-widget.js',
+  'assistant-widget.css',
   'pwa.css',
   'qrcode.js',
   'icons/icon-192.png',
@@ -443,6 +449,9 @@ const sharedRuntimeFiles = new Set([
   'pwa.css',
   'progressier.js',
   'qrcode.js',
+  'assistant-state.js',
+  'assistant-widget.js',
+  'assistant-widget.css',
   'offline.html',
   'offline.css',
   'offline.js',
@@ -642,6 +651,160 @@ for (const file of ['example/example.css', 'example/example.js']) {
   if (existsSync(at(file))) pass(`${file} exists`);
   else fail(`${file} is missing`);
 }
+
+/* ------------------------------------------------------------------ *
+ * 7b. Platform foundation, design and install contracts
+ * ------------------------------------------------------------------ */
+
+section('You.Ge Assistant foundation contracts');
+
+function contract(condition, message) {
+  if (condition) pass(message);
+  else fail(message);
+}
+
+const foundationDocs = [
+  'FOUNDATION_AUDIT.md',
+  'ASSISTANT_ARCHITECTURE.md',
+  'INSTALLATION_EXPERIENCE.md',
+  'DESIGN_FOUNDATION.md',
+  'WIDGET.md',
+  'design-system/you-ge-assistant/MASTER.md',
+];
+for (const file of foundationDocs) {
+  contract(existsSync(at(file)), `${file} is present`);
+}
+
+const architectureSource = existsSync(at('ASSISTANT_ARCHITECTURE.md'))
+  ? readFileSync(at('ASSISTANT_ARCHITECTURE.md'), 'utf8') : '';
+contract(/```mermaid[\s\S]*flowchart TB/.test(architectureSource), 'architecture includes a Mermaid diagram');
+contract(/## 12\. Implementation roadmap/.test(architectureSource), 'architecture includes a phased roadmap');
+contract(architectureSource.includes('https://staff-you-ge.sandro-1990.workers.dev')
+  && architectureSource.includes('Example only'), 'backup URL is documented as a project-specific example only');
+contract(architectureSource.includes('Preview Worker URL') && architectureSource.includes('never'), 'Preview Worker is explicitly ruled out as production backup');
+
+const installDoc = existsSync(at('INSTALLATION_EXPERIENCE.md'))
+  ? readFileSync(at('INSTALLATION_EXPERIENCE.md'), 'utf8') : '';
+for (const token of ['beforeinstallprompt', 'event.prompt()', 'appinstalled', 'showHelp(\'ios\')', 'showHelp(\'generic\')', 'pwa.js']) {
+  contract(installDoc.includes(token), `installation record documents ${token}`);
+}
+
+const installMarkers = [
+  'aria-labelledby\', \'pwa-install-title\'',
+  'aria-describedby\', \'pwa-install-steps\'',
+  '.close:focus-visible,.ok:focus-visible',
+  'min-width:44px;min-height:44px',
+  '@media (prefers-reduced-motion:reduce)',
+  'var(--progressierNote,#475569)',
+];
+contract(installMarkers.every((token) => client.includes(token)), 'install help sheet keeps its behavior with improved focus/contrast/motion');
+contract(styles.includes('.progressier-install-banner :focus-visible'), 'install banner restores a visible keyboard focus ring');
+
+const designSource = existsSync(at('DESIGN_FOUNDATION.md'))
+  ? readFileSync(at('DESIGN_FOUNDATION.md'), 'utf8') : '';
+contract(designSource.includes('SKILL.md') && designSource.includes('search.py'), 'design skill usage is reported with exact instructions and commands');
+contract(designSource.includes('SpotlightCard') && designSource.includes('GlareHover') && designSource.includes('LatticeLoader'), 'React Bits adoption report names adopted components');
+const masterSource = existsSync(at('design-system/you-ge-assistant/MASTER.md'))
+  ? readFileSync(at('design-system/you-ge-assistant/MASTER.md'), 'utf8') : '';
+contract(masterSource.includes('SaaS (General)') && !masterSource.includes('Luxury/Premium Brand'), 'design system uses the verified-fit SaaS match, not the rejected luxury match');
+
+const reactBitsFiles = [
+  'example/src/react-bits/SpotlightCard.tsx',
+  'example/src/react-bits/SpotlightCard.css',
+  'example/src/react-bits/GlareHover.tsx',
+  'example/src/react-bits/GlareHover.css',
+  'example/src/react-bits/LatticeLoader.tsx',
+  'example/src/react-bits/LatticeLoader.css',
+  'example/src/FoundationPreview.tsx',
+  'example/tsconfig.json',
+];
+for (const file of reactBitsFiles) {
+  contract(existsSync(at(file)), `${file} is vendored into the example`);
+}
+const reactBitsSources = reactBitsFiles
+  .filter((file) => file.endsWith('.tsx'))
+  .map((file) => readFileSync(at(file), 'utf8'));
+contract(reactBitsSources.every((text) => !/from ['"](?:gsap|motion|@hugeicons)/.test(text)), 'adopted React Bits sources add no runtime dependencies');
+contract(reactBitsSources.every((text) => !text.includes("'use client'")), 'Next.js-only use client directives were removed from vendored sources');
+const reactBitsStyles = reactBitsFiles
+  .filter((file) => file.endsWith('.css'))
+  .map((file) => readFileSync(at(file), 'utf8'));
+contract(reactBitsStyles.every((text) => text.includes('prefers-reduced-motion')), 'every adopted React Bits stylesheet has a reduced-motion override');
+const examplePackage = JSON.parse(readFileSync(at('example/package.json'), 'utf8'));
+contract(Boolean(examplePackage.scripts && examplePackage.scripts.typecheck), 'React example exposes a typecheck script');
+const noticeSource = readFileSync(at('example/THIRD_PARTY_NOTICES.md'), 'utf8');
+for (const name of ['ElectricLogo', 'SpotlightCard', 'GlareHover', 'LatticeLoader']) {
+  contract(noticeSource.includes(name), `third-party notices list ${name}`);
+}
+
+const exampleHtmlSource = readFileSync(at('example/index.html'), 'utf8');
+contract(exampleHtmlSource.includes('id="assistant-foundation-root"') && exampleHtmlSource.includes('<article class="foundation-card">'), 'foundation preview has a no-JS static fallback');
+const mainSource = readFileSync(at('example/src/main.jsx'), 'utf8');
+contract(mainSource.includes('<FoundationPreview />'), 'React example mounts the foundation preview');
+
+const runtimeFiles = [
+  'pwa.js', 'progressier.js', 'domain-config.js', 'domain-registry.js',
+  'dns-diagnostics.js', 'manifest-handler.js', 'offline.js', 'example/example.js',
+];
+const runtimeText = runtimeFiles.map((file) => readFileSync(at(file), 'utf8')).join('\n');
+contract(!runtimeText.includes('staff-you-ge.sandro-1990.workers.dev'), 'example backup URL is absent from runtime code');
+contract(runtimeText.includes('data-pwa-install') && runtimeText.includes('promptInstall'), 'installation delegation and public API remain in the runtime');
+contract(worker.includes('CLIENT_PATH'), 'worker continues to exclude pwa.js from caching (documented offline limitation)');
+
+const packageText = readFileSync(at('package.json'), 'utf8');
+contract(packageText.includes('"name": "you-ge-assistant"') && packageText.includes('You.Ge Assistant'), 'package identity remains You.Ge Assistant');
+
+/* ------------------------------------------------------------------ *
+ * 7c. Intelligent Floating Assistant contracts
+ * ------------------------------------------------------------------ */
+
+section('Intelligent Floating Assistant contracts');
+
+const assistantState = readFileSync(at('assistant-state.js'), 'utf8');
+const assistantWidget = readFileSync(at('assistant-widget.js'), 'utf8');
+const assistantStyles = readFileSync(at('assistant-widget.css'), 'utf8');
+const demoHtmlSource = readFileSync(at('demo/index.html'), 'utf8');
+const exampleHtmlSource2 = readFileSync(at('example/index.html'), 'utf8');
+const offlineHtmlSource = readFileSync(at('offline.html'), 'utf8');
+const snippetHtmlSource = readFileSync(at('snippet.html'), 'utf8');
+const mainJsxSource = readFileSync(at('example/src/main.jsx'), 'utf8');
+const pagesWorkflowSource = readFileSync(at('.github/workflows/pages.yml'), 'utf8');
+const viteConfigSource = readFileSync(at('example/vite.config.js'), 'utf8');
+const offlineJsSource = readFileSync(at('offline.js'), 'utf8');
+const widgetDocSource = readFileSync(at('WIDGET.md'), 'utf8');
+
+function withoutBlockComments(text) {
+  return text.replace(/\/\*[\s\S]*?\*\//g, '');
+}
+const assistantStateCode = withoutBlockComments(assistantState);
+const assistantWidgetCode = withoutBlockComments(assistantWidget);
+
+contract(/root\.YouGeAssistant = api/.test(assistantState), 'centralized state publishes window.YouGeAssistant');
+contract(/configure: configure[\s\S]*getState:[\s\S]*subscribe: subscribe[\s\S]*destroy: destroy/.test(assistantState), 'SDK surface exposes configure, getState, subscribe and destroy');
+contract(!/\bfetch\s*\(/.test(assistantStateCode) && !/\.register\s*\(/.test(assistantStateCode) && !/setInterval\s*\(/.test(assistantStateCode), 'state core makes no network requests, no duplicate SW registration and no polling');
+contract(/PRIORITY\s*=\s*\{[^}]*critical:\s*1[^}]*auth:\s*2[^}]*backup:\s*3[^}]*install:\s*4[^}]*info:\s*5/s.test(assistantState), 'notification priority order is 1 connectivity, 2 auth, 3 backup, 4 install, 5 info');
+contract(['youge:endpoint-status', 'youge:session-status', 'youge:dns-result', 'pwa:diagnostics', 'pwa:installable', 'pwa:installed', 'pwa:update'].every((name) => assistantState.includes(name)), 'state binds real project/PWA events once');
+contract(/function bindOnce/.test(assistantState) && /function destroy/.test(assistantState), 'listeners are initialized once and can be cleaned up');
+contract(/function isSuppressed/.test(assistantState) && /lastConditionKeys/.test(assistantState), 'dismissed/acknowledged notices are stored and reset when a condition resolves');
+contract(!/\bfetch\s*\(/.test(assistantWidgetCode) && !/\.register\s*\(/.test(assistantWidgetCode) && !/setInterval\s*\(/.test(assistantWidgetCode), 'DOM widget makes no network requests, no SW registration and no polling');
+contract(/api\.subscribe\(onState\)/.test(assistantWidget), 'DOM widget renders from the centralized state subscription');
+const afterOnState = assistantWidget.split('function onState')[1] || '';
+contract(!/openPanel\(\s*\);/.test(afterOnState), 'state updates never auto-open the panel');
+contract(/Escape/.test(assistantWidget) && /aria-expanded/.test(assistantWidget) && /aria-controls/.test(assistantWidget) && /setAttribute\('role', 'status'\)/.test(assistantWidget), 'widget supports Escape, expanded state, controls and a live region');
+contract(/data-pwa-install/.test(assistantWidget) && /data-pwa-diagnostics/.test(assistantWidget), 'install/diagnostics actions delegate to existing pwa.js instead of issuing duplicate prompts');
+contract(/position: fixed/.test(assistantStyles) && /env\(safe-area-inset/.test(assistantStyles) && /prefers-reduced-motion/.test(assistantStyles) && /min-height: 44px/.test(assistantStyles) && /max-width: 480px/.test(assistantStyles), 'widget CSS covers fixed placement, safe areas, reduced motion, 44px targets and mobile viewport');
+contract(/position:\s*'bottom-left'/.test(demoHtmlSource) && /data-toolbox/.test(demoHtmlSource), 'playground places the Assistant away from the existing install toolbox');
+contract(/assistant-state\.js/.test(exampleHtmlSource2) && /YOU_GE_ASSISTANT_CONFIG/.test(exampleHtmlSource2), 'React example initializes the centralized state before rendering');
+contract(/useSyncExternalStore/.test(mainJsxSource) && ['GlareHover', 'SpotlightCard', 'LatticeLoader'].every((name) => mainJsxSource.includes(name)), 'React renderer consumes centralized state and adopts zero-dependency React Bits components');
+contract(/data-pwa-diagnostics/.test(mainJsxSource) && /data-pwa-install/.test(mainJsxSource), 'React quick actions preserve working diagnostics and install delegation');
+contract(/assistant-state\.js/.test(offlineHtmlSource) && /assistant-widget\.js/.test(offlineHtmlSource), 'offline shell keeps the Assistant available');
+contract(/assistant-state\.js/.test(snippetHtmlSource) && /assistant-widget\.js/.test(snippetHtmlSource) && /YOU_GE_ASSISTANT_CONFIG/.test(snippetHtmlSource), 'integration snippet documents the configurable SDK interface');
+contract((pagesWorkflowSource.match(/assistant-state\.js/g) || []).length >= 2 && (pagesWorkflowSource.match(/assistant-widget\.css/g) || []).length >= 2, 'Pages workflow deploys the widget runtime to both app scopes');
+contract(/assistant-state\.js/.test(viteConfigSource) && /assistant-widget\.js/.test(viteConfigSource), 'Vite development middleware serves the shared widget runtime');
+contract(/youge:dns-result/.test(offlineJsSource), 'offline diagnostics publish their result into centralized state');
+contract(widgetDocSource.includes('## 6. React Bits + mandatory design skill') && widgetDocSource.includes('ui-ux-pro-max-skill'), 'WIDGET.md records React Bits and the mandatory design skill');
+contract(widgetDocSource.includes('Priority ladder') && widgetDocSource.includes('youge:endpoint-status'), 'WIDGET.md documents the priority ladder and project event contract');
+contract(designSource.includes('## 8. Intelligent Floating Assistant'), 'DESIGN_FOUNDATION.md records the widget skill and React Bits application');
 
 /* ------------------------------------------------------------------ *
  * 8. Optional files worth having
