@@ -121,6 +121,8 @@ copy for a subpath deployment.
 | `WIDGET.md` | reference | Floating Assistant architecture, SDK config, events, priority, skill/React Bits record and tests |
 | `ARCHITECTURE_AUDIT.md` | reference | Baseline audit and phased architecture plan |
 | `PARITY.md` | reference | What matches the original Progressier client |
+| `packages/assistant-sdk/` | repo | `@you-ge/assistant-sdk` sources, tests, README, `RELEASE.md` (release prep + registry decision, publishing disabled) and `MIGRATION.md` (staff.you.ge vendored-copy → package) |
+| `packages/assistant-sdk/scripts/validate-package.mjs` | tool | Package metadata, export map, version sync and tarball validation release gate |
 | `reference/` | research only | Original manifest/client source and readable copies; never deploy |
 | `scripts/check.mjs` | tool | Static checks for manifests, assets, versions, domain/DNS and floating-Assistant contracts |
 | `tests/assistant-widget.test.mjs` | tool | 24 state/renderer/priority/a11y/lifecycle tests |
@@ -130,7 +132,7 @@ copy for a subpath deployment.
 | `LICENSE`, `package.json` | repo | MIT license and `npm run check` / `verify` / `keys` scripts |
 | `demo/` | example | Full-feature GitHub Pages playground for testing the helper |
 | `example/` | example | ReactBits ElectricLogo sample PWA, isolated React/OGL build, subpath-safe manifest |
-| `.github/workflows/` | repo | `check.yml` static checks, `pages.yml` playground + example deploy |
+| `.github/workflows/` | repo | `check.yml` static checks, `pages.yml` playground + example deploy, `sdk-release-prep.yml` manual-only SDK release checklist (publishing disabled) |
 
 Keep the directory shape when copying. If the target project uses a `public/`
 folder (Next.js, Vite, CRA), copy the **contents** of this repo into `public/`

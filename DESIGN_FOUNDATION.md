@@ -281,3 +281,46 @@ Executed targeted search queries with `python3 .claude/skills/ui-ux-pro-max/scri
 3. **Progressive-disclosure developer documentation (`packages/assistant-sdk/README.md`):**
    Structured SDK docs from immediate 30-second Quick Start (`YouGeAssistant.create`, `YouGeAssistant.attach`, optional React hook) → subpath table → configuration/LKG security pipeline → complete method/priority tables → illustrative generic host integration, with explicit non-goals and unpublished-package transparency.
 
+
+## 10. Phase 3 — release preparation & documentation DX (2026-11-06)
+
+No visual/UI surface changed in this phase (no widget, example or stylesheet
+edits); the mandatory `ui-ux-pro-max-skill` was applied to **developer
+experience**: SDK documentation, release/migration guides and the validation
+tool's feedback design.
+
+### Skill resources consulted and queries executed
+
+Read directly from `nextlevelbuilder/ui-ux-pro-max-skill`
+(clone at `/tmp/ui-ux-pro-max-skill`, not committed):
+- `.claude/skills/ui-ux-pro-max/SKILL.md` (query contract, workflow, priority table)
+- `.claude/skills/ui-ux-pro-max/references/pro-rules.md` (pre-delivery checklist)
+
+Executed targeted search queries with `python3 .claude/skills/ui-ux-pro-max/scripts/search.py`:
+- `--domain ux` (`developer sdk documentation progressive disclosure status feedback`) → "Submit Feedback — show loading then success/error state" (every command documents its success signal and failure exit); "Heading Line Balance" (bounded measures, no forced breaks)
+- `--domain product` (`developer sdk infrastructure tool error message documentation`) → matched **API Developer Portal** ("Quick Start + Interactive Docs", scannable hierarchy) and **Developer Tool / IDE** ("Minimal & Direct + Documentation")
+
+### How guidance influenced the release-preparation deliverables
+
+1. **Progressive disclosure in `packages/assistant-sdk/README.md`:** status box
+   first (what is true *now* — unpublished, publishing disabled), then
+   installation in two clearly separated contexts (registry "after the first
+   approved release" vs. local `file:`), with deep policy (semver, registry
+   decision, runbook) deferred to `RELEASE.md`/`MIGRATION.md` links.
+2. **Scannable decision tables in `RELEASE.md`:** the GitHub Packages vs public
+   npm comparison follows the "Quick Start + Interactive Docs" pattern —
+   recommendation and its reasons before the exhaustive table; the three
+   publishing locks get an explicit status table instead of prose.
+3. **Atomic, observable runbook steps in `RELEASE.md` §4 and `MIGRATION.md`
+   §4–5:** each step is one action with its success signal (per "Submit
+   Feedback": never leave a step without an observable outcome); the migration
+   checklist items are all machine-checkable ("grep finds no vendored-path
+   imports", "YouGeAssistant.version equals the pin").
+4. **Status feedback in `scripts/validate-package.mjs`:** sectioned
+   PASS/FAIL/NOTE output mirrors the skill's feedback-loop rule — every check
+   reports a state, the summary repeats the package identity and next action
+   ("ready for the release checklist — publishing still disabled"), and exit
+   codes make it CI-usable.
+5. **Pre-delivery checklist applied to the docs themselves:** prerequisites
+   named but never invented (npm scope ownership), secrets never printed,
+   rollback documented first-class in `MIGRATION.md` §6.

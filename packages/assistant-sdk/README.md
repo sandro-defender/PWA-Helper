@@ -5,11 +5,16 @@ multi-domain resolution, data-only configuration validation with Last-Known-Good
 fallback, explicit on-demand DNS diagnostics integration, and existing PWA
 installation integration.
 
-> **Package status (Phase 2):** `@you-ge/assistant-sdk` (`0.1.0`) is extracted,
-> tested, and prepared locally inside [`packages/assistant-sdk`](./) with
-> `"private": true` to prevent accidental publishing. **It has not been
-> published to npm yet.** Consume it locally via `"file:../packages/assistant-sdk"`
-> or workspace linking until explicit release approval.
+> **Package status (Phase 3 — release preparation):** `@you-ge/assistant-sdk`
+> (`0.1.0`) is extracted, tested, and prepared locally inside
+> [`packages/assistant-sdk`](./) with `"private": true` — that flag is the
+> deliberate accidental-publish lock and keeps `npm publish` impossible.
+> **It has not been published to any registry yet, and publishing remains
+> disabled until explicitly approved.** Consume it locally via
+> `"file:../packages/assistant-sdk"` or workspace linking until the first
+> approved release. Release procedure and registry decision:
+> [`RELEASE.md`](RELEASE.md). Vendored-copy → package migration (staff.you.ge):
+> [`MIGRATION.md`](MIGRATION.md).
 
 ---
 
@@ -23,7 +28,27 @@ installation integration.
 
 ---
 
-## Local Consumption
+## Installation & Consumption
+
+### From the registry (after the first approved release)
+
+```bash
+npm install @you-ge/assistant-sdk@0.1.0
+```
+
+Pin the **exact version** (no `^`/`~`) if you want vendor-pin semantics — the
+same deliberate-upgrade workflow as a vendored copy. See
+[`MIGRATION.md`](MIGRATION.md) for replacing a vendored `packages/assistant-sdk`
+copy.
+
+The package is **ESM-only** (`"type": "module"`) and ships native ESM with
+paired `.d.ts` declarations — no build step, no transpiled CommonJS. Vite,
+Next, webpack, Rollup and esbuild consume it directly; Node ≥ 18 can
+`import` it (CommonJS hosts can `await import('@you-ge/assistant-sdk')`).
+The `exports` map is the only import surface: deep paths like
+`@you-ge/assistant-sdk/src/...` are intentionally blocked.
+
+### Local (unpublished)
 
 Inside another package in this repository or a sibling local project:
 
@@ -268,6 +293,23 @@ document.querySelector('#install-app-btn')?.addEventListener('click', () => {
 
 ---
 
+## Versioning & Releases
+
+- **Semver policy:** `patch` = fixes only · `minor` = additive API ·
+  `major` = breaking API or config-schema change. Pre-1.0 (`0.x`) until the
+  API is frozen by a public release.
+- **Version sources are synchronized and machine-checked:** `package.json` ↔
+  `SDK_VERSION` ↔ `KIT_COMPAT_VERSION` (the compatible You.Ge Assistant
+  runtime line) ↔ the runtime version.
+- **Publishing is disabled until explicitly approved** (`"private": true` lock,
+  a manual-only gated release workflow, and no registry account yet). The
+  registry decision (public npm recommended), the release runbook and the
+  guard state live in [`RELEASE.md`](RELEASE.md).
+- Replacing a vendored SDK copy (e.g. `staff.you.ge`): see
+  [`MIGRATION.md`](MIGRATION.md).
+
+---
+
 ## Testing & Verification
 
 Run the standalone SDK test suite independently of the PWA application:
@@ -275,5 +317,9 @@ Run the standalone SDK test suite independently of the PWA application:
 ```bash
 cd packages/assistant-sdk
 npm test
-npm pack --dry-run
+node scripts/validate-package.mjs   # package metadata, export map, versions, contents
+npm pack --dry-run                  # what a release would contain
 ```
+
+From the repository root, `npm run check` runs the static contracts, this
+package validation and the full test suites together.
