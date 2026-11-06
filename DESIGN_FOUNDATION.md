@@ -250,3 +250,30 @@ plain CSS, and the user excluded unnecessary dependencies and heavy animation.
 `tests/assistant-widget.test.mjs`, `WIDGET.md`, `README.md`, `AGENTS.md`,
 `CHANGELOG.md`, `ASSISTANT_ARCHITECTURE.md`, `example/README.md`,
 `example/THIRD_PARTY_NOTICES.md`.
+
+---
+
+## 9. Phase 2 — `@you-ge/assistant-sdk` extraction and developer UX
+
+### Skill resources consulted and queries executed
+
+Read directly from `nextlevelbuilder/ui-ux-pro-max-skill`:
+- `.claude/skills/ui-ux-pro-max/SKILL.md`
+- `.claude/skills/ui-ux-pro-max/references/quick-reference.md`
+- `.claude/skills/ui-ux-pro-max/references/pro-rules.md`
+
+Executed targeted search queries with `python3 .claude/skills/ui-ux-pro-max/scripts/search.py`:
+- `--domain ux` (`developer sdk documentation progressive disclosure status feedback`) → surfaced `error-recovery`, `touch-target-size`, `form-labels`
+- `--domain product` (`developer sdk infrastructure tool`) → matched `Developer Tool / IDE` (clean hierarchy, calm contrast, scannable progressive disclosure, zero visual noise)
+- `--stack react` (`useSyncExternalStore hook state subscription cleanup`) → surfaced `useEffectCleanup` (`removeEventListener` + unsubscribe symmetry on teardown) and `memo-deps`
+- `--domain react` (`external store state subscription re-render`) → surfaced `rerender-defer-reads` (subscribe only to needed slices; memoize selector snapshots so unchanged renders stay O(1))
+
+### How guidance influenced Phase 2 implementation
+
+1. **Tear-free React external-store ergonomics (`@you-ge/assistant-sdk/react`):**
+   Applied `useEffectCleanup` and `rerender-defer-reads` to `getExternalStoreBindings()` and `createUseAssistant()`. Selector results are cached against `(lastState, lastSelected)` with `Object.is`, preventing spurious React 18/19 re-renders and infinite selector loops while keeping `react` completely out of SDK runtime dependencies.
+2. **Live, calm SDK telemetry in `example/src/FoundationPreview.tsx` & `example/src/main.jsx`:**
+   Kept the verified calm SaaS/Developer-Tool visual hierarchy from `MASTER.md` and the already-vendored zero-dependency TS-CSS React Bits components (`SpotlightCard`, `GlareHover`, `LatticeLoader`) without visual churn. Wired both `main.jsx` and `FoundationPreview.tsx` directly to `@you-ge/assistant-sdk` and `@you-ge/assistant-sdk/react` so the live status bar (`role="status"`) and Resilience card surface real SDK state (`SDK v0.1.0`, active origin, live install capability, and resolved config source `defaults | overrides | published | last-known-good`) while preserving the static no-JS HTML fallback, inline SVG icons, 44px touch targets, and `@media (prefers-reduced-motion: reduce)`.
+3. **Progressive-disclosure developer documentation (`packages/assistant-sdk/README.md`):**
+   Structured SDK docs from immediate 30-second Quick Start (`YouGeAssistant.create`, `YouGeAssistant.attach`, optional React hook) → subpath table → configuration/LKG security pipeline → complete method/priority tables → illustrative generic host integration, with explicit non-goals and unpublished-package transparency.
+

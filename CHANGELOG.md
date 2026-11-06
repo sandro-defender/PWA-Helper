@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+- Extracted the framework-independent **Phase 2 SDK package** locally at
+  `packages/assistant-sdk/` (`@you-ge/assistant-sdk` v`0.1.0`, `"private": true`
+  — prepared for future npm publishing without publishing, releasing or tagging):
+  modular ESM core (`core`, `domain`, `config`, `diagnostics`, `installation`,
+  `assistant`, `adapters`), subpath exports (`.`, `./domain`, `./config`,
+  `./diagnostics`, `./installation`, `./react`), `.d.ts` TypeScript declarations,
+  data-only `publishedConfig` + project-scoped Last-Known-Good (`LKG`) fallback
+  with executable-code and secret rejection, deterministic browser state sync
+  (`scripts/sync-sdk-browser.mjs` → `assistant-state.js`), `example/` consumption
+  via `file:../packages/assistant-sdk`, standalone SDK tests
+  (`packages/assistant-sdk/tests/`) and toolkit integration tests
+  (`tests/sdk-integration.test.mjs`). All `window.PWA`, `/progressier.js`,
+  manifest, DNS diagnostics and widget behaviors remain backward-compatible; no
+  standalone dashboard, remote config fetch, production API failover or
+  `staff.you.ge` change was added.
 - Added the You.Ge Assistant platform foundation: a Phase 0 re-audit
   (`FOUNDATION_AUDIT.md`), the future dashboard/SDK/multi-domain/configuration/
   security/failover architecture with a diagram and phased roadmap
