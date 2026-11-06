@@ -1,30 +1,27 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
+import {
+  SDK_VERSION,
+  YouGeAssistant,
+  readToolkitSummary,
+  type AssistantState,
+} from '@you-ge/assistant-sdk';
+import { createUseAssistant } from '@you-ge/assistant-sdk/react';
 import GlareHover from './react-bits/GlareHover';
 import LatticeLoader from './react-bits/LatticeLoader';
 import SpotlightCard from './react-bits/SpotlightCard';
 
 /**
  * A read-only design-system reference surface for the future Assistant
- * dashboard. It intentionally does not register projects, publish config or
- * call any API: those capabilities arrive in later phases (see
- * ASSISTANT_ARCHITECTURE.md). Every control that looks like an installation
- * action uses the existing `data-pwa-install` hook from pwa.js.
+ * dashboard, wired directly to `@you-ge/assistant-sdk`. It intentionally does
+ * not register projects, publish config or call any API: those capabilities
+ * arrive in later phases (see ASSISTANT_ARCHITECTURE.md). Every control that
+ * looks like an installation action uses the existing `data-pwa-install` hook
+ * from pwa.js.
  */
 
 type IconName = 'install' | 'offline' | 'network' | 'empty';
 
-type PwaState = {
-  standalone?: boolean;
-  installed?: boolean;
-  canInstall?: boolean;
-  ios?: boolean;
-  hostname?: string;
-};
-
-type Capabilities = {
-  installation: string;
-  origin: string;
-};
+const useAssistant = createUseAssistant(useSyncExternalStore, () => YouGeAssistant.attach());
 
 const ICON_PATHS: Record<IconName, string> = {
   install: 'M12 3v12m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2',
@@ -53,42 +50,23 @@ function StatusIcon({ name }: { name: IconName }) {
   );
 }
 
-function readCapabilities(): Capabilities {
-  const runtime = (window as Window & {
-    PWA?: { getState?: () => PwaState };
-  }).PWA;
-  let state: PwaState = {};
-  try {
-    state = runtime?.getState?.() ?? {};
-  } catch {
-    state = {};
-  }
-
-  let installation = 'Manual browser instructions';
-  if (state.standalone || state.installed) installation = 'Installed on this device';
-  else if (state.canInstall) installation = 'Native install prompt ready';
-  else if (state.ios) installation = 'Manual iOS instructions';
-
-  return {
-    installation,
-    origin: state.hostname || window.location.hostname,
-  };
+function describeInstallation(state: AssistantState): string {
+  const { installation } = state;
+  if (installation.standalone || installation.installed) return 'Installed on this device';
+  if (installation.nativeAvailable || installation.canInstall) return 'Native install prompt ready';
+  if (installation.ios) return 'Manual iOS instructions';
+  return 'Manual browser instructions';
 }
 
 export default function FoundationPreview() {
+  const assistantState = useAssistant();
   const [phase, setPhase] = useState<'checking' | 'ready'>('checking');
-  const [capabilities, setCapabilities] = useState<Capabilities>({
-    installation: 'Manual browser instructions',
-    origin: window.location.hostname,
-  });
-  const [online, setOnline] = useState(navigator.onLine);
   const [connectionNotice, setConnectionNotice] = useState('');
 
   useEffect(() => {
     // A short capability read gives the loading state a real job and is cleaned
     // up on unmount. No network request is made here.
     const timer = window.setTimeout(() => {
-      setCapabilities(readCapabilities());
       setPhase('ready');
     }, 320);
     return () => window.clearTimeout(timer);
@@ -96,11 +74,9 @@ export default function FoundationPreview() {
 
   useEffect(() => {
     const handleOnline = () => {
-      setOnline(true);
       setConnectionNotice('Connection restored. Cached pages remain available.');
     };
     const handleOffline = () => {
-      setOnline(false);
       setConnectionNotice('You are offline. The offline fallback is still available.');
     };
     window.addEventListener('online', handleOnline);
@@ -111,6 +87,11 @@ export default function FoundationPreview() {
     };
   }, []);
 
+  const summary = readToolkitSummary(window as unknown as Record<string, unknown>);
+  const online = assistantState.network.online !== false;
+  const activeOrigin = assistantState.project.hostname || summary.hostname || window.location.hostname;
+  const configMeta = YouGeAssistant.attach().getConfig().meta;
+
   const cards = [
     {
       id: 'installation',
@@ -118,7 +99,7 @@ export default function FoundationPreview() {
       kicker: 'INSTALLATION',
       title: 'One install experience, many brands',
       body: 'Native prompts, iOS Safari steps and desktop QR are driven by browser events and project-specific copy — never by a fake install button.',
-      status: capabilities.installation,
+      status: describeInstallation(assistantState),
       tone: 'ready' as const,
     },
     {
@@ -136,7 +117,7 @@ export default function FoundationPreview() {
       kicker: 'RESILIENCE',
       title: 'Projects work on their own',
       body: 'Assistant configuration is optional at runtime. Each project keeps its own authentication, authorization and business logic.',
-      status: 'Architecture principle',
+      status: `SDK v${SDK_VERSION} · config: ${configMeta.source}`,
       tone: 'neutral' as const,
     },
   ];
@@ -157,7 +138,7 @@ export default function FoundationPreview() {
           <p className="foundation-status" role="status">
             <span className={`foundation-status-dot${online ? '' : ' is-offline'}`} aria-hidden="true" />
             <span>
-              <strong>{online ? 'Connected' : 'Offline'}</strong> · Active origin: {capabilities.origin}
+              <strong>{online ? 'Connected' : 'Offline'}</strong> · Active origin: {activeOrigin} · SDK v{SDK_VERSION}
             </span>
           </p>
         )}

@@ -52,8 +52,11 @@
   } catch (error) {
     runtimeBasePath = '/';
   }
-  var domainConfig = window.YouGeDomain && typeof window.YouGeDomain.resolve === 'function'
-    ? window.YouGeDomain.resolve({
+  var domainResolver = (window.YouGeDomain && typeof window.YouGeDomain.resolve === 'function' && window.YouGeDomain) ||
+    (window.YouGeAssistantSDK && window.YouGeAssistantSDK.domain && typeof window.YouGeAssistantSDK.domain.resolve === 'function' && window.YouGeAssistantSDK.domain) ||
+    null;
+  var domainConfig = domainResolver
+    ? domainResolver.resolve({
         hostname: window.location.hostname,
         origin: window.location.origin,
         protocol: window.location.protocol,
@@ -3462,5 +3465,6 @@
     if (event.persisted) refreshState();
   });
 
+  dispatch('ready', getState());
   log('initialized', getState());
 })();
