@@ -838,12 +838,20 @@ for (const rel of sdkRequired) {
 
 const sdkPkg = JSON.parse(readFileSync(at('packages/assistant-sdk/package.json'), 'utf8'));
 contract(sdkPkg.name === '@youge/assistant-sdk', 'SDK package name is @youge/assistant-sdk');
-contract(sdkPkg.private === true, 'SDK package remains unpublished with private: true guard');
+contract(sdkPkg.version === '0.1.0' && sdkPkg.private !== true, 'SDK package is release-ready at 0.1.0 (private lock removed by the approved release PR; publishing still gated by sdk-release-prep)');
 contract(!sdkPkg.dependencies, 'SDK package has zero mandatory runtime dependencies');
 contract(Boolean(sdkPkg.exports && sdkPkg.exports['.'] && sdkPkg.exports['./react']), 'SDK package declares explicit subpath exports');
 contract(assistantState === buildBrowserStateScript(), 'assistant-state.js is deterministically synchronized with packages/assistant-sdk/src/');
 contract(mainJsxSource.includes('@youge/assistant-sdk'), 'React example consumes @youge/assistant-sdk directly');
 contract(designSource.includes('## 9. Phase 2 — `@youge/assistant-sdk`'), 'DESIGN_FOUNDATION.md records Phase 2 skill application');
+
+const releaseWorkflow = readFileSync(at('.github/workflows/sdk-release-prep.yml'), 'utf8');
+contract(/^on:\s*\n\s+workflow_dispatch:/m.test(releaseWorkflow), 'sdk-release-prep triggers on workflow_dispatch only');
+contract(!/^\s+(push|pull_request):/m.test(releaseWorkflow), 'sdk-release-prep never triggers on push or pull_request');
+for (const gate of ['SDK_RELEASE_ENABLED', 'confirm_publish', 'environment: sdk-npm-publish', 'secrets.NPM_TOKEN']) {
+  contract(releaseWorkflow.includes(gate), `sdk-release-prep publishing gate present: ${gate}`);
+}
+contract(typeof sdkPkg.scripts?.prepublishOnly === 'string', 'SDK package keeps prepublishOnly validation as the final publish net');
 
 function listSdkSourceFiles(dir, acc = []) {
   for (const name of readdirSync(dir)) {

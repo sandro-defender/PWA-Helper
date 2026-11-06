@@ -5,16 +5,15 @@ multi-domain resolution, data-only configuration validation with Last-Known-Good
 fallback, explicit on-demand DNS diagnostics integration, and existing PWA
 installation integration.
 
-> **Package status (Phase 3 — release preparation):** `@youge/assistant-sdk`
-> (`0.1.0`) is extracted, tested, and prepared locally inside
-> [`packages/assistant-sdk`](./) with `"private": true` — that flag is the
-> deliberate accidental-publish lock and keeps `npm publish` impossible.
-> **It has not been published to any registry yet, and publishing remains
-> disabled until explicitly approved.** Consume it locally via
-> `"file:../packages/assistant-sdk"` or workspace linking until the first
-> approved release. Release procedure and registry decision:
-> [`RELEASE.md`](RELEASE.md). Vendored-copy → package migration (staff.you.ge):
-> [`MIGRATION.md`](MIGRATION.md).
+> **Package status (0.1.0 — release-ready):** `@youge/assistant-sdk@0.1.0`
+> is extracted, tested, validated and prepared for publication to the public
+> npm registry (org `youge`, scope `@youge`). The release is **prepared but
+> not yet published**: publication is executed by the repository owner via
+> the approved runbook ([`RELEASE.md`](RELEASE.md) §4 steps 3–5) and is gated
+> by the manual-only `sdk-release-prep` workflow. Until then, consume it
+> locally via `"file:../packages/assistant-sdk"` or workspace linking.
+> Release procedure and registry decision: [`RELEASE.md`](RELEASE.md).
+> Vendored-copy → package migration (staff.you.ge): [`MIGRATION.md`](MIGRATION.md).
 
 ---
 
@@ -30,7 +29,7 @@ installation integration.
 
 ## Installation & Consumption
 
-### From the registry (after the first approved release)
+### From npm (after publication)
 
 ```bash
 npm install @youge/assistant-sdk@0.1.0
@@ -48,7 +47,7 @@ Next, webpack, Rollup and esbuild consume it directly; Node ≥ 18 can
 The `exports` map is the only import surface: deep paths like
 `@youge/assistant-sdk/src/...` are intentionally blocked.
 
-### Local (unpublished)
+### Local (repository checkout / vendored copy)
 
 Inside another package in this repository or a sibling local project:
 
@@ -301,10 +300,12 @@ document.querySelector('#install-app-btn')?.addEventListener('click', () => {
 - **Version sources are synchronized and machine-checked:** `package.json` ↔
   `SDK_VERSION` ↔ `KIT_COMPAT_VERSION` (the compatible You.Ge Assistant
   runtime line) ↔ the runtime version.
-- **Publishing is disabled until explicitly approved** (`"private": true` lock,
-  a manual-only gated release workflow, and no registry account yet). The
-  registry decision (public npm recommended), the release runbook and the
-  guard state live in [`RELEASE.md`](RELEASE.md).
+- **Publishing is gated, never automatic.** `0.1.0` is release-ready (the
+  package-level `private` lock was removed in the approved release PR);
+  publication happens only through the manual `sdk-release-prep` workflow with
+  explicit authorization (`confirm_publish`, `SDK_RELEASE_ENABLED`, the
+  protected `sdk-npm-publish` environment and an `NPM_TOKEN` secret). The
+  registry decision and release runbook live in [`RELEASE.md`](RELEASE.md).
 - Replacing a vendored SDK copy (e.g. `staff.you.ge`): see
   [`MIGRATION.md`](MIGRATION.md).
 

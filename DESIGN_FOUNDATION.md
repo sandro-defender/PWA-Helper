@@ -364,3 +364,44 @@ Executed with `python3 .claude/skills/ui-ux-pro-max/scripts/search.py`:
 4. **Clean hierarchy for the identity decision (Knowledge Base):** `RELEASE.md`
    §2 leads with a small identity table (user → org → scope → package) before
    the verification prose, so the confirmed identity is scannable at a glance.
+
+## 12. 0.1.0 release preparation — release docs & installation DX (2026-11-06)
+
+The mandatory `ui-ux-pro-max-skill` was applied to the **release documentation
+and the developer installation experience** (no visual surface changed).
+
+### Skill resources consulted and queries executed
+
+Read from `nextlevelbuilder/ui-ux-pro-max-skill` (clone at
+`/tmp/ui-ux-pro-max-skill`, not committed): `.claude/skills/ui-ux-pro-max/SKILL.md`
+(query contract and priority table).
+
+Executed with `python3 .claude/skills/ui-ux-pro-max/scripts/search.py`:
+- `--domain ux` (`getting started install onboarding setup status`) → *User
+  Freedom* (no forced linear tour), *Submit Feedback* (confirm status with
+  explicit success/error states), *Contextual Live Badge Updates* (one atomic
+  meaningful status, not bare markers)
+- `--domain product` (`developer sdk release documentation changelog`) →
+  **Changelog / Release Notes** ("Timeline + Version List" pattern,
+  version + date headings), **API Developer Portal** ("Quick Start +
+  Interactive Docs")
+
+### How guidance was applied
+
+1. **Installation first-try-correct (API Developer Portal / User Freedom):**
+   the README leads with the exact `npm install @youge/assistant-sdk@0.1.0`
+   command and keeps registry vs local consumption as two clearly-labeled
+   fast paths — a consumer never has to read the release runbook to install.
+2. **Atomic status per runbook step (Submit Feedback):** every RELEASE.md §4
+   step now carries its own explicit status (`DONE`, `to be dispatched`,
+   `OWNER ACTION`, `NOT DONE`) — no step leaves the reader guessing what
+   happened.
+3. **One contextual status sentence (Contextual updates):** the README status
+   box and RELEASE.md banner state the release condition as a single precise
+   sentence — "release-ready but **not yet published**; publication is the
+   owner's runbook steps 3–5" — instead of bare flags.
+4. **Version-list changelog pattern (Changelog / Release Notes):** the new
+   `## 0.1.0 — 2026-11-06 (initial release)` section uses the product-type
+   pattern (version + date heading, grouped scannable bullets: API, config,
+   architecture, packaging, release engineering) above the running
+   *Unreleased* log.
