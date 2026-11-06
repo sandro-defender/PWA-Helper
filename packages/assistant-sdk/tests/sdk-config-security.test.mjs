@@ -6,6 +6,7 @@ import {
   lkgStorageKey,
   loadLastKnownGood,
   resolveAssistantConfig,
+  saveLastKnownGood,
   validatePublishedConfig,
 } from '../src/index.js';
 
@@ -224,4 +225,49 @@ test('prevents cross-project publishedConfig injection and tampered LKG payloads
   const protoChecked = validatePublishedConfig(protoPayload);
   assert.equal(protoChecked.valid, true);
   assert.equal(({}).polluted, undefined, 'prototype pollution keys are ignored');
+});
+
+test('a last-known-good record must declare the project that reads it back', () => {
+  const storage = makeStorage();
+  const good = validatePublishedConfig({
+    schemaVersion: 1,
+    revision: 'r-7',
+    publishedAt: '2026-11-01T00:00:00Z',
+    projectId: 'alpha',
+    branding: { name: 'Alpha Recovered' },
+  }, { expectedProjectId: 'alpha' });
+  assert.equal(good.valid, true, 'the seed record must itself be acceptable');
+  assert.equal(saveLastKnownGood(storage, 'alpha', good), true);
+
+  const key = lkgStorageKey('alpha');
+  const stored = JSON.parse(storage.getItem(key));
+  assert.equal(stored.projectId, 'alpha', 'saving stamps the owning project id');
+
+  const brokenRemote = { schemaVersion: 99, branding: { name: 'Should never render' } };
+  const orphan = Object.assign({}, stored);
+  delete orphan.projectId;
+
+  // A blob under this key that declares no project would otherwise skip the
+  // mismatch check and be trusted as this project's recovery config.
+  storage.setItem(key, JSON.stringify(orphan));
+  assert.equal(loadLastKnownGood(storage, 'alpha'), null, 'a projectId-less record is refused');
+  let resolved = resolveAssistantConfig({ projectId: 'alpha', publishedConfig: brokenRemote }, { storage });
+  assert.notEqual(resolved.meta.source, 'last-known-good');
+  assert.notEqual(resolved.config.branding.name, 'Should never render');
+
+  storage.setItem(key, JSON.stringify(Object.assign({}, orphan, { projectId: 'beta' })));
+  assert.equal(loadLastKnownGood(storage, 'alpha'), null, 'another project record cannot leak across ids');
+  resolved = resolveAssistantConfig({ projectId: 'alpha', publishedConfig: brokenRemote }, { storage });
+  assert.notEqual(resolved.meta.source, 'last-known-good');
+
+  storage.setItem(key, JSON.stringify(stored));
+  assert.equal(loadLastKnownGood(storage, 'alpha').revision, 'r-7', 'the matching record loads again');
+  resolved = resolveAssistantConfig({ projectId: 'alpha', publishedConfig: brokenRemote }, { storage });
+  assert.equal(resolved.meta.source, 'last-known-good');
+  assert.equal(resolved.meta.usedLastKnownGood, true);
+  assert.equal(resolved.config.branding.name, 'Alpha Recovered');
+  assert.ok(
+    resolved.meta.warnings.some((warning) => warning.indexOf('published_config_rejected:') === 0),
+    'the rejected remote layer stays visible in meta',
+  );
 });

@@ -101,6 +101,32 @@ export function normalizePath(value, fallback) {
   return normalized.charAt(normalized.length - 1) === '/' ? normalized : normalized + '/';
 }
 
+const NAVIGATION_SCHEME = /^([a-z][a-z0-9+.-]*):/i;
+
+/**
+ * Validate a navigation target that came from page markup or a push payload.
+ *
+ * Push payloads and host attributes are data, not instructions: this keeps only
+ * http(s) absolute URLs and root/relative paths, and rejects script-capable
+ * schemes (`javascript:`, `data:`, `blob:`, `filesystem:`), control characters
+ * that URL parsers strip (`javascript\u0000:`), and network-path forms such as
+ * `//evil.example` or `\evil.example`. Anything unsafe yields the fallback.
+ */
+export function safeNavigationUrl(value, fallback) {
+  const safeFallback = typeof fallback === 'string' && fallback ? fallback : '/';
+  const raw = typeof value === 'string' ? value.trim() : '';
+  if (!raw || /[\u0000-\u001f\u007f]/.test(raw)) return safeFallback;
+  const scheme = NAVIGATION_SCHEME.exec(raw);
+  if (scheme) {
+    const name = scheme[1].toLowerCase();
+    return name === 'http' || name === 'https' ? raw : safeFallback;
+  }
+  const authority = raw.split(/[?#]/)[0];
+  if (authority.indexOf('\\') !== -1) return safeFallback;
+  if (raw.charAt(0) === '/' && raw.charAt(1) === '/') return safeFallback;
+  return raw;
+}
+
 export function validateDomainConfig(raw) {
   const safeInput = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
   const config = merge(clone(DOMAIN_DEFAULTS), {
@@ -333,6 +359,7 @@ export function createDomainResolver(initialRegistry) {
     normalizeHost: normalizeHost,
     normalizePath: normalizePath,
     rootDomain: rootDomain,
+    safeNavigationUrl: safeNavigationUrl,
     validateConfig: validateDomainConfig,
     setRegistry: function (nextRegistry) {
       registry = nextRegistry && typeof nextRegistry === 'object' ? clone(nextRegistry) : {};

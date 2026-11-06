@@ -60,9 +60,23 @@ export const FALLBACK_ASSISTANT_STATE = Object.freeze({
 
 export function getExternalStoreBindings(assistantOrGetter, selector, fallbackState) {
   const fallback = fallbackState || FALLBACK_ASSISTANT_STATE;
-  const resolveInstance = typeof assistantOrGetter === 'function'
+  const resolve = typeof assistantOrGetter === 'function'
     ? assistantOrGetter
     : function () { return assistantOrGetter || attachAssistant(); };
+
+  // A getter may attach/configure the assistant, which emits a brand-new
+  // snapshot. `getSnapshot` runs on every render, so the resolved instance is
+  // memoized: re-resolving per render would re-configure per render and make
+  // `useSyncExternalStore` loop forever.
+  let cachedInstance = null;
+  function resolveInstance() {
+    if (cachedInstance && !(typeof cachedInstance.isDestroyed === 'function' && cachedInstance.isDestroyed())) {
+      return cachedInstance;
+    }
+    const instance = resolve();
+    if (instance) cachedInstance = instance;
+    return instance || null;
+  }
 
   let hasCached = false;
   let lastState = null;
@@ -142,8 +156,11 @@ export function createReactAdapter(options) {
   if (typeof opts.useSyncExternalStore !== 'function') {
     throw new TypeError('createReactAdapter requires { useSyncExternalStore } from React');
   }
+  let cachedAdapterAssistant = null;
   const resolveAssistant = function () {
-    return opts.assistant || attachAssistant(opts.config, opts.env);
+    if (cachedAdapterAssistant) return cachedAdapterAssistant;
+    cachedAdapterAssistant = opts.assistant || attachAssistant(opts.config, opts.env);
+    return cachedAdapterAssistant;
   };
   const useAssistant = createUseAssistant(
     opts.useSyncExternalStore,

@@ -210,3 +210,66 @@ test('SDK package has zero runtime dependencies, zero React import in core, zero
     assert.doesNotMatch(source, /staff\.you\.ge|workers\.dev/, `${file} contains no hardcoded project hostnames`);
   }
 });
+
+/* ------------------------------------------------------------------ *
+ * Audit regressions (2026-11): toolkit-driven update state + React bindings
+ * ------------------------------------------------------------------ */
+
+test('a waiting service-worker update surfaces from the toolkit snapshot, not only from events', () => {
+  const root = {
+    document: null,
+    location: { hostname: 'update.example.com', origin: 'https://update.example.com', protocol: 'https:', pathname: '/' },
+    navigator: { onLine: true },
+    addEventListener() {},
+    removeEventListener() {},
+  };
+
+  // Case 1: the update was discovered before the assistant existed, so no
+  // `pwa:update` event can ever reach it.
+  const pwaState = { installed: false, standalone: false, canInstall: false, hasUpdate: true };
+  root.PWA = {
+    __pwaKit: true,
+    config: { features: {} },
+    getState: () => ({ ...pwaState }),
+    onChange(listener) { listener(this.getState()); return () => {}; },
+  };
+  const assistant = YouGeAssistant.create({ projectId: 'update-seed' }, { root });
+  assert.equal(assistant.getState().network.updateAvailable, true, 'the waiting worker is visible without an event');
+  assert.ok(assistant.getState().notifications.some((n) => n.id === 'app:update'), 'the update notice is raised');
+  assert.ok(assistant.getState().availableActions.some((a) => a.id === 'update'), 'the apply-update action is offered');
+
+  // Case 2: once the toolkit no longer reports a waiting worker it clears.
+  pwaState.hasUpdate = false;
+  assistant.setUpdateAvailable(false);
+  assert.equal(assistant.getState().network.updateAvailable, false);
+  assert.equal(assistant.getState().notifications.some((n) => n.id === 'app:update'), false);
+  assistant.destroy();
+});
+
+test('external-store bindings resolve the assistant once instead of re-attaching per snapshot', () => {
+  let resolutions = 0;
+  let configures = 0;
+  const assistant = YouGeAssistant.create({ projectId: 'resolve-once', bindEvents: false });
+  const originalConfigure = assistant.configure;
+  assistant.configure = (options) => { configures += 1; return originalConfigure(options); };
+
+  // The pattern documented for hosts: a getter that attaches (and therefore
+  // configures) the shared instance. React calls getSnapshot on every render.
+  const getter = () => {
+    resolutions += 1;
+    assistant.configure({ projectId: 'resolve-once' });
+    return assistant;
+  };
+
+  const bindings = getExternalStoreBindings(getter, null, FALLBACK_ASSISTANT_STATE);
+  const first = bindings.getSnapshot();
+  const second = bindings.getSnapshot();
+  const unsubscribe = bindings.subscribe(() => {});
+
+  assert.equal(resolutions, 1, 'the instance getter must not run once per snapshot');
+  assert.equal(configures, 1, 'a per-render re-configure would loop React and rewrite storage');
+  assert.equal(first, second, 'useSyncExternalStore sees a stable snapshot while state is unchanged');
+
+  unsubscribe();
+  assistant.destroy();
+});

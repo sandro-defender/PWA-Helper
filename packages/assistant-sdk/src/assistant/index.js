@@ -31,6 +31,7 @@ import {
 } from '../diagnostics/index.js';
 import {
   deriveInstallationState,
+  readPwaSnapshot,
   requestPwaInstall,
 } from '../installation/index.js';
 
@@ -107,6 +108,7 @@ export function createAssistant(initialOptions, envOverrides) {
   let services = config.services;
 
   const listeners = new Set();
+  const listenerCounts = new Map();
   let noticeStore = { dismissed: {}, acknowledged: {} };
   let snapshot = null;
   let bound = false;
@@ -422,6 +424,7 @@ export function createAssistant(initialOptions, envOverrides) {
 
   function computeState() {
     const project = projectInfo();
+    const pwaSnapshot = readPwaSnapshot(getPwa());
     const installation = deriveInstallationState({
       pwa: getPwa(),
       enabled: config.modules.installation,
@@ -441,7 +444,10 @@ export function createAssistant(initialOptions, envOverrides) {
         reason: conditions.endpoints.reason,
       },
       session: { state: conditions.session.state, message: conditions.session.message },
-      updateAvailable: conditions.updateAvailable,
+      // The toolkit records a waiting worker in its own snapshot before (or
+      // without) a `pwa:update` event, so seed from it: otherwise an update
+      // detected before the assistant bound stays invisible forever.
+      updateAvailable: conditions.updateAvailable || pwaSnapshot.hasUpdate === true,
       recovery: conditions.recovery,
     };
     const notifications = buildNotifications(project, installation, network);
@@ -479,9 +485,25 @@ export function createAssistant(initialOptions, envOverrides) {
     };
   }
 
+  function statesEqual(a, b) {
+    if (a === b) return true;
+    if (!a || !b) return false;
+    try {
+      return JSON.stringify(a) === JSON.stringify(b);
+    } catch (error) {
+      return false;
+    }
+  }
+
   function emit() {
     if (destroyed) return;
-    snapshot = computeState();
+    const next = computeState();
+    // Snapshot identity stability. A repeated emit of an unchanged state must
+    // not churn listeners, React `useSyncExternalStore` consumers (which would
+    // re-render forever) or `localStorage`. Conditions are still re-evaluated
+    // above, so dismissal resets and persistence keep happening.
+    if (snapshot && statesEqual(snapshot, next)) return;
+    snapshot = next;
     const doc = getDoc();
     if (shouldBindEvents && exposeGlobal) {
       try {
@@ -573,10 +595,24 @@ export function createAssistant(initialOptions, envOverrides) {
   function subscribe(listener, subOptions) {
     if (typeof listener !== 'function' || destroyed) return function () {};
     listeners.add(listener);
+    listenerCounts.set(listener, (listenerCounts.get(listener) || 0) + 1);
     if (!subOptions || subOptions.immediate !== false) {
       try { listener(snapshot); } catch (error) { /* ignore */ }
     }
-    return function () { listeners.delete(listener); };
+    let active = true;
+    // Reference-counted: the same listener may be subscribed by several
+    // components/widgets, and unsubscribing one must not silence the others.
+    return function () {
+      if (!active) return;
+      active = false;
+      const remaining = (listenerCounts.get(listener) || 0) - 1;
+      if (remaining > 0) {
+        listenerCounts.set(listener, remaining);
+        return;
+      }
+      listenerCounts.delete(listener);
+      listeners.delete(listener);
+    };
   }
 
   function setConnectivity(online) {
@@ -739,6 +775,7 @@ export function createAssistant(initialOptions, envOverrides) {
       unsubscribePwa = null;
     }
     listeners.clear();
+    listenerCounts.clear();
     diagnosticsController.clear();
   }
 
