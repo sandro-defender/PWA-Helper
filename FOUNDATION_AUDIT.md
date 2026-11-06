@@ -58,7 +58,7 @@
 | --- | --- |
 | `domain-config.js` | Seed for SDK `project/domain resolver` and `configuration manager`; already injectable and testable without browser globals. |
 | `domain-registry.js` + `manifest-handler.js` | Seed for verified, per-project manifest settings and configuration publishing (currently static, public data). |
-| `pwa.js` install section | Seed for `@you-ge/assistant-sdk/install`; the documented [`INSTALLATION_EXPERIENCE.md`](INSTALLATION_EXPERIENCE.md) contract is the extraction boundary. |
+| `pwa.js` install section | Seed for `@youge/assistant-sdk/install`; the documented [`INSTALLATION_EXPERIENCE.md`](INSTALLATION_EXPERIENCE.md) contract is the extraction boundary. |
 | `progressier.js` cache namespace + scope logic | Seed for `offline shell utilities` and isolated cache namespaces. |
 | `dns-diagnostics.js` | Seed for SDK `network diagnostics` / `DNS diagnostics`. |
 | `pwa.css` + `offline.css` | Seed for SDK visual defaults and connection-status notifications. |
@@ -78,7 +78,7 @@
 ## 6. What is genuinely missing (searched, not inferred)
 
 - Standalone management dashboard: no project/domain registration, verification UI, admin access control, health/failover monitoring, or configuration publishing UI.
-- Published SDK package `@you-ge/assistant-sdk`: no npm workspace, package export map, build output, versioning or release pipeline. Intentionally deferred.
+- Published SDK package `@youge/assistant-sdk`: no npm workspace, package export map, build output, versioning or release pipeline. Intentionally deferred.
 - Central configuration service, schema registry, last-known-good storage, config version negotiation and signature/validation of published configs.
 - Primary/backup API failover engine, automatic recovery, write-replay policy, per-project endpoint health checks and user-facing failover notifications.
 - Domain verification workflow (DNS/HTTP challenge, ownership proof, approval state). Current hostname detection is display/config only.

@@ -1,11 +1,11 @@
-# `@you-ge/assistant-sdk`
+# `@youge/assistant-sdk`
 
 Framework-independent SDK core for **You.Ge Assistant**: centralized state,
 multi-domain resolution, data-only configuration validation with Last-Known-Good
 fallback, explicit on-demand DNS diagnostics integration, and existing PWA
 installation integration.
 
-> **Package status (Phase 3 — release preparation):** `@you-ge/assistant-sdk`
+> **Package status (Phase 3 — release preparation):** `@youge/assistant-sdk`
 > (`0.1.0`) is extracted, tested, and prepared locally inside
 > [`packages/assistant-sdk`](./) with `"private": true` — that flag is the
 > deliberate accidental-publish lock and keeps `npm publish` impossible.
@@ -22,9 +22,9 @@ installation integration.
 
 | Layer | Responsibility | Dependencies |
 | --- | --- | --- |
-| **SDK core** (`@you-ge/assistant-sdk`) | Public initialization (`create`, `attach`), data-only config & LKG validation, multi-domain resolution & manifest generation, centralized assistant state & subscriptions, connectivity/endpoint/session updates, explicit diagnostics & install delegation, `.d.ts` TypeScript contracts | **Zero** runtime dependencies (no React, Vue, Angular, or bundler runtime) |
+| **SDK core** (`@youge/assistant-sdk`) | Public initialization (`create`, `attach`), data-only config & LKG validation, multi-domain resolution & manifest generation, centralized assistant state & subscriptions, connectivity/endpoint/session updates, explicit diagnostics & install delegation, `.d.ts` TypeScript contracts | **Zero** runtime dependencies (no React, Vue, Angular, or bundler runtime) |
 | **PWA toolkit** (`pwa.js`, `/progressier.js`, `dns-diagnostics.js`) | `window.PWA` APIs, `beforeinstallprompt` / iOS / QR install UI, single `/progressier.js` service worker, host+scope+version cache isolation, offline fallback, Cloudflare DoH A/AAAA checks | Dependency-free classic browser scripts |
-| **UI / Widget layer** (`assistant-widget.js`, `example/`) | Floating assistant DOM renderer (`assistant-widget.js`) and optional React external-store adapter (`@you-ge/assistant-sdk/react` + `example/`) | SDK works independently of any widget or UI framework |
+| **UI / Widget layer** (`assistant-widget.js`, `example/`) | Floating assistant DOM renderer (`assistant-widget.js`) and optional React external-store adapter (`@youge/assistant-sdk/react` + `example/`) | SDK works independently of any widget or UI framework |
 
 ---
 
@@ -33,7 +33,7 @@ installation integration.
 ### From the registry (after the first approved release)
 
 ```bash
-npm install @you-ge/assistant-sdk@0.1.0
+npm install @youge/assistant-sdk@0.1.0
 ```
 
 Pin the **exact version** (no `^`/`~`) if you want vendor-pin semantics — the
@@ -44,9 +44,9 @@ copy.
 The package is **ESM-only** (`"type": "module"`) and ships native ESM with
 paired `.d.ts` declarations — no build step, no transpiled CommonJS. Vite,
 Next, webpack, Rollup and esbuild consume it directly; Node ≥ 18 can
-`import` it (CommonJS hosts can `await import('@you-ge/assistant-sdk')`).
+`import` it (CommonJS hosts can `await import('@youge/assistant-sdk')`).
 The `exports` map is the only import surface: deep paths like
-`@you-ge/assistant-sdk/src/...` are intentionally blocked.
+`@youge/assistant-sdk/src/...` are intentionally blocked.
 
 ### Local (unpublished)
 
@@ -55,7 +55,7 @@ Inside another package in this repository or a sibling local project:
 ```json
 {
   "dependencies": {
-    "@you-ge/assistant-sdk": "file:../packages/assistant-sdk"
+    "@youge/assistant-sdk": "file:../packages/assistant-sdk"
   }
 }
 ```
@@ -64,12 +64,12 @@ Inside another package in this repository or a sibling local project:
 
 | Import path | Purpose |
 | --- | --- |
-| `@you-ge/assistant-sdk` | Full public API (`YouGeAssistant`, `createAssistant`, `attachAssistant`, config, domain, diagnostics, installation, toolkit bridge) |
-| `@you-ge/assistant-sdk/domain` | Multi-domain resolution, validation, and scoped Web App Manifest generation |
-| `@you-ge/assistant-sdk/config` | Data-only `publishedConfig` validator, Last-Known-Good storage helpers, and override resolver |
-| `@you-ge/assistant-sdk/diagnostics` | Single-flight diagnostics integration controller and classification helpers |
-| `@you-ge/assistant-sdk/installation` | `window.PWA` state reader and install prompt delegation |
-| `@you-ge/assistant-sdk/react` | Optional React 18/19 `useSyncExternalStore` adapter (zero runtime `react` import in SDK) |
+| `@youge/assistant-sdk` | Full public API (`YouGeAssistant`, `createAssistant`, `attachAssistant`, config, domain, diagnostics, installation, toolkit bridge) |
+| `@youge/assistant-sdk/domain` | Multi-domain resolution, validation, and scoped Web App Manifest generation |
+| `@youge/assistant-sdk/config` | Data-only `publishedConfig` validator, Last-Known-Good storage helpers, and override resolver |
+| `@youge/assistant-sdk/diagnostics` | Single-flight diagnostics integration controller and classification helpers |
+| `@youge/assistant-sdk/installation` | `window.PWA` state reader and install prompt delegation |
+| `@youge/assistant-sdk/react` | Optional React 18/19 `useSyncExternalStore` adapter (zero runtime `react` import in SDK) |
 
 All entry points ship paired `.d.ts` TypeScript declarations.
 
@@ -82,7 +82,7 @@ All entry points ship paired `.d.ts` TypeScript declarations.
 Works in any JavaScript runtime (browser ESM, Vite/Next/SvelteKit, or Node/SSR tests):
 
 ```js
-import { YouGeAssistant } from '@you-ge/assistant-sdk';
+import { YouGeAssistant } from '@youge/assistant-sdk';
 
 const assistant = YouGeAssistant.create({
   projectId: 'my-project',
@@ -107,7 +107,7 @@ use `YouGeAssistant.attach()` so ESM modules and classic `<script>` tags share
 **one** centralized state instance and **zero** duplicate listeners:
 
 ```js
-import { YouGeAssistant } from '@you-ge/assistant-sdk';
+import { YouGeAssistant } from '@youge/assistant-sdk';
 
 const assistant = YouGeAssistant.attach({
   projectId: 'workspace-web',
@@ -115,15 +115,15 @@ const assistant = YouGeAssistant.attach({
 });
 ```
 
-### 3. Optional React 18/19 integration (`@you-ge/assistant-sdk/react`)
+### 3. Optional React 18/19 integration (`@youge/assistant-sdk/react`)
 
 Inject `useSyncExternalStore` from the host app's `react` package — the SDK core
 never imports React:
 
 ```tsx
 import { useSyncExternalStore } from 'react';
-import { YouGeAssistant } from '@you-ge/assistant-sdk';
-import { createUseAssistant } from '@you-ge/assistant-sdk/react';
+import { YouGeAssistant } from '@youge/assistant-sdk';
+import { createUseAssistant } from '@youge/assistant-sdk/react';
 
 const useAssistant = createUseAssistant(
   useSyncExternalStore,
@@ -233,11 +233,11 @@ console.log(assistant.getConfig().meta);
 
 Below is an illustrative integration showing how any independent web application
 (for example, `https://portal.example.com`) wires its own API health and session
-events into `@you-ge/assistant-sdk` while keeping `pwa.js` and `/progressier.js`
+events into `@youge/assistant-sdk` while keeping `pwa.js` and `/progressier.js`
 responsible for installation and offline caching:
 
 ```js
-import { YouGeAssistant, bridgePwaGlobals } from '@you-ge/assistant-sdk';
+import { YouGeAssistant, bridgePwaGlobals } from '@youge/assistant-sdk';
 
 // 1. Register domain branding & attach singleton state before or alongside pwa.js
 const { assistant } = bridgePwaGlobals({

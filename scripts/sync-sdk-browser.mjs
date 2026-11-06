@@ -7,7 +7,7 @@
  *
  * This guarantees a single source of truth for Assistant state, priority
  * calculation, config validation, Last-Known-Good fallback, diagnostics
- * delegation and installation state across both ESM (`@you-ge/assistant-sdk`)
+ * delegation and installation state across both ESM (`@youge/assistant-sdk`)
  * and classic `<script src="assistant-state.js">` deployments, with zero
  * external bundler dependencies.
  *
@@ -115,7 +115,7 @@ if (isMain) {
       console.error('assistant-state.js is out of sync with packages/assistant-sdk/src/. Run `npm run sync:sdk`.');
       process.exit(1);
     }
-    console.log('assistant-state.js is in sync with @you-ge/assistant-sdk.');
+    console.log('assistant-state.js is in sync with @youge/assistant-sdk.');
   } else {
     writeFileSync(targetFile, expected, 'utf8');
     console.log('Synchronized assistant-state.js from packages/assistant-sdk/src/.');

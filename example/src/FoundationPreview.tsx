@@ -4,15 +4,15 @@ import {
   YouGeAssistant,
   readToolkitSummary,
   type AssistantState,
-} from '@you-ge/assistant-sdk';
-import { createUseAssistant } from '@you-ge/assistant-sdk/react';
+} from '@youge/assistant-sdk';
+import { createUseAssistant } from '@youge/assistant-sdk/react';
 import GlareHover from './react-bits/GlareHover';
 import LatticeLoader from './react-bits/LatticeLoader';
 import SpotlightCard from './react-bits/SpotlightCard';
 
 /**
  * A read-only design-system reference surface for the future Assistant
- * dashboard, wired directly to `@you-ge/assistant-sdk`. It intentionally does
+ * dashboard, wired directly to `@youge/assistant-sdk`. It intentionally does
  * not register projects, publish config or call any API: those capabilities
  * arrive in later phases (see ASSISTANT_ARCHITECTURE.md). Every control that
  * looks like an installation action uses the existing `data-pwa-install` hook

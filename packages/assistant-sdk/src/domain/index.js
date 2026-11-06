@@ -1,5 +1,5 @@
 /*!
- * @you-ge/assistant-sdk/domain — domain resolution and manifest validation
+ * @youge/assistant-sdk/domain — domain resolution and manifest validation
  * ------------------------------------------------------------------------
  * Hostname detection is public configuration input only, never authentication.
  * Unknown or unlisted domains always receive neutral, same-origin defaults.

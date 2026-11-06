@@ -1,5 +1,5 @@
 /*!
- * @you-ge/assistant-sdk — core Assistant state, subscriptions and lifecycle
+ * @youge/assistant-sdk — core Assistant state, subscriptions and lifecycle
  * -------------------------------------------------------------------------
  * Framework-independent state engine. Never calls fetch, never registers a
  * service worker, never polls, and never treats hostname detection as auth.

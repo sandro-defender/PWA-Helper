@@ -1,6 +1,6 @@
 /*!
  * SDK <-> Toolkit compatibility and integration tests.
- * Verifies that @you-ge/assistant-sdk works standalone AND seamlessly alongside
+ * Verifies that @youge/assistant-sdk works standalone AND seamlessly alongside
  * pwa.js, domain-config.js, dns-diagnostics.js, assistant-state.js and
  * assistant-widget.js with a single state source and a single service worker.
  */
@@ -136,13 +136,13 @@ function makeSandboxWindow(href = 'https://app.example.com/') {
   return { win, doc, localStorage };
 }
 
-test('assistant-state.js stays deterministically synchronized with @you-ge/assistant-sdk', () => {
+test('assistant-state.js stays deterministically synchronized with @youge/assistant-sdk', () => {
   const current = readRepo('assistant-state.js');
   const expected = buildBrowserStateScript();
   assert.equal(current, expected, 'assistant-state.js matches canonical SDK build');
 });
 
-test('classic assistant-state.js and ESM @you-ge/assistant-sdk share one singleton in either load order', () => {
+test('classic assistant-state.js and ESM @youge/assistant-sdk share one singleton in either load order', () => {
   // Order 1: classic assistant-state.js loads first, then ESM attachAssistant runs
   const envA = makeSandboxWindow('https://alpha.example.com/');
   envA.win.YOU_GE_ASSISTANT_CONFIG = { projectId: 'alpha-classic', branding: { name: 'Alpha Classic' } };

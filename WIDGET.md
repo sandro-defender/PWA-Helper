@@ -48,7 +48,7 @@ project HTML
 
 | File | Role |
 | --- | --- |
-| `packages/assistant-sdk/` | Canonical framework-independent ESM SDK core (`@you-ge/assistant-sdk`), TypeScript declarations (`*.d.ts`) and optional `./react` external-store adapter. |
+| `packages/assistant-sdk/` | Canonical framework-independent ESM SDK core (`@youge/assistant-sdk`), TypeScript declarations (`*.d.ts`) and optional `./react` external-store adapter. |
 | `assistant-state.js` | Classic browser state script synchronized deterministically from `packages/assistant-sdk/src/` via `npm run sync:sdk` (`window.YouGeAssistant`). |
 | `assistant-widget.js` | Dependency-free DOM renderer for any configured page. |
 | `assistant-widget.css` | Fixed placement, safe areas, responsive panel, badges, reduced motion. |
@@ -362,7 +362,7 @@ and the worker precache list.
 
 ## 8. Limitations and deliberately deferred work
 
-- No management dashboard, published `@you-ge/assistant-sdk` package, remote
+- No management dashboard, published `@youge/assistant-sdk` package, remote
   configuration service, project registration/verification UI, `staff.you.ge`
   integration, production backup/failover engine, auth implementation, npm
   publish, release/tag or deployment is introduced.

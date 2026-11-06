@@ -1,5 +1,5 @@
 /*!
- * @you-ge/assistant-sdk/installation — PWA installation integration
+ * @youge/assistant-sdk/installation — PWA installation integration
  * -----------------------------------------------------------------
  * Reuses the existing window.PWA installation experience. It never registers
  * a service worker, never captures beforeinstallprompt in competition with

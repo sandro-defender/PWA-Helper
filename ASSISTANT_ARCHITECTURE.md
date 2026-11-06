@@ -19,7 +19,7 @@ It has two independent deliverables:
    register projects and domains, verify ownership, configure PWA/installation
    behavior, inspect network/DNS health, publish configuration and manage
    access.
-2. **`@you-ge/assistant-sdk`** — one public package with internal modules that
+2. **`@youge/assistant-sdk`** — one public package with internal modules that
    integrated projects embed to consume published configuration and reuse
    installation, manifest, offline and diagnostics capabilities.
 
@@ -40,7 +40,7 @@ its own business logic.
 | --- | --- |
 | Static files copied into a project | Dashboard publishes validated, versioned configuration; SDK consumes it |
 | `domain-registry.js` edited by hand | Verified project/domain registry with ownership proof and approval |
-| `pwa.js` install section | `@you-ge/assistant-sdk/install` (documented contract, not yet extracted) |
+| `pwa.js` install section | `@youge/assistant-sdk/install` (documented contract, not yet extracted) |
 | Static `manifest.webmanifest` + optional edge handler | Manifest utilities with per-project stable IDs, icons and scopes |
 | `progressier.js` host/scope cache namespace | Offline shell utilities with project-isolated namespaces |
 | `dns-diagnostics.js` on-demand DoH | SDK DNS/network diagnostics + dashboard health views |
@@ -69,7 +69,7 @@ flowchart TB
 
   subgraph PROJECT["Integrated project (example: staff.you.ge)"]
     APP["Project app<br/>its own auth, authz, business logic"]
-    SDK["@you-ge/assistant-sdk<br/>(single package, internal modules)"]
+    SDK["@youge/assistant-sdk<br/>(single package, internal modules)"]
     SW["Service worker<br/>scoped caches, offline shell"]
     MANIFEST["Manifest<br/>stable id + scope + branding"]
     PROJAPI["Project primary API<br/>+ optional verified backup"]
@@ -134,7 +134,7 @@ reads a cached, last-known-good copy.
 
 ## 5. Future SDK architecture (Phase 2+)
 
-One public package, `@you-ge/assistant-sdk`, with internal modules. Do not
+One public package, `@youge/assistant-sdk`, with internal modules. Do not
 prematurely split into multiple npm packages. Proposed module boundaries
 (interfaces only; no empty folders created in this PR):
 
@@ -286,7 +286,7 @@ backup authentication. Those remain in the roadmap below.
 ## 9.6. Phase 2 — SDK extraction boundaries and compatibility controls
 
 Phase 2 extracts the reusable, framework-independent SDK into
-`packages/assistant-sdk` (`@you-ge/assistant-sdk`, private/unpublished) while
+`packages/assistant-sdk` (`@youge/assistant-sdk`, private/unpublished) while
 preserving the existing classic-script PWA toolkit without breaking changes:
 
 ### Extraction boundaries
@@ -371,7 +371,7 @@ backup URL; no production infrastructure in this phase.
 | **0 — Audit & identity** | Re-audit repo, freeze install contract, define platform/security model, documentation, design system, tests | — | Completed (PR #6) |
 | **1 — Contract hardening** | Behavioral install tests, manifest/SW/domain regression gates, TypeScript check for React example, incremental UI polish | Phase 0 | Completed (PR #6) |
 | **1.5 — Intelligent Floating Assistant** | Centralized event-driven state, real-condition badges, priority ladder, in-place panel, configurable SDK interface, DOM + React Bits renderers, offline/Pages integration, tests | Phase 1 | Completed (PR #6) |
-| **2 — SDK extraction** | Create `@you-ge/assistant-sdk` (private first): resolver, config, install, manifest, offline-shell, diagnostics modules behind tested adapters; keep `window.PWA` shim | Phase 1.5 | **This PR (in progress)** |
+| **2 — SDK extraction** | Create `@youge/assistant-sdk` (private first): resolver, config, install, manifest, offline-shell, diagnostics modules behind tested adapters; keep `window.PWA` shim | Phase 1.5 | **This PR (in progress)** |
 | **3 — Dashboard foundation** | Project/domain registration, domain verification, admin auth, schema-validated config drafts, publishing UI and read-only health views | Phase 2 (config schema), staff app inspection | Later |
 | **4 — Resilience pilot** | Primary/backup config, read-only health checks, idempotent failover + recovery, accessible notifications | Phase 3, staff API/auth inspection, endpoint approval | Later |
 | **5 — staff.you.ge pilot** | Opt-in integration with rollback plan; no identity/scope changes | Phases 2–4 | Later |

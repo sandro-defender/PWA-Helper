@@ -4,7 +4,7 @@
 > SDK under `packages/assistant-sdk/` with a `VENDORING.md` pin, as done in
 > `staff.you.ge` PR #249).
 >
-> **Status:** `@you-ge/assistant-sdk` is **not published yet**. This is the
+> **Status:** `@youge/assistant-sdk` is **not published yet**. This is the
 > migration plan; execute it only after the first approved release
 > ([`RELEASE.md`](RELEASE.md)). Nothing in this document modifies
 > `staff.you.ge`.
@@ -50,17 +50,17 @@ The import surface is identical. Only specifiers change:
 
 | Vendored import (relative path) | Published package import |
 | --- | --- |
-| `.../packages/assistant-sdk/src/index.js` | `@you-ge/assistant-sdk` |
-| `.../packages/assistant-sdk/src/domain/index.js` | `@you-ge/assistant-sdk/domain` |
-| `.../packages/assistant-sdk/src/config/index.js` | `@you-ge/assistant-sdk/config` |
-| `.../packages/assistant-sdk/src/diagnostics/index.js` | `@you-ge/assistant-sdk/diagnostics` |
-| `.../packages/assistant-sdk/src/installation/index.js` | `@you-ge/assistant-sdk/installation` |
-| `.../packages/assistant-sdk/src/adapters/react.js` | `@you-ge/assistant-sdk/react` |
+| `.../packages/assistant-sdk/src/index.js` | `@youge/assistant-sdk` |
+| `.../packages/assistant-sdk/src/domain/index.js` | `@youge/assistant-sdk/domain` |
+| `.../packages/assistant-sdk/src/config/index.js` | `@youge/assistant-sdk/config` |
+| `.../packages/assistant-sdk/src/diagnostics/index.js` | `@youge/assistant-sdk/diagnostics` |
+| `.../packages/assistant-sdk/src/installation/index.js` | `@youge/assistant-sdk/installation` |
+| `.../packages/assistant-sdk/src/adapters/react.js` | `@youge/assistant-sdk/react` |
 
 Rules:
 
 - Import **only** the package subpaths above. Deep paths such as
-  `@you-ge/assistant-sdk/src/core/constants.js` are blocked by the `exports`
+  `@youge/assistant-sdk/src/core/constants.js` are blocked by the `exports`
   map (by design).
 - No API changes are required: `YouGeAssistant.create/attach/getGlobal`,
   `bridgePwaGlobals`, the state/notification priority ladder, the config
@@ -73,7 +73,7 @@ Rules:
    ```json
    {
      "dependencies": {
-       "@you-ge/assistant-sdk": "0.1.0"
+       "@youge/assistant-sdk": "0.1.0"
      }
    }
    ```
@@ -110,7 +110,7 @@ Rules:
 - [ ] Install prompts still delegate to `window.PWA.promptInstall()` (the SDK
       never registers a competing install flow).
 - [ ] Optional: diff the resolved package contents against the last vendored
-      commit (`npm diff --diff=@you-ge/assistant-sdk@0.1.0` or checksum the
+      commit (`npm diff --diff=@youge/assistant-sdk@0.1.0` or checksum the
       `src/` trees) for byte-level confidence.
 
 ## 6. Rollback

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Release-gate validation for the @you-ge/assistant-sdk package.
+ * Release-gate validation for the @youge/assistant-sdk package.
  *
  *   node scripts/validate-package.mjs            (from packages/assistant-sdk)
  *   node packages/assistant-sdk/scripts/validate-package.mjs   (from the repo root)
@@ -85,8 +85,8 @@ section('Package identity');
 const SEMVER = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
 const NPM_NAME = /^(?:@[a-z0-9][\w.-]*\/)?[a-z0-9][\w.-]*$/;
 
-if (pkg.name === '@you-ge/assistant-sdk') {
-  pass('package name is @you-ge/assistant-sdk');
+if (pkg.name === '@youge/assistant-sdk') {
+  pass('package name is @youge/assistant-sdk');
 } else if (typeof pkg.name === 'string' && NPM_NAME.test(pkg.name)) {
   note(`package name is ${pkg.name} (valid npm name; confirm the registry scope is owned before publishing — see RELEASE.md)`);
 } else {
