@@ -1,0 +1,115 @@
+name: sdk-release-prep
+
+# Release preparation gate for @you-ge/assistant-sdk.
+#
+# - Runs ONLY via manual workflow_dispatch. It never runs (and never publishes)
+#   on push, pull_request or merge.
+# - The `verify` job is the full release checklist: static checks, SDK tests,
+#   build/sync verification, package validation, version validation and a pack
+#   dry-run.
+# - The `publish` job is STRUCTURE ONLY and stays disabled until a release is
+#   explicitly approved. It requires ALL of:
+#     1. manual dispatch with action=publish and confirm_publish=publish
+#     2. the repository variable SDK_RELEASE_ENABLED == 'true' (unset today)
+#     3. the protected `sdk-npm-publish` environment (add required reviewers)
+#     4. an NPM_TOKEN repository secret (not configured)
+#     5. the release PR having removed "private": true (npm refuses otherwise)
+#   See packages/assistant-sdk/RELEASE.md for the full runbook. Never commit
+#   tokens; NPM_TOKEN lives only as an encrypted Actions secret.
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'verify = full release checklist without publishing. publish = reserved for explicitly approved releases (see workflow header).'
+        type: choice
+        options: [verify, publish]
+        default: verify
+      confirm_publish:
+        description: 'For action=publish only: type "publish" to confirm. Ignored for verify.'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sdk-release-prep
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Verify release readiness
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: example/package-lock.json
+
+      - name: Static checks, contracts and unit tests
+        run: npm run check
+
+      - name: Standalone SDK tests
+        run: npm test
+        working-directory: packages/assistant-sdk
+
+      - name: Build verification (browser-bundle sync)
+        run: node scripts/sync-sdk-browser.mjs --check
+
+      - name: Package and version validation
+        run: node packages/assistant-sdk/scripts/validate-package.mjs
+
+      - name: Package contents dry-run
+        run: npm pack --dry-run
+        working-directory: packages/assistant-sdk
+
+      - name: Version has not been published yet
+        run: |
+          set -euo pipefail
+          version="$(node -p "require('./packages/assistant-sdk/package.json').version")"
+          name="$(node -p "require('./packages/assistant-sdk/package.json').name")"
+          if npm view "${name}@${version}" version >/dev/null 2>&1; then
+            echo "::error::${name}@${version} already exists on the registry. Bump the version before releasing."
+            exit 1
+          fi
+          echo "OK: ${name}@${version} is not on the registry yet."
+
+      - name: Consumer build verification (React example)
+        run: npm ci && npm run typecheck && npm run build
+        working-directory: example
+
+  publish:
+    name: Publish (disabled until explicitly approved)
+    needs: verify
+    # STRUCTURE ONLY — see the workflow header. This job does not run on push,
+    # pull_request or merge (the workflow has no such triggers), and not until
+    # every explicit-approval gate below is satisfied.
+    if: >-
+      github.event.inputs.action == 'publish' &&
+      github.event.inputs.confirm_publish == 'publish' &&
+      vars.SDK_RELEASE_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    environment: sdk-npm-publish
+    permissions:
+      contents: read
+      id-token: write   # npm provenance (trusted publishing) when configured
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - name: Final package validation (release context)
+        run: node packages/assistant-sdk/scripts/validate-package.mjs --release-context
+
+      - name: Publish to npm (requires explicit release approval)
+        run: npm publish --access public
+        working-directory: packages/assistant-sdk
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
