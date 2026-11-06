@@ -283,6 +283,45 @@ This does **not** implement a management dashboard, published SDK package,
 remote config service, production failover, `staff.you.ge` integration or
 backup authentication. Those remain in the roadmap below.
 
+## 9.6. Phase 2 — SDK extraction boundaries and compatibility controls
+
+Phase 2 extracts the reusable, framework-independent SDK into
+`packages/assistant-sdk` (`@you-ge/assistant-sdk`, private/unpublished) while
+preserving the existing classic-script PWA toolkit without breaking changes:
+
+### Extraction boundaries
+
+| Layer | Modules / files | Responsibility |
+| --- | --- | --- |
+| **SDK core (`packages/assistant-sdk`)** | `src/core/`, `src/config/`, `src/domain/`, `src/diagnostics/`, `src/installation/`, `src/assistant/`, `src/adapters/`, `src/index.js`, `src/index.d.ts` | Framework-independent public API (`YouGeAssistant.create`, `YouGeAssistant.attach`, `createAssistant`, `attachAssistant`), configuration pipeline (bundled defaults → validated published config → project overrides → last-known-good), domain resolution & manifest validation, centralized state & subscriptions, explicit status updates, diagnostics/installation integration contracts, lifecycle cleanup (`destroy`), optional React external-store adapter (`./react`), and TypeScript declarations. |
+| **Existing PWA toolkit (preserved)** | `pwa.js`, `pwa.css`, `progressier.js`, `domain-config.js`, `domain-registry.js`, `dns-diagnostics.js`, `manifest-handler.js`, `manifest.webmanifest`, `offline.*`, `qrcode.js` | `window.PWA` (`__pwaKit`), `window.progressier`, `/progressier.js` worker & scoped caches, `[data-pwa-install]` / `[data-pwa-diagnostics]` delegation, native/iOS/generic install flows, Cloudflare DoH implementation (`window.YouGeDns`), legacy cookies, `localStorage` and IndexedDB names, and legacy manifest `id`. |
+| **UI / widget layer** | `assistant-widget.js`, `assistant-widget.css`, `example/src/main.jsx`, `example/src/FoundationPreview.tsx` | Thin DOM and React + React Bits renderers consuming the single SDK state snapshot without owning duplicate state, polling, fetching or registering a service worker. |
+
+### Compatibility risks & controls
+
+1. **Classic `<script>` and `importScripts` compatibility:** `pwa.js`,
+   `progressier.js`, `demo/`, `offline.html` and `snippet.html` run without a
+   bundler, and existing VM tests forbid ESM `import` statements inside
+   `assistant-state.js`. `assistant-state.js` is synchronized directly from the
+   extracted SDK core via a deterministic, zero-dependency script verified in
+   `scripts/check.mjs`, keeping classic scripts and ESM modules in lockstep.
+2. **Single state source across classic + ESM boundaries:** `attachAssistant()`
+   (`YouGeAssistant.attach()`) attaches to an existing `window.YouGeAssistant`
+   instance when present (or registers one with `__state: true`), preventing
+   duplicate state stores or duplicate DOM/window event listeners on hybrid
+   pages such as `example/`.
+3. **No competing install or diagnostics flows:** SDK core delegates install
+   prompts to `window.PWA.promptInstall()` and diagnostics to configured
+   runners / `window.PWA.runNetworkDiagnostics` / `window.YouGeDns.check`
+   with single-flight deduplication — never registering a second
+   `beforeinstallprompt` capture handler, second service worker, or background
+   poller.
+4. **Safe data-only configuration & secret prevention:** Published configuration
+   revisions are validated against `schemaVersion` (`1`), reject executable
+   functions/`javascript:` URLs, strip secret-like keys, and fall back to
+   project-scoped last-known-good (`youge-assistant:lkg:<projectId>`) or safe
+   bundled defaults on failure.
+
 ## 10. Planned integration with staff.you.ge (deferred)
 
 Sequence once the implementation is available for inspection:
@@ -329,10 +368,10 @@ backup URL; no production infrastructure in this phase.
 
 | Phase | Goal | Depends on | Status |
 | --- | --- | --- | --- |
-| **0 — Audit & identity** | Re-audit repo, freeze install contract, define platform/security model, documentation, design system, tests | — | **This PR** |
-| **1 — Contract hardening** | Behavioral install tests, manifest/SW/domain regression gates, TypeScript check for React example, incremental UI polish | Phase 0 | **This PR** |
-| **1.5 — Intelligent Floating Assistant** | Centralized event-driven state, real-condition badges, priority ladder, in-place panel, configurable SDK interface, DOM + React Bits renderers, offline/Pages integration, tests | Phase 1 | **This branch** |
-| **2 — SDK extraction** | Create `@you-ge/assistant-sdk` (private first): resolver, config, install, manifest, offline-shell, diagnostics modules behind tested adapters; keep `window.PWA` shim | Phase 1.5 | Next |
+| **0 — Audit & identity** | Re-audit repo, freeze install contract, define platform/security model, documentation, design system, tests | — | Completed (PR #6) |
+| **1 — Contract hardening** | Behavioral install tests, manifest/SW/domain regression gates, TypeScript check for React example, incremental UI polish | Phase 0 | Completed (PR #6) |
+| **1.5 — Intelligent Floating Assistant** | Centralized event-driven state, real-condition badges, priority ladder, in-place panel, configurable SDK interface, DOM + React Bits renderers, offline/Pages integration, tests | Phase 1 | Completed (PR #6) |
+| **2 — SDK extraction** | Create `@you-ge/assistant-sdk` (private first): resolver, config, install, manifest, offline-shell, diagnostics modules behind tested adapters; keep `window.PWA` shim | Phase 1.5 | **This PR (in progress)** |
 | **3 — Dashboard foundation** | Project/domain registration, domain verification, admin auth, schema-validated config drafts, publishing UI and read-only health views | Phase 2 (config schema), staff app inspection | Later |
 | **4 — Resilience pilot** | Primary/backup config, read-only health checks, idempotent failover + recovery, accessible notifications | Phase 3, staff API/auth inspection, endpoint approval | Later |
 | **5 — staff.you.ge pilot** | Opt-in integration with rollback plan; no identity/scope changes | Phases 2–4 | Later |
