@@ -32,7 +32,7 @@ jobs:
           done
 
       - name: Standalone SDK tests and package dry-run
-        run: npm test && npm pack --dry-run
+        run: npm test && node scripts/validate-package.mjs && npm pack --dry-run
         working-directory: packages/assistant-sdk
 
       - name: Unit tests
