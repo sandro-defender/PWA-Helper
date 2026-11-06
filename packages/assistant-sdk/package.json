@@ -68,8 +68,14 @@
     "url": "https://github.com/sandro-defender/PWA-Helper.git",
     "directory": "packages/assistant-sdk"
   },
+  "homepage": "https://github.com/sandro-defender/PWA-Helper/tree/main/packages/assistant-sdk#readme",
+  "bugs": {
+    "url": "https://github.com/sandro-defender/PWA-Helper/issues"
+  },
   "scripts": {
     "test": "node --test tests/*.test.mjs",
-    "check": "node --test tests/*.test.mjs"
+    "check": "node --test tests/*.test.mjs",
+    "validate": "node scripts/validate-package.mjs",
+    "prepublishOnly": "node scripts/validate-package.mjs"
   }
 }

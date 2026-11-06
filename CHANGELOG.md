@@ -2,6 +2,53 @@
 
 ## Unreleased
 
+- Prepared `@you-ge/assistant-sdk` for versioned distribution (**release
+  preparation only — publishing stays disabled, nothing was published, no
+  release or tag created**):
+  - Package metadata reviewed and extended (`packages/assistant-sdk/package.json`):
+    kept `@you-ge/assistant-sdk@0.1.0`, ESM-only with paired `.d.ts` per export
+    entry, explicit subpath `exports` map with no wildcards (deep imports of
+    internal sources stay blocked), `publishConfig.access: "public"`,
+    `homepage`/`bugs` added, zero runtime dependencies preserved (`react`
+    remains an optional peer). The `"private": true` flag stays as the
+    accidental-publish lock and is now documented as such.
+  - New release gate `packages/assistant-sdk/scripts/validate-package.mjs`
+    (zero dependencies, offline): package identity, semver, version
+    synchronization (`package.json` ↔ `SDK_VERSION` ↔ `KIT_COMPAT_VERSION` ↔
+    runtime version), export-map targets + TypeScript declarations, `files`
+    whitelist and `npm pack --dry-run` contents (runtime files only), README/
+    LICENSE presence, dependency policy, source hygiene (package-relative
+    imports only), and the `private: true` guard. Wired into `npm run check`,
+    the `check` workflow and as `prepublishOnly` on the package.
+  - Publishing-destination evaluation documented in
+    `packages/assistant-sdk/RELEASE.md` with the recommendation **public npm**
+    (Cloudflare builds need no auth; GitHub Packages would force a
+    `@sandro-defender` scope rename, auth on every install, and token plumbing
+    into Cloudflare builds — the secure configuration required for that path is
+    recorded there). Registry state verified: the npm scope `@you-ge` is
+    unregistered and no account was created; claiming it is a documented
+    prerequisite before first publish.
+  - Release procedure documented (`RELEASE.md`): release runbook with
+    version-bump rules, guard-removal checklist and post-publish smoke tests,
+    plus the three independent publishing locks (package `private` flag,
+    manual-only `workflow_dispatch` release workflow with explicit-approval
+    gates, no registry credentials).
+  - New `.github/workflows/sdk-release-prep.yml` (**manual dispatch only**, no
+    push/PR/merge triggers): full release checklist — SDK tests, build/sync
+    verification, package + version validation, "version not already published"
+    check and consumer build. The `publish` job is structure-only and requires
+    action=publish + confirm input + `SDK_RELEASE_ENABLED` repo variable
+    (unset) + protected `sdk-npm-publish` environment + `NPM_TOKEN` secret
+    (not configured).
+  - Consumer migration guide `packages/assistant-sdk/MIGRATION.md`: how
+    `staff.you.ge` replaces its vendored `packages/assistant-sdk` copy (the
+    PR #249 vendor pin recorded in its `VENDORING.md`) with the published
+    package — drop-in import mapping, exact-version pin, verification
+    checklist, stateless rollback and compatibility guarantees (SDK `0.1.0`,
+    kit compat `1.0.5`, config schema `1`). `staff.you.ge` was not modified.
+  - SDK README updated: release status, registry consumption (ESM-only policy),
+    versioning policy, and the validation commands.
+
 - Refined the floating assistant entry point (visual only, no API change):
   - `assistant-widget.css`: `.youge-fab` is now a **true circle**
     (`border-radius: 50%` on a square 56px box, 54px below 480px) with a calm,
