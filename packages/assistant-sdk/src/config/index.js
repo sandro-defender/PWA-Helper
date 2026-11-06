@@ -1,5 +1,5 @@
 /*!
- * @you-ge/assistant-sdk/config — configuration validation and LKG pipeline
+ * @youge/assistant-sdk/config — configuration validation and LKG pipeline
  * ------------------------------------------------------------------------
  * Resolution order:
  *   bundled defaults -> validated published revision (or LKG fallback) -> project overrides

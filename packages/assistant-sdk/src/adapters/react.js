@@ -1,5 +1,5 @@
 /*!
- * @you-ge/assistant-sdk/react — optional React external-store adapter
+ * @youge/assistant-sdk/react — optional React external-store adapter
  * -------------------------------------------------------------------
  * Zero runtime dependency on 'react'. Pass React's useSyncExternalStore hook
  * from the host application so the SDK core and package remain completely

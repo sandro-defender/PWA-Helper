@@ -1,5 +1,5 @@
 /*!
- * @you-ge/assistant-sdk — core constants
+ * @youge/assistant-sdk — core constants
  */
 
 export const SDK_VERSION = '0.1.0';

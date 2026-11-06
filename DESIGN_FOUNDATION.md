@@ -257,7 +257,7 @@ plain CSS, and the user excluded unnecessary dependencies and heavy animation.
 
 ---
 
-## 9. Phase 2 — `@you-ge/assistant-sdk` extraction and developer UX
+## 9. Phase 2 — `@youge/assistant-sdk` extraction and developer UX
 
 ### Skill resources consulted and queries executed
 
@@ -274,10 +274,10 @@ Executed targeted search queries with `python3 .claude/skills/ui-ux-pro-max/scri
 
 ### How guidance influenced Phase 2 implementation
 
-1. **Tear-free React external-store ergonomics (`@you-ge/assistant-sdk/react`):**
+1. **Tear-free React external-store ergonomics (`@youge/assistant-sdk/react`):**
    Applied `useEffectCleanup` and `rerender-defer-reads` to `getExternalStoreBindings()` and `createUseAssistant()`. Selector results are cached against `(lastState, lastSelected)` with `Object.is`, preventing spurious React 18/19 re-renders and infinite selector loops while keeping `react` completely out of SDK runtime dependencies.
 2. **Live, calm SDK telemetry in `example/src/FoundationPreview.tsx` & `example/src/main.jsx`:**
-   Kept the verified calm SaaS/Developer-Tool visual hierarchy from `MASTER.md` and the already-vendored zero-dependency TS-CSS React Bits components (`SpotlightCard`, `GlareHover`, `LatticeLoader`) without visual churn. Wired both `main.jsx` and `FoundationPreview.tsx` directly to `@you-ge/assistant-sdk` and `@you-ge/assistant-sdk/react` so the live status bar (`role="status"`) and Resilience card surface real SDK state (`SDK v0.1.0`, active origin, live install capability, and resolved config source `defaults | overrides | published | last-known-good`) while preserving the static no-JS HTML fallback, inline SVG icons, 44px touch targets, and `@media (prefers-reduced-motion: reduce)`.
+   Kept the verified calm SaaS/Developer-Tool visual hierarchy from `MASTER.md` and the already-vendored zero-dependency TS-CSS React Bits components (`SpotlightCard`, `GlareHover`, `LatticeLoader`) without visual churn. Wired both `main.jsx` and `FoundationPreview.tsx` directly to `@youge/assistant-sdk` and `@youge/assistant-sdk/react` so the live status bar (`role="status"`) and Resilience card surface real SDK state (`SDK v0.1.0`, active origin, live install capability, and resolved config source `defaults | overrides | published | last-known-good`) while preserving the static no-JS HTML fallback, inline SVG icons, 44px touch targets, and `@media (prefers-reduced-motion: reduce)`.
 3. **Progressive-disclosure developer documentation (`packages/assistant-sdk/README.md`):**
    Structured SDK docs from immediate 30-second Quick Start (`YouGeAssistant.create`, `YouGeAssistant.attach`, optional React hook) → subpath table → configuration/LKG security pipeline → complete method/priority tables → illustrative generic host integration, with explicit non-goals and unpublished-package transparency.
 
@@ -324,3 +324,43 @@ Executed targeted search queries with `python3 .claude/skills/ui-ux-pro-max/scri
 5. **Pre-delivery checklist applied to the docs themselves:** prerequisites
    named but never invented (npm scope ownership), secrets never printed,
    rollback documented first-class in `MIGRATION.md` §6.
+
+## 11. Package rename to `@youge/assistant-sdk` — documentation consistency (2026-11-06)
+
+No visual surface changed; the mandatory `ui-ux-pro-max-skill` was applied to
+**documentation and developer-facing consistency** during the package rename.
+
+### Skill resources consulted and queries executed
+
+Read from `nextlevelbuilder/ui-ux-pro-max-skill` (fresh clone at
+`/tmp/ui-ux-pro-max-skill`, never committed):
+- `.claude/skills/ui-ux-pro-max/SKILL.md` (query contract: one dominant intent
+  per query, verify domain/fit before applying)
+
+Executed with `python3 .claude/skills/ui-ux-pro-max/scripts/search.py`:
+- `--domain ux` (`documentation consistency naming change migration status`) →
+  "Submit Feedback — confirm status with loading → success/error state" and
+  "Contextual Live Badge Updates — one atomic contextual message, not bare
+  numbers"
+- `--domain product` (`developer sdk infrastructure tool documentation`) →
+  **API Developer Portal** ("Quick Start + Interactive Docs") and
+  **Knowledge Base/Documentation** ("clean hierarchy, minimal noise")
+
+### How guidance was applied
+
+1. **Atomic, status-reporting rename steps (Submit Feedback):** every rename
+   step reported its verification state immediately — registry gate checks,
+   per-file replacement counts, `sync:sdk --check`, lockfile regeneration —
+   never a silent bulk edit. The PR progress comment reports results as
+   contextual sentences ("86 of 86 identity references migrated, 2 intentional
+   history mentions remain"), not bare checkmarks.
+2. **Consistency as an observable outcome (Contextual updates):** the
+   definition of "done" for the rename is a repo-wide grep result, stated in
+   the PR and `RELEASE.md` §6 as one atomic status message.
+3. **Quick Start + Interactive Docs kept truthful (API Developer Portal):**
+   the README's install snippet, subpath table and import examples all now
+   show `@youge/assistant-sdk` first-try-correct — a developer copying from any
+   code block must never hit a 404 from a stale name.
+4. **Clean hierarchy for the identity decision (Knowledge Base):** `RELEASE.md`
+   §2 leads with a small identity table (user → org → scope → package) before
+   the verification prose, so the confirmed identity is scannable at a glance.

@@ -808,10 +808,10 @@ contract(widgetDocSource.includes('Priority ladder') && widgetDocSource.includes
 contract(designSource.includes('## 8. Intelligent Floating Assistant'), 'DESIGN_FOUNDATION.md records the widget skill and React Bits application');
 
 /* ------------------------------------------------------------------ *
- * 7d. @you-ge/assistant-sdk package contracts
+ * 7d. @youge/assistant-sdk package contracts
  * ------------------------------------------------------------------ */
 
-section('@you-ge/assistant-sdk package contracts');
+section('@youge/assistant-sdk package contracts');
 
 const sdkRequired = [
   'packages/assistant-sdk/package.json',
@@ -837,13 +837,13 @@ for (const rel of sdkRequired) {
 }
 
 const sdkPkg = JSON.parse(readFileSync(at('packages/assistant-sdk/package.json'), 'utf8'));
-contract(sdkPkg.name === '@you-ge/assistant-sdk', 'SDK package name is @you-ge/assistant-sdk');
+contract(sdkPkg.name === '@youge/assistant-sdk', 'SDK package name is @youge/assistant-sdk');
 contract(sdkPkg.private === true, 'SDK package remains unpublished with private: true guard');
 contract(!sdkPkg.dependencies, 'SDK package has zero mandatory runtime dependencies');
 contract(Boolean(sdkPkg.exports && sdkPkg.exports['.'] && sdkPkg.exports['./react']), 'SDK package declares explicit subpath exports');
 contract(assistantState === buildBrowserStateScript(), 'assistant-state.js is deterministically synchronized with packages/assistant-sdk/src/');
-contract(mainJsxSource.includes('@you-ge/assistant-sdk'), 'React example consumes @you-ge/assistant-sdk directly');
-contract(designSource.includes('## 9. Phase 2 — `@you-ge/assistant-sdk`'), 'DESIGN_FOUNDATION.md records Phase 2 skill application');
+contract(mainJsxSource.includes('@youge/assistant-sdk'), 'React example consumes @youge/assistant-sdk directly');
+contract(designSource.includes('## 9. Phase 2 — `@youge/assistant-sdk`'), 'DESIGN_FOUNDATION.md records Phase 2 skill application');
 
 function listSdkSourceFiles(dir, acc = []) {
   for (const name of readdirSync(dir)) {

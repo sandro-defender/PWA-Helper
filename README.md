@@ -31,7 +31,7 @@ toolkit remains dependency-free. See [`example/README.md`](example/README.md).
 **Platform direction:** You.Ge Assistant is structured as a reusable PWA
 management and infrastructure platform. Phase 2 extracts the framework-independent
 SDK core locally at [`packages/assistant-sdk/`](packages/assistant-sdk/)
-(`@you-ge/assistant-sdk` v`0.1.0`, `"private": true` — prepared locally and not
+(`@youge/assistant-sdk` v`0.1.0`, `"private": true` — prepared locally and not
 yet published to npm) while keeping this repository's dependency-free PWA
 toolkit (`window.PWA`, `/progressier.js`, DNS diagnostics, manifest/offline
 support) intact. No standalone dashboard, remote configuration service,
@@ -113,7 +113,7 @@ node scripts/verify-deployment.mjs https://you.example  # live deployment
 | [`ARCHITECTURE_AUDIT.md`](ARCHITECTURE_AUDIT.md) | you want the earlier baseline audit and architecture plan |
 | [`FOUNDATION_AUDIT.md`](FOUNDATION_AUDIT.md) | you want the Phase 0 re-audit: what works, what is preserved, what is missing and the risks |
 | [`ASSISTANT_ARCHITECTURE.md`](ASSISTANT_ARCHITECTURE.md) | you want the future dashboard, SDK, multi-domain, publishing, security, failover architecture, diagram and roadmap |
-| [`packages/assistant-sdk/README.md`](packages/assistant-sdk/README.md) | you want `@you-ge/assistant-sdk` initialization, config/LKG validation, lifecycle APIs, subpath exports and React adapter docs |
+| [`packages/assistant-sdk/README.md`](packages/assistant-sdk/README.md) | you want `@youge/assistant-sdk` initialization, config/LKG validation, lifecycle APIs, subpath exports and React adapter docs |
 | [`INSTALLATION_EXPERIENCE.md`](INSTALLATION_EXPERIENCE.md) | you need the preserved install behavior and the future SDK install contract |
 | [`DESIGN_FOUNDATION.md`](DESIGN_FOUNDATION.md) | you need the ui-ux-pro-max-skill application record and React Bits adoption report |
 | [`WIDGET.md`](WIDGET.md) | you need the Intelligent Floating Assistant state model, SDK config, events, React Bits/skill record and test matrix |

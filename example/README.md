@@ -6,8 +6,8 @@ A fixed circular floating button shows the You.Ge Assistant icon and opens the
 only while the button is hovered, focused or its panel is open, so the idle
 assistant shows no motion; the button fill turns the toolkit's red while
 `state.badge.tone` is an actionable tone (`critical`, `auth` or `install`). It consumes the local
-[`@you-ge/assistant-sdk`](../packages/assistant-sdk/README.md) package (`file:../packages/assistant-sdk`)
-and `@you-ge/assistant-sdk/react` adapter (`useSyncExternalStore`), sharing the
+[`@youge/assistant-sdk`](../packages/assistant-sdk/README.md) package (`file:../packages/assistant-sdk`)
+and `@youge/assistant-sdk/react` adapter (`useSyncExternalStore`), sharing the
 single centralized state instance initialized by `assistant-state.js`. The launcher uses a
 hover-only `GlareHover` highlight at low opacity; the panel renders a `SpotlightCard`
 connection-status card, a bounded `LatticeLoader` diagnostics state, prioritized
@@ -47,5 +47,5 @@ visible while the electric strands animate around it.
 
 `npm run typecheck` runs `tsc --noEmit` over the TypeScript React Bits sources,
 `FoundationPreview.tsx`, and the `.d.ts` declarations exported by
-`@you-ge/assistant-sdk`; it is also a CI gate. Both `@you-ge/assistant-sdk` and
+`@youge/assistant-sdk`; it is also a CI gate. Both `@youge/assistant-sdk` and
 the core PWA toolkit remain dependency-free at runtime.

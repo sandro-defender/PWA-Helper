@@ -1,5 +1,5 @@
 /*!
- * @you-ge/assistant-sdk/diagnostics — diagnostics integration adapter
+ * @youge/assistant-sdk/diagnostics — diagnostics integration adapter
  * -------------------------------------------------------------------
  * Integrates with the existing DNS diagnostics module (YouGeDns / PWA) or an
  * explicit local runner without duplicating the DoH engine, issuing hidden

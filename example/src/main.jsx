@@ -1,11 +1,11 @@
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { createRoot } from 'react-dom/client';
-import { YouGeAssistant } from '@you-ge/assistant-sdk';
+import { YouGeAssistant } from '@youge/assistant-sdk';
 import {
   FALLBACK_ASSISTANT_STATE,
   dispatchAssistantAction,
   getExternalStoreBindings,
-} from '@you-ge/assistant-sdk/react';
+} from '@youge/assistant-sdk/react';
 import ElectricLogo from './ElectricLogo.jsx';
 import FoundationPreview from './FoundationPreview.tsx';
 import GlareHover from './react-bits/GlareHover';
@@ -29,7 +29,7 @@ class LogoBoundary extends React.Component {
   }
 }
 
-/* The React example consumes the extracted @you-ge/assistant-sdk and shares
+/* The React example consumes the extracted @youge/assistant-sdk and shares
  * the exact same singleton state as classic browser scripts (assistant-state.js)
  * and the dependency-free DOM renderer (assistant-widget.js). */
 const fallbackState = {

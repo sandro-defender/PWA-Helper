@@ -1,4 +1,4 @@
-# `@you-ge/assistant-sdk` — Release Preparation & Publishing Decision
+# `@youge/assistant-sdk` — Release Preparation & Publishing Decision
 
 > **Status: release preparation only. Publishing is disabled.**
 > Nothing in this repository publishes the package on push, pull request or
@@ -21,13 +21,13 @@ Related documents: [`README.md`](README.md) (public API and consumption) ·
 
 | Item | Value | Notes |
 | --- | --- | --- |
-| Package name | `@you-ge/assistant-sdk` | Scope `@you-ge` — see [§2](#2-package-identity-decisions); **not yet registered on npm** |
+| Package name | `@youge/assistant-sdk` | Scope `@youge` (npm org `youge`, npm user `you-ge`) — confirmed by the project owner, see [§2](#2-package-identity-decisions); available and unpublished on npm |
 | Version | `0.1.0` (pre-1.0) | Synced with `SDK_VERSION` in `src/core/constants.js` |
 | Visibility | `"private": true` | Deliberate accidental-publish lock (added in Phase 2) |
 | Publish config | `publishConfig.access: "public"` | Ready for an approved first scoped publish |
 | Module system | ESM only (`"type": "module"`) | Buildless: `src/` **is** the published runtime |
 | TypeScript | Paired `.d.ts` per export entry | `.`, `./domain`, `./config`, `./diagnostics`, `./installation`, `./react` |
-| Export map | Explicit subpaths, no wildcards | Deep imports like `@you-ge/assistant-sdk/src/...` are **blocked** |
+| Export map | Explicit subpaths, no wildcards | Deep imports like `@youge/assistant-sdk/src/...` are **blocked** |
 | Runtime dependencies | **Zero** | `react >= 18` is an optional peer only (for `./react`) |
 | License | MIT ([`LICENSE`](LICENSE)) | Matches the repository license |
 | Packed size | 19 files, ~32 kB tarball / ~130 kB unpacked | `npm pack --dry-run` |
@@ -43,23 +43,39 @@ stays until an approved release PR removes it ([§4](#4-release-runbook-when-a-r
 
 ### Name
 
-`@you-ge/assistant-sdk` is kept, with one **hard prerequisite** before the
-first publish:
+**Final package identity (confirmed by the project owner, 2026-11-06):**
 
-- Registry check (2026-11-06, `registry.npmjs.org`): the `@you-ge` scope is
-  **not registered** — no npm user `you-ge`, no npm org `you-ge`, no package
-  under `@you-ge/*`. A scoped publish will fail until the maintainer creates
-  and owns the npm org (or user) `you-ge`. Free npm orgs can publish public
-  packages.
-- The GitHub account [`You-ge`](https://github.com/You-ge) exists (user, since
-  2021) but that grants **no npm rights**; GitHub and npm accounts are separate.
-- **No account, org, scope or token is created or claimed by this preparation
-  task.** Ownership must be established by the maintainer.
+| Role | Identity |
+| --- | --- |
+| npm user | `you-ge` |
+| npm organization | `youge` |
+| npm scope | `@youge` |
+| **Package** | **`@youge/assistant-sdk`** |
 
-Fallback (decide **before** the first publish, never after): if the `you-ge`
-npm scope cannot be claimed, rename to `@sandro-defender/assistant-sdk` to
-match the GitHub repository owner. A rename is a breaking change for every
-import and must happen before anything is published under either name.
+The previous name `@you-ge/assistant-sdk` was based on an incorrect assumption
+about the organization scope. It was **never published**, so the rename to
+`@youge/assistant-sdk` happened before first publication and breaks no
+consumer (the vendored `staff.you.ge` copy predates any registry pin).
+
+Registry verification (2026-11-06, `registry.npmjs.org`) — identity available,
+no conflict:
+
+- `@youge/assistant-sdk` is **unpublished** (registry returns 404).
+- Zero packages exist under `@youge/*` (`scope:youge` search) — no third party
+  squats the scope or the name.
+- The org/scope `youge` **exists**: `GET /-/org/youge/user` returns a member
+  map, while a nonexistent-org control returns `{"error":"Scope not found"}`.
+
+**No account, org, scope or token was created, claimed or modified by this
+task.** Ownership of the org `youge` stays with the project owner's npm user
+`you-ge` (owner-side fact; verify publish rights on npmjs.com before the first
+release).
+
+GitHub Packages note (conclusion unchanged): the `@youge` scope still cannot
+be published from `sandro-defender/PWA-Helper`, because GitHub Packages
+requires the npm scope to match the **publishing repository's owner**
+(`@sandro-defender/*`). Public npm therefore remains the recommended
+destination ([§3](#3-publishing-destination-evaluation)).
 
 ### Version
 
@@ -80,7 +96,7 @@ import and must happen before anything is published under either name.
 - **ESM-only, no CommonJS build — deliberate.** The SDK is dependency-free and
   buildless; a CJS artifact would introduce a build step and a second runtime
   shape to test. Consumers are modern bundlers (Vite, Next, webpack, Rollup,
-  esbuild) and Node ≥ 18 ESM; CJS hosts can `await import('@you-ge/assistant-sdk')`.
+  esbuild) and Node ≥ 18 ESM; CJS hosts can `await import('@youge/assistant-sdk')`.
   This is documented in the README so nobody discovers it at runtime.
 - TypeScript declarations ship next to every entry point and are wired through
   the `types` condition of each `exports` entry plus the legacy top-level
@@ -108,7 +124,7 @@ import and must happen before anything is published under either name.
 | **Cloudflare build compatibility** | **Frictionless** — `npm ci` works in Cloudflare Pages/Workers builds with no secrets | Requires a build secret (see below) and `.npmrc` plumbing on every build |
 | staff.you.ge installation | Exact-version pin, works in any CI and locally, no onboarding | Every dev + CI + Cloudflare build needs a token before `npm ci` works |
 | Long-term maintenance | Default ecosystem path; lockfiles, Dependabot, provenance | Extra auth surface, token rotation, broken forks/PRs without secrets |
-| Ownership & naming | Scope `@you-ge` must be registered on npm first (prerequisite, [§2](#2-package-identity-decisions)) | Scope must match the **publishing repository's owner** — `sandro-defender/PWA-Helper` can only publish `@sandro-defender/*`, so the `@you-ge` name **cannot be published from this repository at all** |
+| Ownership & naming | Scope `@youge` (org `youge`, user `you-ge`) is confirmed and verified available ([§2](#2-package-identity-decisions)) | Scope must match the **publishing repository's owner** — `sandro-defender/PWA-Helper` can only publish `@sandro-defender/*`, so the `@youge` name **cannot be published from this repository at all** |
 
 ### Recommendation: **public npm** (`registry.npmjs.org`), scoped package, `access: public`
 
@@ -117,7 +133,7 @@ Reasons, in order:
 1. **Cloudflare builds need zero configuration.** staff.you.ge builds on
    Cloudflare; with public npm, `npm ci` just works. With GitHub Packages every
    build would need a `read:packages` token.
-2. **The `@you-ge` package name is only possible on npm.** GitHub Packages
+2. **The `@youge/assistant-sdk` name is only possible on npm.** GitHub Packages
    would force `@sandro-defender/assistant-sdk` (scope must match the repo
    owner) and could not honor the `You-ge` brand scope.
 3. **Consumer friction**: staff.you.ge pins the same way as any npm dependency;
@@ -140,8 +156,9 @@ Reasons, in order:
 
 ## 4. Release runbook (when a release is approved)
 
-Prerequisites: the npm scope is claimed ([§2](#2-package-identity-decisions));
-the maintainer has decided the registry ([§3](#3-publishing-destination-evaluation)).
+Prerequisites: the registry identity `@youge/assistant-sdk` is confirmed and
+verified available ([§2](#2-package-identity-decisions)); the maintainer has
+decided the registry ([§3](#3-publishing-destination-evaluation)).
 
 1. **Release PR** (one deliberate, reviewable change set):
    - bump `version` in `packages/assistant-sdk/package.json` **and**
@@ -165,7 +182,7 @@ the maintainer has decided the registry ([§3](#3-publishing-destination-evaluat
 4. **Publish** — run the `sdk-release-prep` workflow with `action: publish`
    and `confirm_publish: publish`. The publish job runs only with all gates
    from step 3 and only on this manual dispatch.
-5. **Post-publish smoke test** — `npm view @you-ge/assistant-sdk version`,
+5. **Post-publish smoke test** — `npm view @youge/assistant-sdk version`,
    install the exact version in a scratch project and in staff.you.ge's
    lockfile (see [`MIGRATION.md`](MIGRATION.md)).
 6. Optionally tag the release commit **after** a successful publish (tags are
@@ -179,7 +196,7 @@ As of 2026-11-06 three independent locks prevent any publish:
 | --- | --- | --- |
 | Package level | `"private": true` — `npm publish` refuses private packages | **Active** |
 | Workflow level | `sdk-release-prep.yml` runs on `workflow_dispatch` **only** (never on push/PR/merge); its publish job additionally requires the `SDK_RELEASE_ENABLED` repository variable (unset), the `confirm_publish` input, the protected `sdk-npm-publish` environment and an `NPM_TOKEN` secret (not configured) | **Active** |
-| Account level | No npm scope `@you-ge`, no npm token, no registry ownership exists | **Active** |
+| Account level | `@youge/assistant-sdk` is unpublished on npm and **no publish credential exists anywhere** in this repository (no `NPM_TOKEN` secret configured, no committed `.npmrc`, no automation token) | **Active** |
 
 `prepublishOnly` also re-runs the full package validation as a final net.
 
@@ -194,12 +211,14 @@ As of 2026-11-06 three independent locks prevent any publish:
 | Pack contents | `npm pack --dry-run` | ✅ 19 files, 32.4 kB packed / 129.7 kB unpacked |
 | Consumer build | `npm ci && npm run typecheck && npm run build` (in `example/`) | ✅ `tsc --noEmit` clean, `vite build` OK |
 | Release workflow | `.github/workflows/sdk-release-prep.yml` | ✅ created; publish job disabled (three locks above) |
-| Registry state | `registry.npmjs.org` lookups | `@you-ge` scope unregistered; `@you-ge/assistant-sdk` unpublished |
+| Registry state (post-rename) | `registry.npmjs.org` lookups | `@youge/assistant-sdk` unpublished (404); `@youge/*` empty (no conflict); org/scope `youge` exists |
+| Name consistency | repo-wide `@you-ge` grep | ✅ only intentional rename-history mentions remain (CHANGELOG rename entry, this file §2) |
 
 ## 7. Required follow-ups (before the first publish)
 
-1. **Claim the npm scope `you-ge`** (org or user) — or decide the fallback name
-   `@sandro-defender/assistant-sdk` **before** anything is published.
+1. **Naming is settled** — `@youge/assistant-sdk` is confirmed and verified
+   available. Owner-side check on npmjs.com: the publishing npm user (`you-ge`)
+   has publish rights on the org `youge`.
 2. Approve the registry decision ([§3](#3-publishing-destination-evaluation)) —
    recommendation is public npm.
 3. Configure `NPM_TOKEN` (or npm Trusted Publishing) and the `sdk-npm-publish`

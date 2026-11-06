@@ -2,7 +2,7 @@
 
 **Status:** audited 2026-11-05. The implementation in `pwa.js`, `pwa.css`,
 `progressier.js` and `manifest.webmanifest` is **preserved**. This document is
-the extraction boundary for a future `@you-ge/assistant-sdk/install` module.
+the extraction boundary for a future `@youge/assistant-sdk/install` module.
 No browser supports fully programmatic installation: the SDK must continue to
 react to browser-fired events and show manual instructions where required.
 
@@ -154,7 +154,7 @@ react to browser-fired events and show manual instructions where required.
 | Identity | legacy manifest `id` `/HIPSBNVemXtM8VMwRfWs` and `/progressier.js` worker path |
 | Styling | `pwa.css` class names and toolbox sizing/placement verified against `reference/Script.decompiled.js` |
 
-## 3. Future SDK module design — `@you-ge/assistant-sdk/install`
+## 3. Future SDK module design — `@youge/assistant-sdk/install`
 
 A **single public package with internal modules** is the target. Do not create
 multiple packages or an empty package in this phase. The install module should

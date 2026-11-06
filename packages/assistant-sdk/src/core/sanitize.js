@@ -1,5 +1,5 @@
 /*!
- * @you-ge/assistant-sdk — pure sanitization and security validation helpers
+ * @youge/assistant-sdk — pure sanitization and security validation helpers
  */
 
 function isUnsafeKey(key) {

@@ -2,11 +2,29 @@
 
 ## Unreleased
 
-- Prepared `@you-ge/assistant-sdk` for versioned distribution (**release
+- **Package rename:** the SDK's npm identity is corrected to
+  **`@youge/assistant-sdk`** (was `@you-ge/assistant-sdk`, based on an
+  incorrect assumption about the organization scope). The final identity is
+  confirmed by the project owner: npm user `you-ge`, npm org `youge`, scope
+  `@youge`. Nothing was ever published under the old name, so the rename is
+  pre-publication and breaks no consumer. Registry verification (2026-11-06):
+  `@youge/assistant-sdk` unpublished (404), zero packages under `@youge/*`
+  (no third-party conflict), org/scope `youge` exists. Updated consistently
+  across package metadata, validation scripts and contracts
+  (`validate-package.mjs`, `scripts/check.mjs`), the generated-bundle sync
+  script and source headers, tests, the React example (imports, dependency
+  key and lockfile), the release workflow header, and all documentation
+  (README, RELEASE, MIGRATION, AGENTS, architecture/audit docs, design-skill
+  record). Unrelated You.Ge branding is untouched (`you-ge-assistant` root
+  package, `YouGeAssistant` API, `youge-assistant:*` storage keys, product
+  name You.Ge, `staff.you.ge`). The package stays `"private": true` with all
+  publishing guards intact; nothing was published, released or tagged.
+
+- Prepared `@youge/assistant-sdk` for versioned distribution (**release
   preparation only — publishing stays disabled, nothing was published, no
   release or tag created**):
   - Package metadata reviewed and extended (`packages/assistant-sdk/package.json`):
-    kept `@you-ge/assistant-sdk@0.1.0`, ESM-only with paired `.d.ts` per export
+    kept `@youge/assistant-sdk@0.1.0`, ESM-only with paired `.d.ts` per export
     entry, explicit subpath `exports` map with no wildcards (deep imports of
     internal sources stay blocked), `publishConfig.access: "public"`,
     `homepage`/`bugs` added, zero runtime dependencies preserved (`react`
@@ -25,9 +43,9 @@
     (Cloudflare builds need no auth; GitHub Packages would force a
     `@sandro-defender` scope rename, auth on every install, and token plumbing
     into Cloudflare builds — the secure configuration required for that path is
-    recorded there). Registry state verified: the npm scope `@you-ge` is
-    unregistered and no account was created; claiming it is a documented
-    prerequisite before first publish.
+    recorded there). The registry/name situation recorded at preparation time
+    (old scope unregistered) was superseded by the confirmed identity — see the
+    package-rename entry below.
   - Release procedure documented (`RELEASE.md`): release runbook with
     version-bump rules, guard-removal checklist and post-publish smoke tests,
     plus the three independent publishing locks (package `private` flag,
@@ -132,7 +150,7 @@
     interaction notes; the offline example (`example/example.js`) install-button and
     permission paths are covered by the vm-backed install-experience suite.
 - Extracted the framework-independent **Phase 2 SDK package** locally at
-  `packages/assistant-sdk/` (`@you-ge/assistant-sdk` v`0.1.0`, `"private": true`
+  `packages/assistant-sdk/` (`@youge/assistant-sdk` v`0.1.0`, `"private": true`
   — prepared for future npm publishing without publishing, releasing or tagging):
   modular ESM core (`core`, `domain`, `config`, `diagnostics`, `installation`,
   `assistant`, `adapters`), subpath exports (`.`, `./domain`, `./config`,

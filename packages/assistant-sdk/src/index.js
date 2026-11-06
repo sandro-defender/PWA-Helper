@@ -1,5 +1,5 @@
 /*!
- * @you-ge/assistant-sdk — public entry point
+ * @youge/assistant-sdk — public entry point
  * ------------------------------------------
  * Framework-independent SDK core for You.Ge Assistant.
  */

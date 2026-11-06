@@ -1,6 +1,6 @@
 name: sdk-release-prep
 
-# Release preparation gate for @you-ge/assistant-sdk.
+# Release preparation gate for @youge/assistant-sdk.
 #
 # - Runs ONLY via manual workflow_dispatch. It never runs (and never publishes)
 #   on push, pull_request or merge.

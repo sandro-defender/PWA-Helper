@@ -162,7 +162,7 @@ test('architecture documents the platform, diagram, security boundaries and road
     '## 8. Security boundaries',
     '## 11. Decisions that cannot be made yet',
     '## 12. Implementation roadmap',
-    '@you-ge/assistant-sdk',
+    '@youge/assistant-sdk',
     'Last-known-good',
     'data-only JSON',
     'Preview Worker URL',
