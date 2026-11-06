@@ -304,10 +304,10 @@ document.querySelector('#install-app-btn')?.addEventListener('click', () => {
   package-level `private` lock was removed in the approved release PR);
   publication happens only through the manual `sdk-release-prep` workflow with
   explicit authorization (`confirm_publish`, `SDK_RELEASE_ENABLED`, the
-  protected `sdk-npm-publish` environment, an `NPM_TOKEN` secret, and the
-  `SDK_RELEASE_CONFIRM` env that `prepublishOnly` requires — a stray direct
-  `npm publish` is refused). The registry decision and release runbook live in
-  [`RELEASE.md`](RELEASE.md).
+  protected `sdk-npm-publish` environment, npm Trusted Publishing (OIDC) — no
+  npm token secret — and the `SDK_RELEASE_CONFIRM` env that `prepublishOnly`
+  requires — a stray direct `npm publish` is refused). The registry decision
+  and release runbook live in [`RELEASE.md`](RELEASE.md).
 - Replacing a vendored SDK copy (e.g. `staff.you.ge`): see
   [`MIGRATION.md`](MIGRATION.md).
 

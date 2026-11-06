@@ -405,3 +405,18 @@ Executed with `python3 .claude/skills/ui-ux-pro-max/scripts/search.py`:
    pattern (version + date heading, grouped scannable bullets: API, config,
    architecture, packaging, release engineering) above the running
    *Unreleased* log.
+
+### Phase 4 — npm Trusted Publishing (OIDC) migration (2026-11-06)
+
+The `ui-ux-pro-max-skill` was consulted for the OIDC migration. Its "When to
+Apply" section directs skipping the skill for infrastructure/DevOps work that
+does not change how something looks, feels, moves or is interacted with, so the
+`--design-system` / `--domain` / `--stack` search workflow was **not** run —
+no UI surface changed, and none may change for this infrastructure-only task.
+The skill's documentation guidance was applied instead: `RELEASE.md` §6 leads
+with requirements, uses scannable decision tables, keeps runbook steps atomic
+with explicit guard/failure states, and the migration is recorded as an atomic
+changelog entry above the version log. Skill instructions read from
+`https://github.com/nextlevelbuilder/ui-ux-pro-max-skill`
+(`.claude/skills/ui-ux-pro-max/SKILL.md`); no skill data or generated catalog is
+committed.

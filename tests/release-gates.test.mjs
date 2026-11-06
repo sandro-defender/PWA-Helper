@@ -5,8 +5,11 @@
  * tests prove, by real mutation against sandbox copies, that:
  *
  *   1. the release workflow keeps every publishing gate (manual-only trigger,
- *      confirm input, approval variable, protected environment, secret
- *      reference, publish-authorization env, provenance);
+ *      confirm input, approval variable, protected environment, OIDC
+ *      trusted-publishing configuration, publish-authorization env, provenance)
+ *      and carries no long-lived NPM_TOKEN / NODE_AUTH_TOKEN secret;
+ *   1b. the `verify` job never publishes and the approval variable is never
+ *      hardcoded in the workflow;
  *   2. packages/assistant-sdk/scripts/validate-package.mjs FAILS when any gate
  *      is removed or weakened;
  *   3. a stray `npm publish` (prepublishOnly without the workflow's
@@ -85,7 +88,9 @@ const GATES = [
   'SDK_RELEASE_ENABLED',
   'confirm_publish',
   'environment: sdk-npm-publish',
-  'secrets.NPM_TOKEN',
+  'id-token: write',
+  'registry-url: https://registry.npmjs.org',
+  'node-version: 24',
   'SDK_RELEASE_CONFIRM: publish',
 ];
 
@@ -107,6 +112,49 @@ test('validator refuses a workflow with a push trigger added', () => {
   const res = runValidator(validatorSandbox);
   assert.equal(res.status, 1);
   assert.match(res.stdout, /release workflow gate missing: workflow_dispatch-only trigger/);
+});
+
+test('validator refuses a workflow that reintroduces a long-lived npm token', () => {
+  resetSandboxFiles();
+  const workflowPath = join(validatorSandbox, workflowRel);
+  writeFileSync(
+    workflowPath,
+    pristineWorkflow.replace(
+      '          SDK_RELEASE_CONFIRM: publish',
+      '          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}\n          SDK_RELEASE_CONFIRM: publish',
+    ),
+  );
+  const res = runValidator(validatorSandbox);
+  assert.equal(res.status, 1, 'validation must fail when a long-lived npm token is reintroduced');
+  assert.match(res.stdout, /release workflow gate missing: OIDC: no long-lived NPM_TOKEN/);
+});
+
+test('validator refuses a workflow whose verify job publishes', () => {
+  resetSandboxFiles();
+  writeFileSync(
+    join(validatorSandbox, workflowRel),
+    pristineWorkflow.replace(
+      '        run: npm run check\n',
+      '        run: npm run check && npm publish\n',
+    ),
+  );
+  const res = runValidator(validatorSandbox);
+  assert.equal(res.status, 1, 'validation must fail when the verify job publishes');
+  assert.match(res.stdout, /release workflow gate missing: verify job never publishes/);
+});
+
+test('validator refuses a workflow that hardcodes the approval variable', () => {
+  resetSandboxFiles();
+  writeFileSync(
+    join(validatorSandbox, workflowRel),
+    pristineWorkflow.replace(
+      '    environment: sdk-npm-publish\n',
+      "    environment: sdk-npm-publish\n    env:\n      SDK_RELEASE_ENABLED: 'true'\n",
+    ),
+  );
+  const res = runValidator(validatorSandbox);
+  assert.equal(res.status, 1, 'validation must fail when SDK_RELEASE_ENABLED is hardcoded');
+  assert.match(res.stdout, /release workflow gate missing: approval variable stays a repository variable/);
 });
 
 test('validator refuses a package without prepublishOnly', () => {
@@ -164,12 +212,34 @@ test('check.mjs standing contracts reject a weakened workflow', () => {
   assert.match(weakened.stdout, /sdk-release-prep publishing gate present: environment: sdk-npm-publish/);
 });
 
-test('workflow wires explicit publish authorization and provenance', () => {
+test('check.mjs standing contracts reject a verify job that publishes', () => {
+  rmSync(fullSandbox, { recursive: true, force: true });
+  buildFullSandbox(fullSandbox);
+  writeFileSync(
+    join(fullSandbox, workflowRel),
+    pristineWorkflow.replace(
+      '        run: npm run check\n',
+      '        run: npm run check && npm publish\n',
+    ),
+  );
+  const res = runNode(['scripts/check.mjs'], fullSandbox);
+  assert.equal(res.status, 1, 'check.mjs must fail when the verify job publishes');
+  assert.match(res.stdout, /sdk-release-prep verify job never publishes/);
+});
+
+test('workflow wires OIDC trusted publishing, explicit authorization and provenance', () => {
+  // OIDC authentication: id-token: write, npm public registry, Node 24 toolchain.
+  assert.match(pristineWorkflow, /id-token:\s*write/);
+  assert.match(pristineWorkflow, /registry-url:\s*https:\/\/registry\.npmjs\.org/);
+  assert.match(pristineWorkflow, /node-version:\s*24/);
+  // No long-lived token anywhere on the publish path.
+  assert.doesNotMatch(pristineWorkflow, /NODE_AUTH_TOKEN/);
+  assert.doesNotMatch(pristineWorkflow, /secrets\.NPM_TOKEN/);
+  // Explicit authorization + provenance.
   assert.match(pristineWorkflow, /SDK_RELEASE_CONFIRM: publish/);
   assert.match(pristineWorkflow, /npm publish --access public --provenance/);
-  assert.match(pristineWorkflow, /NODE_AUTH_TOKEN: \$\{\{ secrets\.NPM_TOKEN \}\}/);
   // Token values are never echoed or interpolated into shell output.
-  assert.doesNotMatch(pristineWorkflow, /echo.*NODE_AUTH_TOKEN/);
+  assert.doesNotMatch(pristineWorkflow, /echo.*NPM_TOKEN/);
 });
 
 test('release-gate sandbox teardown', () => {

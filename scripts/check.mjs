@@ -848,9 +848,58 @@ contract(designSource.includes('## 9. Phase 2 — `@youge/assistant-sdk`'), 'DES
 const releaseWorkflow = readFileSync(at('.github/workflows/sdk-release-prep.yml'), 'utf8');
 contract(/^on:\s*\n\s+workflow_dispatch:/m.test(releaseWorkflow), 'sdk-release-prep triggers on workflow_dispatch only');
 contract(!/^\s+(push|pull_request):/m.test(releaseWorkflow), 'sdk-release-prep never triggers on push or pull_request');
-for (const gate of ['SDK_RELEASE_ENABLED', 'confirm_publish', 'environment: sdk-npm-publish', 'secrets.NPM_TOKEN', 'SDK_RELEASE_CONFIRM: publish']) {
+for (const gate of [
+  'SDK_RELEASE_ENABLED',
+  'confirm_publish',
+  'environment: sdk-npm-publish',
+  'id-token: write',
+  'registry-url: https://registry.npmjs.org',
+  'SDK_RELEASE_CONFIRM: publish',
+]) {
   contract(releaseWorkflow.includes(gate), `sdk-release-prep publishing gate present: ${gate}`);
 }
+contract(
+  !/NODE_AUTH_TOKEN|secrets\.NPM_TOKEN/.test(releaseWorkflow),
+  'sdk-release-prep publish path authenticates via npm OIDC trusted publishing (no long-lived NPM_TOKEN / NODE_AUTH_TOKEN)',
+);
+contract(
+  /node-version:\s*24/.test(releaseWorkflow),
+  'sdk-release-prep publish job pins Node 24 (npm >= 11.5.1 / Node >= 22.14 required for OIDC trusted publishing)',
+);
+
+// The `verify` job must never publish (comment lines excluded so a documented
+// "never run npm publish here" note does not trip the contract).
+const verifyStart = releaseWorkflow.indexOf('\n  verify:');
+const verifyBlock = (() => {
+  if (verifyStart === -1) return '';
+  const rest = releaseWorkflow.slice(verifyStart);
+  const nextJob = rest.slice(1).search(/\n  \S/);
+  return nextJob === -1 ? rest : rest.slice(0, nextJob + 1);
+})();
+const verifyJobBlock = verifyBlock
+  .split('\n')
+  .filter((line) => !/^\s*#/.test(line))
+  .join('\n');
+contract(!/npm\s+publish/.test(verifyJobBlock), 'sdk-release-prep verify job never publishes');
+contract(
+  !/SDK_RELEASE_ENABLED\s*:/.test(
+    releaseWorkflow.split('\n').filter((line) => !/^\s*#/.test(line)).join('\n'),
+  ),
+  'sdk-release-prep keeps SDK_RELEASE_ENABLED a repository variable (never hardcoded)',
+);
+// The in-repo gates must never be described as making direct publishing
+// impossible: SDK_RELEASE_CONFIRM / confirm_publish / SDK_RELEASE_ENABLED are
+// accidental-publish guards, not authorization boundaries (RELEASE.md §5).
+contract(
+  !/can never release|cannot publish directly|impossible to publish|makes publishing impossible/i.test(
+    releaseWorkflow,
+  ),
+  'sdk-release-prep must not claim the in-repo gates make direct publishing impossible',
+);
+contract(
+  /accidental-publish guard/i.test(releaseWorkflow),
+  'sdk-release-prep must frame SDK_RELEASE_CONFIRM as an accidental-publish guard only',
+);
 contract(typeof sdkPkg.scripts?.prepublishOnly === 'string', 'SDK package keeps prepublishOnly validation as the final publish net');
 
 function listSdkSourceFiles(dir, acc = []) {

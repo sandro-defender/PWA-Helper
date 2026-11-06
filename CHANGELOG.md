@@ -1,5 +1,89 @@
 # Changelog
 
+## Unreleased — migrate SDK publishing to npm Trusted Publishing (OIDC)
+
+- **Publishing authentication migrated from a long-lived npm token to npm
+  Trusted Publishing (OIDC).** `.github/workflows/sdk-release-prep.yml` now
+  authenticates the publish job with a short-lived OIDC token minted by
+  `id-token: write`; **no npm token secret is used or stored anywhere** (the
+  publish step sets only `SDK_RELEASE_CONFIRM`).
+- **Publish toolchain pinned to the official OIDC requirements:** the publish
+  job runs Node `24` (Node ≥ 22.14.0 / npm ≥ 11.5.1), sets
+  `registry-url: https://registry.npmjs.org` and `package-manager-cache: false`,
+  and adds a guard step that fails the run unless npm ≥ 11.5.1.
+- **All existing safeguards preserved:** manual `workflow_dispatch` only;
+  `action=publish` **and** `confirm_publish=publish`; `SDK_RELEASE_ENABLED =
+  'true'` (left **unset** until the owner explicitly approves); the protected
+  `sdk-npm-publish` environment with required reviewers (**owner-configured** —
+  its reviewer protection is to be verified, not recreated); and the
+  `prepublishOnly` `SDK_RELEASE_CONFIRM=publish` check. `action=verify` remains
+  completely non-publishing.
+- **Security wording corrected:** `SDK_RELEASE_CONFIRM=publish` (and the other
+  in-repo gates) are **accidental-publish guards, not cryptographic
+  authorization boundaries**. The real boundaries are npm organization
+  permissions / account security (2FA), the protected environment's required
+  reviewers, and the npm Trusted Publisher registration. Direct manual
+  publishing is not claimed to be impossible — the workflow header, its
+  publish-step comment and §4/§5 no longer say that `prepublishOnly` makes a
+  direct `npm publish` impossible (`tests/release-security-wording.test.mjs`
+  locks the wording in).
+- **First-publication procedure corrected (§6.4).** `npm login` is **not** a
+  tokenless path: the `npm-login` reference states it *"automatically generates
+  a legacy token of `publish` type"* and saves credentials to `.npmrc`, and the
+  current *About access tokens* page says legacy tokens were **removed in
+  November 2025**. Every "no token"/"tokenless" claim was removed. The
+  documented bootstrap now uses a **minimum-permission granular access token**
+  created on npmjs.com (website-only), scoped to the package, **Bypass 2FA
+  off**, shortest available expiry, used for that one publish and **revoked
+  immediately** — never committed, logged or stored in a secret. Two paths are
+  documented: **staged publishing** (`npm stage publish` + maintainer approval
+  with 2FA — recommended) and direct publishing (deprecated by npm, **removed
+  January 2027**). Both set `SDK_RELEASE_CONFIRM=publish` for that one command,
+  pass `--access public`, and produce **no OIDC provenance**; a `--tag next`
+  pre-release is the way to keep provenance for the real first release. After
+  the package exists, the trusted publisher is registered and all subsequent
+  releases use OIDC.
+- **Staged bootstrap audited against the npm CLI source (§6.4):** the token can
+  be scoped to the `@youge` **scope** before `@youge/assistant-sdk` exists — the
+  *Organizations* section must not be used, since it grants no package publish
+  rights. The safest configuration is **Read and write (stage only)** with
+  **Bypass 2FA off**, which npm's token-behavior table confirms is sufficient to
+  stage. `npm stage publish` is implemented as `StagePublish extends Publish`,
+  so it **does** run `prepublishOnly` and `SDK_RELEASE_CONFIRM=publish` is still
+  required (the docs' *Scripts* page is stale on this). `npm stage approve
+  <stage-id>` accepts an optional `--otp <code>` and otherwise prompts
+  interactively. Staging a new package publishes a public `0.0.0-stage`
+  placeholder; the real `0.1.0` stays hidden until a maintainer approves with
+  2FA. The credential is passed via an environment variable for one command and
+  never placed in repo files, history, logs, GitHub secrets or transcripts.
+- **Trusted-publisher limits reconciled (§6.3):** the npm website allows **up
+  to 10 trusted publisher connections per package** (independently
+  add/deleted); the CLI reference still says one per package. Where the two
+  disagree the website UI is treated as authoritative. Also documented: the
+  2-day first-publish validation window, immutable connections (delete +
+  re-create), automatic provenance over OIDC (no `--provenance` flag needed),
+  dist-tag permission (npm ≥ 11.21.0 / 12.2.0) and stage-only as the
+  maximum-security posture.
+- **Enforcement extended:** `validate-package.mjs` and the standing contracts
+  in `scripts/check.mjs` now also require the OIDC configuration (`id-token:
+  write`, registry URL, hosted runner, Node 24, no token anywhere, canonical
+  `repository.url`), plus structural contracts — **the `verify` job never
+  publishes**, **`SDK_RELEASE_ENABLED` is never hardcoded**, and **the
+  workflow never claims direct publishing is impossible**.
+  `tests/release-gates.test.mjs` gains mutation coverage for the first two; the
+  new `tests/release-security-wording.test.mjs` locks in the corrected security
+  wording.
+- **Documentation:** `packages/assistant-sdk/RELEASE.md` gains §6 (OIDC
+  requirements, workflow configuration, trusted-publisher registration via
+  `npm trust` ≥ 11.15.0, and the first-publish bootstrap); §3/§4/§5/§7/§8
+  updated. Verified with **159/159** tests passing.
+
+> **Not published.** The package remains unpublished; no secrets, variables,
+> permissions, tags or releases were created or changed, and the
+> `sdk-npm-publish` environment was neither created nor modified. The
+> trusted-publisher registration, the first-publish bootstrap and the
+> `SDK_RELEASE_ENABLED` approval remain owner actions.
+
 ## 0.1.0 — 2026-11-06 (initial release)
 
 First release of **`@youge/assistant-sdk`** — the framework-independent SDK
