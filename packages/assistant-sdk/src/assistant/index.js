@@ -1,0 +1,805 @@
+/*!
+ * @you-ge/assistant-sdk — core Assistant state, subscriptions and lifecycle
+ * -------------------------------------------------------------------------
+ * Framework-independent state engine. Never calls fetch, never registers a
+ * service worker, never polls, and never treats hostname detection as auth.
+ */
+
+import {
+  EVENT_NAMES,
+  PRIORITY,
+  SDK_VERSION,
+  STORAGE_PREFIXES,
+  TONE,
+} from '../core/constants.js';
+import {
+  clone,
+  safeSameOriginIcon,
+  safeText,
+} from '../core/sanitize.js';
+import { resolveDomain } from '../domain/index.js';
+import {
+  resolveAssistantConfig,
+  saveLastKnownGood,
+  validatePublishedConfig,
+} from '../config/index.js';
+import {
+  connectivityFailure,
+  createDiagnosticsIntegration,
+  dnsFailure,
+  normalizeDnsResult,
+} from '../diagnostics/index.js';
+import {
+  deriveInstallationState,
+  requestPwaInstall,
+} from '../installation/index.js';
+
+export function createAssistant(initialOptions, envOverrides) {
+  const rawInit = initialOptions && typeof initialOptions === 'object' ? initialOptions : {};
+  const envIn = Object.assign(
+    {},
+    rawInit.env && typeof rawInit.env === 'object' ? rawInit.env : {},
+    envOverrides && typeof envOverrides === 'object' ? envOverrides : {}
+  );
+
+  const defaultRoot = typeof globalThis !== 'undefined' ? globalThis : {};
+  const root = envIn.root || envIn.window || rawInit.window || defaultRoot;
+  const useGlobalConfig = Boolean(envIn.useGlobalConfig);
+  const exposeGlobal = Boolean(envIn.exposeGlobal || rawInit.exposeGlobal);
+  const shouldBindEvents = envIn.bindEvents !== false && rawInit.bindEvents !== false;
+
+  const UrlCtor = root.URL || URL;
+  const DateCtor = root.Date || Date;
+
+  function getDoc() {
+    if (envIn.document !== undefined) return envIn.document;
+    if (rawInit.document !== undefined) return rawInit.document;
+    return root.document || null;
+  }
+
+  function getStorage() {
+    if (envIn.storage !== undefined) return envIn.storage;
+    if (rawInit.storage !== undefined) return rawInit.storage;
+    try {
+      return root.localStorage || null;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function getLocation() {
+    if (envIn.location !== undefined) return envIn.location;
+    if (rawInit.location !== undefined) return rawInit.location;
+    return root.location || {};
+  }
+
+  function getNavigator() {
+    if (envIn.navigator !== undefined) return envIn.navigator;
+    if (rawInit.navigator !== undefined) return rawInit.navigator;
+    return root.navigator || null;
+  }
+
+  function getPwa() {
+    if (envIn.pwa !== undefined) return envIn.pwa;
+    if (rawInit.pwa !== undefined) return rawInit.pwa;
+    return root.PWA || null;
+  }
+
+  function getDns() {
+    if (envIn.dns !== undefined) return envIn.dns;
+    if (rawInit.dns !== undefined) return rawInit.dns;
+    return root.YouGeDns || null;
+  }
+
+  let rawOptionsState = Object.assign(
+    {},
+    useGlobalConfig && root.YOU_GE_ASSISTANT_CONFIG && typeof root.YOU_GE_ASSISTANT_CONFIG === 'object'
+      ? root.YOU_GE_ASSISTANT_CONFIG
+      : {},
+    rawInit
+  );
+
+  let resolvedBundle = resolveAssistantConfig(rawOptionsState, {
+    storage: getStorage(),
+  });
+  let config = resolvedBundle.config;
+  let configMeta = resolvedBundle.meta;
+  let services = config.services;
+
+  const listeners = new Set();
+  let noticeStore = { dismissed: {}, acknowledged: {} };
+  let snapshot = null;
+  let bound = false;
+  let destroyed = false;
+  let unsubscribePwa = null;
+  let lastConditionKeys = new Set();
+
+  const nav = getNavigator();
+  const conditions = {
+    online: nav ? nav.onLine !== false : true,
+    dns: { status: 'idle', classification: 'unknown', message: '', checkedAt: null },
+    endpoints: { primary: 'unknown', backup: 'inactive', active: 'primary', reason: '' },
+    session: { state: 'unknown', message: '' },
+    updateAvailable: false,
+    recovery: false,
+  };
+
+  function effectiveLocation() {
+    const loc = getLocation() || {};
+    if (config.domain) {
+      const explicitHost = String(config.domain).trim();
+      const locHost = String(loc.hostname || '').trim().toLowerCase();
+      const sameHost = locHost && locHost === explicitHost.toLowerCase();
+      return {
+        hostname: explicitHost,
+        origin: sameHost ? loc.origin : undefined,
+        protocol: loc.protocol || 'https:',
+        pathname: loc.pathname || '/',
+        basePath: loc.basePath || loc.pathname || '/',
+      };
+    }
+    return {
+      hostname: loc.hostname,
+      origin: loc.origin,
+      protocol: loc.protocol,
+      pathname: loc.pathname,
+      basePath: loc.basePath || loc.pathname || '/',
+    };
+  }
+
+  function domainContext() {
+    const loc = effectiveLocation();
+    const fallback = {
+      identity: { name: 'You.Ge Assistant', shortName: 'You.Ge', description: '' },
+      branding: { themeColor: '#155eef', icon: 'icons/icon-192.png' },
+      pwa: { basePath: '/' },
+      domain: {
+        hostname: loc.hostname || 'localhost',
+        origin: loc.origin || 'https://localhost',
+        protocol: loc.protocol || 'https:',
+        pathname: loc.pathname || '/',
+        basePath: '/',
+        configured: false,
+      },
+      features: { installation: true, diagnostics: true },
+    };
+
+    const explicitRegistry = config.domainRegistry || envIn.domainRegistry || rawOptionsState.domainRegistry || null;
+    if (explicitRegistry) {
+      try {
+        return resolveDomain(loc, explicitRegistry) || fallback;
+      } catch (error) {
+        return fallback;
+      }
+    }
+
+    const resolver = envIn.domainResolver || rawOptionsState.domainResolver || root.YouGeDomain || null;
+    if (resolver && typeof resolver.resolve === 'function') {
+      try {
+        const resolved = resolver.resolve(loc);
+        return resolved || fallback;
+      } catch (error) {
+        return fallback;
+      }
+    }
+
+    try {
+      const globalRegistry = root.YOU_GE_DOMAIN_REGISTRY && typeof root.YOU_GE_DOMAIN_REGISTRY === 'object'
+        ? root.YOU_GE_DOMAIN_REGISTRY
+        : {};
+      return resolveDomain(loc, globalRegistry) || fallback;
+    } catch (error) {
+      return fallback;
+    }
+  }
+
+  function projectInfo() {
+    const domain = domainContext();
+    const host = domain.domain || {};
+    const basePath = domain.pwa && domain.pwa.basePath ? domain.pwa.basePath : (host.basePath || '/');
+    const identity = domain.identity || {};
+    const branding = domain.branding || {};
+    const id = config.projectId || String(host.hostname || 'localhost') + String(basePath);
+    const loc = getLocation() || {};
+    const baseHref = config.domain
+      ? String(host.origin || 'https://localhost') + String(basePath)
+      : (loc.href || String(host.origin || 'https://localhost') + '/');
+    return {
+      id: id,
+      name: config.branding.name || identity.name || 'You.Ge Assistant',
+      shortName: config.branding.shortName || identity.shortName || 'You.Ge',
+      icon: safeSameOriginIcon(config.branding.icon || branding.icon, 'icons/icon-192.png', baseHref, UrlCtor),
+      themeColor: config.branding.themeColor || branding.themeColor || '#155eef',
+      hostname: String(host.hostname || 'localhost'),
+      origin: String(host.origin || 'https://localhost'),
+      basePath: String(basePath),
+      configured: Boolean(host.configured),
+    };
+  }
+
+  function persistPublishedLkgIfDerivedProject() {
+    if (configMeta.source === 'published' && !config.projectId && rawOptionsState.publishedConfig) {
+      const storage = getStorage();
+      if (!storage) return;
+      const derivedId = projectInfo().id;
+      const validated = validatePublishedConfig(rawOptionsState.publishedConfig, { expectedProjectId: '' });
+      if (validated.valid && !validated.projectId) {
+        saveLastKnownGood(storage, derivedId, validated);
+      }
+    }
+  }
+
+  function storageKey(projectId) {
+    return STORAGE_PREFIXES.notices + projectId;
+  }
+
+  function loadNotices(projectId) {
+    noticeStore = { dismissed: {}, acknowledged: {} };
+    const storage = getStorage();
+    try {
+      const raw = storage && typeof storage.getItem === 'function' ? storage.getItem(storageKey(projectId)) : null;
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') {
+        noticeStore.dismissed = parsed.dismissed && typeof parsed.dismissed === 'object' ? parsed.dismissed : {};
+        noticeStore.acknowledged = parsed.acknowledged && typeof parsed.acknowledged === 'object' ? parsed.acknowledged : {};
+      }
+    } catch (error) { /* storage unavailable */ }
+  }
+
+  function saveNotices(projectId) {
+    const storage = getStorage();
+    try {
+      if (storage && typeof storage.setItem === 'function') {
+        storage.setItem(storageKey(projectId), JSON.stringify(noticeStore));
+      }
+    } catch (error) { /* storage unavailable */ }
+  }
+
+  function noticeKey(projectId, id) {
+    return projectId + ':' + id;
+  }
+
+  function isSuppressed(projectId, id, critical) {
+    const key = noticeKey(projectId, id);
+    if (config.notifications.suppressRepeats && noticeStore.dismissed[key]) return true;
+    if (critical && noticeStore.acknowledged[key]) return true;
+    return false;
+  }
+
+  function endpointFailure(endpoints) {
+    return endpoints.primary === 'failed' || endpoints.primary === 'unavailable' || endpoints.primary === 'degraded';
+  }
+
+  function buildNotifications(project, installation, network) {
+    const out = [];
+    const activeKeys = new Set();
+
+    function add(notification, conditionKey) {
+      activeKeys.add(conditionKey);
+      if (isSuppressed(project.id, notification.id, notification.critical)) return;
+      out.push(notification);
+    }
+
+    if (!network.online) {
+      add({
+        id: 'network:offline', priority: PRIORITY.critical, tone: TONE[PRIORITY.critical],
+        critical: true, dismissible: false, title: 'No connection',
+        message: 'The app cannot reach the network. Open diagnostics or recovery guidance.',
+        actionId: 'diagnostics',
+      }, 'network:offline');
+    }
+    if (dnsFailure(network.dns)) {
+      add({
+        id: 'dns:failure', priority: PRIORITY.critical, tone: TONE[PRIORITY.critical],
+        critical: true, dismissible: false, title: 'DNS resolution problem',
+        message: network.dns.message || 'The current hostname could not be resolved. Diagnostics are available.',
+        actionId: 'diagnostics',
+      }, 'dns:failure');
+    }
+    if (network.online && connectivityFailure(network.dns)) {
+      add({
+        id: 'network:unreachable', priority: PRIORITY.critical, tone: TONE[PRIORITY.critical],
+        critical: true, dismissible: false, title: 'Connection problem',
+        message: network.dns.message || 'The application host or its backend did not respond.',
+        actionId: 'diagnostics',
+      }, 'network:unreachable');
+    }
+    if (endpointFailure(network.endpoints)) {
+      add({
+        id: 'api:primary-failed', priority: PRIORITY.critical, tone: TONE[PRIORITY.critical],
+        critical: true, dismissible: false, title: 'Primary API unavailable',
+        message: network.endpoints.reason || 'The primary application endpoint is not responding.',
+        actionId: 'diagnostics',
+      }, 'api:primary-failed');
+    }
+    if (network.session.state === 'issue') {
+      add({
+        id: 'session:issue', priority: PRIORITY.auth, tone: TONE[PRIORITY.auth],
+        critical: false, dismissible: true, title: 'Session needs attention',
+        message: network.session.message || 'Your project reported an authentication or session problem.',
+        actionId: 'help',
+      }, 'session:issue');
+    }
+    if (network.endpoints.backup === 'active' || network.endpoints.active === 'backup') {
+      add({
+        id: 'api:backup-active', priority: PRIORITY.backup, tone: TONE[PRIORITY.backup],
+        critical: false, dismissible: true, title: 'Backup connection active',
+        message: network.endpoints.reason || 'This project is using its configured backup endpoint.',
+        actionId: 'backup-status',
+      }, 'api:backup-active');
+    }
+    if (installation.status === 'available' && installation.support !== 'none') {
+      add({
+        id: 'install:available', priority: PRIORITY.install, tone: TONE[PRIORITY.install],
+        critical: false, dismissible: true, title: 'Installation available',
+        message: installation.nativeAvailable
+          ? 'This browser offered a native install prompt.'
+          : (installation.support === 'manual-ios'
+            ? 'Add this app to your home screen from Safari.'
+            : 'Use your browser menu to install this app.'),
+        actionId: 'install',
+      }, 'install:available');
+    }
+    if (network.recovery) {
+      add({
+        id: 'api:primary-restored', priority: PRIORITY.info, tone: TONE[PRIORITY.info],
+        critical: false, dismissible: true, title: 'Primary connection restored',
+        message: 'The primary endpoint is healthy again.', actionId: 'diagnostics',
+      }, 'api:primary-restored');
+    }
+    if (network.updateAvailable) {
+      add({
+        id: 'app:update', priority: PRIORITY.info, tone: TONE[PRIORITY.info],
+        critical: false, dismissible: true, title: 'App update available',
+        message: 'A new version is ready to apply.', actionId: 'update',
+      }, 'app:update');
+    }
+    config.features.forEach(function (feature) {
+      add({
+        id: 'feature:' + feature.id, priority: PRIORITY.info, tone: TONE[PRIORITY.info],
+        critical: false, dismissible: true, title: feature.label,
+        message: feature.message || 'A new You.Ge Assistant capability is available.',
+        actionId: 'feature:' + feature.id,
+      }, 'feature:' + feature.id);
+    });
+
+    lastConditionKeys.forEach(function (key) {
+      if (activeKeys.has(key)) return;
+      delete noticeStore.dismissed[noticeKey(project.id, key)];
+      delete noticeStore.acknowledged[noticeKey(project.id, key)];
+    });
+    lastConditionKeys = activeKeys;
+    saveNotices(project.id);
+
+    out.sort(function (a, b) { return a.priority - b.priority; });
+    return out;
+  }
+
+  function buildActions(project, installation, network, notifications) {
+    const actions = [];
+    function add(action) {
+      if (actions.some(function (entry) { return entry.id === action.id; })) return;
+      actions.push(action);
+    }
+    if (config.modules.diagnostics) {
+      add({
+        id: 'diagnostics', label: 'Run network diagnostics', icon: 'diagnostics',
+        priority: notifications.some(function (n) { return n.critical; }) ? 1 : 5,
+        kind: 'diagnostics', event: EVENT_NAMES.action, message: 'Check connectivity, DNS and app origin.',
+      });
+    }
+    if (config.modules.recovery && (!network.online || dnsFailure(network.dns) ||
+        connectivityFailure(network.dns) || endpointFailure(network.endpoints))) {
+      add({
+        id: 'recovery', label: 'Recovery guidance', icon: 'recovery', priority: 1,
+        kind: 'recovery', event: EVENT_NAMES.action, message: 'Steps to restore this connection.',
+      });
+    }
+    if (config.modules.installation && installation.status === 'available') {
+      add({
+        id: 'install', label: installation.nativeAvailable ? 'Install this app' : 'Installation instructions',
+        icon: 'install', priority: 4, kind: 'install', event: EVENT_NAMES.action,
+        message: installation.support === 'manual-ios' ? 'Safari: Share → Add to Home Screen.' : 'Open the browser install prompt or instructions.',
+      });
+    }
+    if (config.modules.failover && (network.endpoints.backup === 'active' || network.endpoints.active === 'backup')) {
+      add({
+        id: 'backup-status', label: 'Backup connection', icon: 'backup', priority: 3,
+        kind: 'backup', event: EVENT_NAMES.action, message: 'The project is using its backup endpoint.',
+      });
+    }
+    if (config.modules.updates && network.updateAvailable) {
+      add({
+        id: 'update', label: 'Apply app update', icon: 'update', priority: 5,
+        kind: 'update', event: EVENT_NAMES.action, message: 'Activate the waiting service worker update.',
+      });
+    }
+    config.actions.forEach(function (action) { add(action); });
+    actions.sort(function (a, b) { return a.priority - b.priority; });
+    return actions;
+  }
+
+  function computeState() {
+    const project = projectInfo();
+    const installation = deriveInstallationState({
+      pwa: getPwa(),
+      enabled: config.modules.installation,
+    });
+    const network = {
+      online: conditions.online,
+      dns: {
+        status: conditions.dns.status,
+        classification: conditions.dns.classification,
+        message: conditions.dns.message,
+        checkedAt: conditions.dns.checkedAt,
+      },
+      endpoints: {
+        primary: conditions.endpoints.primary,
+        backup: conditions.endpoints.backup,
+        active: conditions.endpoints.active,
+        reason: conditions.endpoints.reason,
+      },
+      session: { state: conditions.session.state, message: conditions.session.message },
+      updateAvailable: conditions.updateAvailable,
+      recovery: conditions.recovery,
+    };
+    const notifications = buildNotifications(project, installation, network);
+    const availableActions = buildActions(project, installation, network, notifications);
+    const top = notifications[0] || null;
+    return {
+      enabled: config.enabled,
+      project: project,
+      installation: installation,
+      network: network,
+      capabilities: {
+        installation: config.modules.installation,
+        diagnostics: config.modules.diagnostics,
+        recovery: config.modules.recovery,
+        failover: config.modules.failover,
+        help: config.modules.help,
+        updates: config.modules.updates,
+      },
+      notifications: notifications,
+      availableActions: availableActions,
+      badge: {
+        count: notifications.length,
+        tone: top ? top.tone : 'none',
+        label: top ? top.title : 'No alerts',
+        priority: top ? top.priority : null,
+      },
+      appearance: {
+        position: config.position,
+        offsets: { x: config.offsets.x, y: config.offsets.y },
+        theme: config.theme,
+        themeColor: project.themeColor,
+      },
+      dismissed: Object.keys(noticeStore.dismissed),
+      acknowledged: Object.keys(noticeStore.acknowledged),
+    };
+  }
+
+  function emit() {
+    if (destroyed) return;
+    snapshot = computeState();
+    const doc = getDoc();
+    if (shouldBindEvents && exposeGlobal) {
+      try {
+        if (doc && typeof doc.dispatchEvent === 'function' && root.CustomEvent) {
+          doc.dispatchEvent(new root.CustomEvent(EVENT_NAMES.state, { detail: snapshot }));
+        }
+      } catch (error) { /* ignore */ }
+    }
+    listeners.forEach(function (listener) {
+      try { listener(snapshot); } catch (error) { /* keep other listeners alive */ }
+    });
+  }
+
+  function syncPwaSubscription() {
+    if (unsubscribePwa || destroyed) return;
+    const pwa = getPwa();
+    if (pwa && typeof pwa.onChange === 'function') {
+      try {
+        unsubscribePwa = pwa.onChange(function () { emit(); });
+      } catch (error) {
+        unsubscribePwa = null;
+      }
+    }
+  }
+
+  const diagnosticsController = createDiagnosticsIntegration({
+    get services() { return services; },
+    getPwa: getPwa,
+    getDns: getDns,
+    getContext: function () {
+      const project = projectInfo();
+      return {
+        hostname: project.hostname,
+        origin: project.origin,
+        basePath: project.basePath,
+        online: conditions.online,
+      };
+    },
+    onStart: function () {
+      conditions.dns.status = 'running';
+      emit();
+    },
+    onResult: function (result) {
+      setDnsResult(result);
+    },
+  });
+
+  function configure(nextOptions) {
+    if (destroyed) return snapshot;
+    const baseGlobal = useGlobalConfig && root.YOU_GE_ASSISTANT_CONFIG && typeof root.YOU_GE_ASSISTANT_CONFIG === 'object'
+      ? root.YOU_GE_ASSISTANT_CONFIG
+      : {};
+    const merged = Object.assign({}, baseGlobal, rawOptionsState, nextOptions || {});
+    if (services.diagnostics && !(merged.services && typeof merged.services.diagnostics === 'function')) {
+      merged.services = Object.assign({}, merged.services || {}, { diagnostics: services.diagnostics });
+    }
+    rawOptionsState = merged;
+    resolvedBundle = resolveAssistantConfig(merged, {
+      storage: getStorage(),
+      fallbackProjectId: snapshot && snapshot.project ? snapshot.project.id : '',
+    });
+    config = resolvedBundle.config;
+    configMeta = resolvedBundle.meta;
+    services = config.services;
+    persistPublishedLkgIfDerivedProject();
+    loadNotices(projectInfo().id);
+    syncPwaSubscription();
+    emit();
+    return snapshot;
+  }
+
+  function getConfig() {
+    return {
+      enabled: config.enabled,
+      projectId: config.projectId,
+      domain: config.domain,
+      position: config.position,
+      offsets: { x: config.offsets.x, y: config.offsets.y },
+      modules: clone(config.modules),
+      notifications: clone(config.notifications),
+      branding: clone(config.branding),
+      actions: clone(config.actions),
+      features: clone(config.features),
+      theme: config.theme,
+      meta: clone(configMeta),
+    };
+  }
+
+  function subscribe(listener, subOptions) {
+    if (typeof listener !== 'function' || destroyed) return function () {};
+    listeners.add(listener);
+    if (!subOptions || subOptions.immediate !== false) {
+      try { listener(snapshot); } catch (error) { /* ignore */ }
+    }
+    return function () { listeners.delete(listener); };
+  }
+
+  function setConnectivity(online) {
+    conditions.online = Boolean(online);
+    emit();
+    return snapshot;
+  }
+
+  function setEndpointStatus(detail) {
+    const input = detail && typeof detail === 'object' ? detail : {};
+    const allowedPrimary = ['unknown', 'healthy', 'failed', 'unavailable', 'degraded'];
+    const allowedBackup = ['unknown', 'active', 'inactive', 'failed'];
+    const allowedActive = ['primary', 'backup', 'unknown'];
+    const previousActive = conditions.endpoints.active;
+    if (allowedPrimary.indexOf(input.primary) !== -1) conditions.endpoints.primary = input.primary;
+    if (allowedBackup.indexOf(input.backup) !== -1) conditions.endpoints.backup = input.backup;
+    if (allowedActive.indexOf(input.active) !== -1) conditions.endpoints.active = input.active;
+    conditions.endpoints.reason = safeText(input.reason, 200);
+    if (previousActive === 'backup' && conditions.endpoints.active === 'primary' && conditions.endpoints.primary === 'healthy') {
+      conditions.recovery = true;
+    }
+    if (conditions.endpoints.active !== 'primary') conditions.recovery = false;
+    emit();
+    return snapshot;
+  }
+
+  function setSessionStatus(detail) {
+    const input = detail && typeof detail === 'object' ? detail : {};
+    if (['unknown', 'ok', 'issue'].indexOf(input.state) !== -1) conditions.session.state = input.state;
+    conditions.session.message = safeText(input.message, 200);
+    emit();
+    return snapshot;
+  }
+
+  function setDnsResult(result) {
+    conditions.dns = normalizeDnsResult(result, DateCtor);
+    emit();
+    return snapshot;
+  }
+
+  function setUpdateAvailable(available) {
+    conditions.updateAvailable = available !== false;
+    emit();
+    return snapshot;
+  }
+
+  function runDiagnostics(runOptions) {
+    if (destroyed) {
+      return Promise.resolve({ classification: 'unknown', message: 'Assistant instance is destroyed.', status: 'unavailable' });
+    }
+    if (!config.modules.diagnostics) {
+      const disabled = { classification: 'disabled', message: 'Network diagnostics are disabled for this project.', status: 'disabled' };
+      setDnsResult(disabled);
+      return Promise.resolve(disabled);
+    }
+    return diagnosticsController.run(runOptions);
+  }
+
+  function requestInstall(promptOptions) {
+    if (destroyed) return Promise.resolve({ outcome: 'unsupported' });
+    return requestPwaInstall({
+      pwa: getPwa(),
+      enabled: config.modules.installation,
+    }, promptOptions);
+  }
+
+  function dismiss(id) {
+    const safeId = safeText(id, 80);
+    const notification = (snapshot && snapshot.notifications || []).filter(function (entry) { return entry.id === safeId; })[0];
+    if (!notification) return false;
+    if (notification.critical && config.notifications.criticalPersistent) return false;
+    noticeStore.dismissed[noticeKey(snapshot.project.id, safeId)] = new DateCtor().toISOString();
+    saveNotices(snapshot.project.id);
+    emit();
+    return true;
+  }
+
+  function acknowledge(id) {
+    const safeId = safeText(id, 80);
+    noticeStore.acknowledged[noticeKey(snapshot.project.id, safeId)] = new DateCtor().toISOString();
+    saveNotices(snapshot.project.id);
+    emit();
+    return true;
+  }
+
+  const handlers = {
+    online: function () { conditions.online = true; emit(); },
+    offline: function () { conditions.online = false; emit(); },
+    visibility: function () {
+      const doc = getDoc();
+      if (doc && doc.visibilityState === 'hidden') return;
+      syncPwaSubscription();
+      emit();
+    },
+    endpoint: function (event) { setEndpointStatus(event && event.detail); },
+    session: function (event) { setSessionStatus(event && event.detail); },
+    dns: function (event) { setDnsResult((event && event.detail) || {}); },
+    pwaReady: function () { syncPwaSubscription(); emit(); },
+    installable: function () { syncPwaSubscription(); emit(); },
+    installed: function () { syncPwaSubscription(); emit(); },
+    update: function () { conditions.updateAvailable = true; emit(); },
+    diagnostics: function (event) { setDnsResult((event && event.detail) || {}); },
+    action: function () { /* widgets dispatch actions; host apps listen. No state change. */ },
+    storage: function (event) {
+      if (!event || !event.key || event.key.indexOf(STORAGE_PREFIXES.notices) !== 0) return;
+      loadNotices(snapshot ? snapshot.project.id : projectInfo().id);
+      emit();
+    },
+  };
+
+  function bindOnce() {
+    if (bound || !shouldBindEvents) return;
+    bound = true;
+    const doc = getDoc();
+    if (typeof root.addEventListener === 'function') {
+      root.addEventListener('online', handlers.online);
+      root.addEventListener('offline', handlers.offline);
+      root.addEventListener('storage', handlers.storage);
+    }
+    if (doc && typeof doc.addEventListener === 'function') {
+      doc.addEventListener('visibilitychange', handlers.visibility);
+      doc.addEventListener(EVENT_NAMES.endpointStatus, handlers.endpoint);
+      doc.addEventListener(EVENT_NAMES.sessionStatus, handlers.session);
+      doc.addEventListener(EVENT_NAMES.dnsResult, handlers.dns);
+      doc.addEventListener(EVENT_NAMES.pwaReady, handlers.pwaReady);
+      doc.addEventListener(EVENT_NAMES.pwaInstallable, handlers.installable);
+      doc.addEventListener(EVENT_NAMES.pwaInstalled, handlers.installed);
+      doc.addEventListener(EVENT_NAMES.pwaUpdate, handlers.update);
+      doc.addEventListener(EVENT_NAMES.pwaDiagnostics, handlers.diagnostics);
+      doc.addEventListener(EVENT_NAMES.action, handlers.action);
+    }
+    syncPwaSubscription();
+  }
+
+  function destroy() {
+    if (destroyed) return;
+    destroyed = true;
+    const doc = getDoc();
+    if (bound) {
+      if (typeof root.removeEventListener === 'function') {
+        root.removeEventListener('online', handlers.online);
+        root.removeEventListener('offline', handlers.offline);
+        root.removeEventListener('storage', handlers.storage);
+      }
+      if (doc && typeof doc.removeEventListener === 'function') {
+        doc.removeEventListener('visibilitychange', handlers.visibility);
+        doc.removeEventListener(EVENT_NAMES.endpointStatus, handlers.endpoint);
+        doc.removeEventListener(EVENT_NAMES.sessionStatus, handlers.session);
+        doc.removeEventListener(EVENT_NAMES.dnsResult, handlers.dns);
+        doc.removeEventListener(EVENT_NAMES.pwaReady, handlers.pwaReady);
+        doc.removeEventListener(EVENT_NAMES.pwaInstallable, handlers.installable);
+        doc.removeEventListener(EVENT_NAMES.pwaInstalled, handlers.installed);
+        doc.removeEventListener(EVENT_NAMES.pwaUpdate, handlers.update);
+        doc.removeEventListener(EVENT_NAMES.pwaDiagnostics, handlers.diagnostics);
+        doc.removeEventListener(EVENT_NAMES.action, handlers.action);
+      }
+    }
+    if (unsubscribePwa) {
+      try { unsubscribePwa(); } catch (error) { /* ignore */ }
+      unsubscribePwa = null;
+    }
+    listeners.clear();
+    diagnosticsController.clear();
+  }
+
+  const api = {
+    __state: true,
+    version: SDK_VERSION,
+    PRIORITY: PRIORITY,
+    create: function (opts, envOpts) { return createAssistant(opts, envOpts); },
+    attach: function (opts, envOpts) { return attachAssistant(opts, envOpts); },
+    configure: configure,
+    getConfig: getConfig,
+    getState: function () { return snapshot; },
+    subscribe: subscribe,
+    setConnectivity: setConnectivity,
+    setEndpointStatus: setEndpointStatus,
+    setSessionStatus: setSessionStatus,
+    setDnsResult: setDnsResult,
+    setUpdateAvailable: setUpdateAvailable,
+    runDiagnostics: runDiagnostics,
+    requestInstall: requestInstall,
+    dismiss: dismiss,
+    acknowledge: acknowledge,
+    isDestroyed: function () { return destroyed; },
+    destroy: destroy,
+  };
+
+  persistPublishedLkgIfDerivedProject();
+  loadNotices(projectInfo().id);
+  bindOnce();
+  if (!snapshot) emit();
+
+  if (exposeGlobal) {
+    root.YouGeAssistant = api;
+  }
+
+  return api;
+}
+
+export function getGlobalAssistant(targetRoot) {
+  const root = targetRoot || (typeof globalThis !== 'undefined' ? globalThis : null);
+  if (!root || !root.YouGeAssistant || !root.YouGeAssistant.__state) return null;
+  if (typeof root.YouGeAssistant.isDestroyed === 'function' && root.YouGeAssistant.isDestroyed()) return null;
+  return root.YouGeAssistant;
+}
+
+export function attachAssistant(options, envOverrides) {
+  const envIn = envOverrides && typeof envOverrides === 'object' ? envOverrides : {};
+  const root = envIn.root || envIn.window || (options && options.window) || (typeof globalThis !== 'undefined' ? globalThis : {});
+  const existing = getGlobalAssistant(root);
+  if (existing) {
+    if (!existing.create) existing.create = createAssistant;
+    if (!existing.attach) existing.attach = attachAssistant;
+    if (!existing.version) existing.version = SDK_VERSION;
+    if (options && typeof options === 'object' && Object.keys(options).length > 0 && typeof existing.configure === 'function') {
+      existing.configure(options);
+    }
+    return existing;
+  }
+  return createAssistant(options, Object.assign({}, envIn, {
+    root: root,
+    useGlobalConfig: envIn.useGlobalConfig !== false,
+    exposeGlobal: true,
+  }));
+}

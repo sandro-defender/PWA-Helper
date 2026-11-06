@@ -45,7 +45,7 @@ function sharedRuntimeDevFiles() {
 export default defineConfig({
   base: './',
   plugins: [sharedRuntimeDevFiles()],
-  server: { host: '0.0.0.0', allowedHosts: true },
+  server: { host: '0.0.0.0', allowedHosts: true, fs: { allow: [repositoryRoot] } },
   preview: { host: '0.0.0.0', allowedHosts: true },
   build: {
     outDir: 'dist',

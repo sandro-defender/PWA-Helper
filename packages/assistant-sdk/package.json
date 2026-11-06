@@ -1,0 +1,75 @@
+{
+  "name": "@you-ge/assistant-sdk",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Framework-independent SDK core for You.Ge Assistant: explicit project configuration, domain resolution, centralized assistant state, diagnostics and PWA installation integration.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "main": "./src/index.js",
+  "types": "./src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "default": "./src/index.js"
+    },
+    "./domain": {
+      "types": "./src/domain/index.d.ts",
+      "default": "./src/domain/index.js"
+    },
+    "./config": {
+      "types": "./src/config/index.d.ts",
+      "default": "./src/config/index.js"
+    },
+    "./diagnostics": {
+      "types": "./src/diagnostics/index.d.ts",
+      "default": "./src/diagnostics/index.js"
+    },
+    "./installation": {
+      "types": "./src/installation/index.d.ts",
+      "default": "./src/installation/index.js"
+    },
+    "./react": {
+      "types": "./src/adapters/react.d.ts",
+      "default": "./src/adapters/react.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "you-ge",
+    "assistant",
+    "sdk",
+    "pwa",
+    "domain-resolution",
+    "diagnostics",
+    "offline"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "peerDependencies": {
+    "react": ">=18.0.0"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sandro-defender/PWA-Helper.git",
+    "directory": "packages/assistant-sdk"
+  },
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "check": "node --test tests/*.test.mjs"
+  }
+}

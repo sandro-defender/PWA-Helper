@@ -18,9 +18,10 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { buildBrowserStateScript } from './sync-sdk-browser.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const failures = [];
@@ -805,6 +806,65 @@ contract(/youge:dns-result/.test(offlineJsSource), 'offline diagnostics publish 
 contract(widgetDocSource.includes('## 6. React Bits + mandatory design skill') && widgetDocSource.includes('ui-ux-pro-max-skill'), 'WIDGET.md records React Bits and the mandatory design skill');
 contract(widgetDocSource.includes('Priority ladder') && widgetDocSource.includes('youge:endpoint-status'), 'WIDGET.md documents the priority ladder and project event contract');
 contract(designSource.includes('## 8. Intelligent Floating Assistant'), 'DESIGN_FOUNDATION.md records the widget skill and React Bits application');
+
+/* ------------------------------------------------------------------ *
+ * 7d. @you-ge/assistant-sdk package contracts
+ * ------------------------------------------------------------------ */
+
+section('@you-ge/assistant-sdk package contracts');
+
+const sdkRequired = [
+  'packages/assistant-sdk/package.json',
+  'packages/assistant-sdk/README.md',
+  'packages/assistant-sdk/LICENSE',
+  'packages/assistant-sdk/src/index.js',
+  'packages/assistant-sdk/src/index.d.ts',
+  'packages/assistant-sdk/src/domain/index.js',
+  'packages/assistant-sdk/src/domain/index.d.ts',
+  'packages/assistant-sdk/src/config/index.js',
+  'packages/assistant-sdk/src/config/index.d.ts',
+  'packages/assistant-sdk/src/diagnostics/index.js',
+  'packages/assistant-sdk/src/diagnostics/index.d.ts',
+  'packages/assistant-sdk/src/installation/index.js',
+  'packages/assistant-sdk/src/installation/index.d.ts',
+  'packages/assistant-sdk/src/assistant/index.js',
+  'packages/assistant-sdk/src/adapters/pwa-kit.js',
+  'packages/assistant-sdk/src/adapters/react.js',
+  'packages/assistant-sdk/src/adapters/react.d.ts',
+];
+for (const rel of sdkRequired) {
+  contract(existsSync(at(rel)), `${rel} exists`);
+}
+
+const sdkPkg = JSON.parse(readFileSync(at('packages/assistant-sdk/package.json'), 'utf8'));
+contract(sdkPkg.name === '@you-ge/assistant-sdk', 'SDK package name is @you-ge/assistant-sdk');
+contract(sdkPkg.private === true, 'SDK package remains unpublished with private: true guard');
+contract(!sdkPkg.dependencies, 'SDK package has zero mandatory runtime dependencies');
+contract(Boolean(sdkPkg.exports && sdkPkg.exports['.'] && sdkPkg.exports['./react']), 'SDK package declares explicit subpath exports');
+contract(assistantState === buildBrowserStateScript(), 'assistant-state.js is deterministically synchronized with packages/assistant-sdk/src/');
+contract(mainJsxSource.includes('@you-ge/assistant-sdk'), 'React example consumes @you-ge/assistant-sdk directly');
+contract(designSource.includes('## 9. Phase 2 — `@you-ge/assistant-sdk`'), 'DESIGN_FOUNDATION.md records Phase 2 skill application');
+
+function listSdkSourceFiles(dir, acc = []) {
+  for (const name of readdirSync(dir)) {
+    const full = join(dir, name);
+    if (statSync(full).isDirectory()) listSdkSourceFiles(full, acc);
+    else if (name.endsWith('.js')) acc.push(full);
+  }
+  return acc;
+}
+
+const sdkSources = listSdkSourceFiles(at('packages/assistant-sdk/src'));
+contract(
+  sdkSources.every((file) => {
+    const stripped = withoutBlockComments(readFileSync(file, 'utf8'));
+    return !/\bfetch\s*\(/.test(stripped) &&
+      !/\.register\s*\(/.test(stripped) &&
+      !/\bsetInterval\s*\(/.test(stripped) &&
+      !/from\s+['"]react['"]|require\(['"]react['"]\)/.test(stripped);
+  }),
+  'SDK source modules have zero React runtime dependency, zero fetch, zero SW registration and zero polling'
+);
 
 /* ------------------------------------------------------------------ *
  * 8. Optional files worth having

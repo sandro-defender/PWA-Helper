@@ -28,16 +28,19 @@ toolkit remains dependency-free. See [`example/README.md`](example/README.md).
 > server headers, CSP, push, verification, an acceptance checklist and a
 > copy-ready prompt you can paste into another project's agent.
 
-**Platform direction:** You.Ge Assistant is being prepared as a reusable PWA
-management and infrastructure platform: a standalone management dashboard and a
-single future SDK package, `@you-ge/assistant-sdk`. This repository remains the
-working, dependency-free toolkit; no dashboard, SDK package, central
-configuration service, failover engine or `staff.you.ge` integration is
-implemented here. The reusable **Intelligent Floating Assistant** widget is
-implemented in this repository as a core SDK feature: one centralized,
-event-driven state model with real-condition badges, a fixed priority ladder and
-an in-place panel. It works without a dashboard once initialized; see
-[`WIDGET.md`](WIDGET.md). Read the [foundation audit](FOUNDATION_AUDIT.md),
+**Platform direction:** You.Ge Assistant is structured as a reusable PWA
+management and infrastructure platform. Phase 2 extracts the framework-independent
+SDK core locally at [`packages/assistant-sdk/`](packages/assistant-sdk/)
+(`@you-ge/assistant-sdk` v`0.1.0`, `"private": true` — prepared locally and not
+yet published to npm) while keeping this repository's dependency-free PWA
+toolkit (`window.PWA`, `/progressier.js`, DNS diagnostics, manifest/offline
+support) intact. No standalone dashboard, remote configuration service,
+production failover engine or `staff.you.ge` modification is implemented here.
+The reusable **Intelligent Floating Assistant** widget shares the exact same
+SDK state model (`assistant-state.js` synchronized from `packages/assistant-sdk/src/`)
+with real-condition badges, a fixed priority ladder and an in-place panel; see
+[`WIDGET.md`](WIDGET.md) and [`packages/assistant-sdk/README.md`](packages/assistant-sdk/README.md).
+Read the [foundation audit](FOUNDATION_AUDIT.md),
 [platform architecture and roadmap](ASSISTANT_ARCHITECTURE.md),
 [installation preservation contract](INSTALLATION_EXPERIENCE.md),
 [widget implementation](WIDGET.md) and
@@ -110,6 +113,7 @@ node scripts/verify-deployment.mjs https://you.example  # live deployment
 | [`ARCHITECTURE_AUDIT.md`](ARCHITECTURE_AUDIT.md) | you want the earlier baseline audit and architecture plan |
 | [`FOUNDATION_AUDIT.md`](FOUNDATION_AUDIT.md) | you want the Phase 0 re-audit: what works, what is preserved, what is missing and the risks |
 | [`ASSISTANT_ARCHITECTURE.md`](ASSISTANT_ARCHITECTURE.md) | you want the future dashboard, SDK, multi-domain, publishing, security, failover architecture, diagram and roadmap |
+| [`packages/assistant-sdk/README.md`](packages/assistant-sdk/README.md) | you want `@you-ge/assistant-sdk` initialization, config/LKG validation, lifecycle APIs, subpath exports and React adapter docs |
 | [`INSTALLATION_EXPERIENCE.md`](INSTALLATION_EXPERIENCE.md) | you need the preserved install behavior and the future SDK install contract |
 | [`DESIGN_FOUNDATION.md`](DESIGN_FOUNDATION.md) | you need the ui-ux-pro-max-skill application record and React Bits adoption report |
 | [`WIDGET.md`](WIDGET.md) | you need the Intelligent Floating Assistant state model, SDK config, events, React Bits/skill record and test matrix |

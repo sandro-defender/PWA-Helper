@@ -2,9 +2,11 @@
 
 This is the user-facing Staff Space sample at the GitHub Pages `/example/` route.
 A fixed floating button shows the You.Ge Assistant icon with React Bits' ElectricLogo
-and opens the **Intelligent Floating Assistant** panel. The launcher uses a
-hover-only `GlareHover` wrapper; the panel renders the centralized snapshot from
-`assistant-state.js` through `useSyncExternalStore`, with a `SpotlightCard`
+and opens the **Intelligent Floating Assistant** panel. It consumes the local
+[`@you-ge/assistant-sdk`](../packages/assistant-sdk/README.md) package (`file:../packages/assistant-sdk`)
+and `@you-ge/assistant-sdk/react` adapter (`useSyncExternalStore`), sharing the
+single centralized state instance initialized by `assistant-state.js`. The launcher uses a
+hover-only `GlareHover` wrapper; the panel renders a `SpotlightCard`
 connection-status card, a bounded `LatticeLoader` diagnostics state, prioritized
 notices and working `[data-pwa-diagnostics]` / `[data-pwa-install]` quick actions.
 The check-in and checklist remain local to the visitor's browser. See
@@ -40,6 +42,7 @@ React Bits sources and their license notice are in [`src/`](src/) and
 a transparent white silhouette derived from the app icon so the logo remains
 visible while the electric strands animate around it.
 
-`npm run typecheck` runs `tsc --noEmit` over the TypeScript React Bits sources
-and `FoundationPreview.tsx`; it is also a CI gate. The core toolkit remains
-dependency-free and has no build step.
+`npm run typecheck` runs `tsc --noEmit` over the TypeScript React Bits sources,
+`FoundationPreview.tsx`, and the `.d.ts` declarations exported by
+`@you-ge/assistant-sdk`; it is also a CI gate. Both `@you-ge/assistant-sdk` and
+the core PWA toolkit remain dependency-free at runtime.

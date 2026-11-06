@@ -31,6 +31,10 @@ jobs:
             node --check "$file"
           done
 
+      - name: Standalone SDK tests and package dry-run
+        run: npm test && npm pack --dry-run
+        working-directory: packages/assistant-sdk
+
       - name: Unit tests
         run: npm test
 

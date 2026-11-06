@@ -20,8 +20,10 @@
     "node": ">=18"
   },
   "scripts": {
-    "check": "node scripts/check.mjs && node --test tests/*.test.mjs",
-    "test": "node --test tests/*.test.mjs",
+    "check": "node scripts/check.mjs && node --test tests/*.test.mjs packages/assistant-sdk/tests/*.test.mjs",
+    "test": "node --test tests/*.test.mjs packages/assistant-sdk/tests/*.test.mjs",
+    "test:sdk": "node --test packages/assistant-sdk/tests/*.test.mjs",
+    "sync:sdk": "node scripts/sync-sdk-browser.mjs",
     "verify": "node scripts/verify-deployment.mjs",
     "keys": "node scripts/generate-vapid-keys.mjs --write"
   }

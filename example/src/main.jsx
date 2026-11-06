@@ -1,5 +1,11 @@
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { createRoot } from 'react-dom/client';
+import { YouGeAssistant } from '@you-ge/assistant-sdk';
+import {
+  FALLBACK_ASSISTANT_STATE,
+  dispatchAssistantAction,
+  getExternalStoreBindings,
+} from '@you-ge/assistant-sdk/react';
 import ElectricLogo from './ElectricLogo.jsx';
 import FoundationPreview from './FoundationPreview.tsx';
 import GlareHover from './react-bits/GlareHover';
@@ -23,59 +29,50 @@ class LogoBoundary extends React.Component {
   }
 }
 
-/* The React example is a thin renderer of assistant-state.js. The dependency-
- * free DOM renderer (assistant-widget.js) uses the same centralized snapshot
- * on every other participating page. */
+/* The React example consumes the extracted @you-ge/assistant-sdk and shares
+ * the exact same singleton state as classic browser scripts (assistant-state.js)
+ * and the dependency-free DOM renderer (assistant-widget.js). */
 const fallbackState = {
-  enabled: true,
+  ...FALLBACK_ASSISTANT_STATE,
   project: {
-    id: 'example', name: 'Staff Space', shortName: 'Staff Space',
-    hostname: window.location.hostname, icon: 'icons/icon-192.png', themeColor: '#17634f',
+    ...FALLBACK_ASSISTANT_STATE.project,
+    id: 'example',
+    name: 'Staff Space',
+    shortName: 'Staff Space',
+    hostname: window.location.hostname,
+    themeColor: '#17634f',
   },
-  installation: { status: 'unavailable', support: 'none', nativeAvailable: false, installed: false, ios: false, safari: false },
   network: {
+    ...FALLBACK_ASSISTANT_STATE.network,
     online: navigator.onLine !== false,
-    dns: { status: 'idle', classification: 'unknown', message: '' },
-    endpoints: { primary: 'unknown', backup: 'inactive', active: 'primary', reason: '' },
-    session: { state: 'unknown', message: '' },
-    updateAvailable: false,
-    recovery: false,
   },
-  notifications: [],
-  availableActions: [],
-  badge: { count: 0, tone: 'none', label: 'No alerts', priority: null },
-  appearance: { position: 'bottom-right', offsets: { x: 16, y: 16 }, theme: 'light', themeColor: '#17634f' },
-  dismissed: [],
-  acknowledged: [],
+  appearance: {
+    ...FALLBACK_ASSISTANT_STATE.appearance,
+    offsets: { x: 16, y: 16 },
+    theme: 'light',
+    themeColor: '#17634f',
+  },
 };
 
-function getAssistantState() {
-  const api = window.YouGeAssistant;
-  return api && typeof api.getState === 'function' ? api.getState() || fallbackState : fallbackState;
-}
-
-function subscribeAssistant(listener) {
-  const api = window.YouGeAssistant;
-  return api && typeof api.subscribe === 'function' ? api.subscribe(listener) : () => {};
-}
+const assistantStore = getExternalStoreBindings(
+  () => YouGeAssistant.attach(),
+  null,
+  fallbackState
+);
 
 function dispatchWidgetAction(id, kind) {
-  const api = window.YouGeAssistant;
-  if (window.document && typeof window.CustomEvent === 'function') {
-    window.document.dispatchEvent(new CustomEvent('youge:action', {
-      detail: { id, kind: kind || 'custom', source: 'react-widget' },
-    }));
-  }
-  if (id === 'update' && window.PWA && typeof window.PWA.applyUpdate === 'function') {
-    window.PWA.applyUpdate();
-  }
-  if (id === 'diagnostics' && (!window.PWA || typeof window.PWA.showNetworkDiagnostics !== 'function') && api) {
-    api.runDiagnostics();
-  }
+  dispatchAssistantAction(id, kind, {
+    assistant: YouGeAssistant.attach(),
+    source: 'react-widget',
+  });
 }
 
 function AssistantFloatingWidget() {
-  const state = useSyncExternalStore(subscribeAssistant, getAssistantState, getAssistantState);
+  const state = useSyncExternalStore(
+    assistantStore.subscribe,
+    assistantStore.getSnapshot,
+    assistantStore.getServerSnapshot
+  );
   const [open, setOpen] = useState(false);
   const widgetRef = useRef(null);
   const toggleRef = useRef(null);
@@ -183,9 +180,9 @@ function AssistantFloatingWidget() {
                   <div className="assistant-notice-controls">
                     <button type="button" onClick={() => dispatchWidgetAction(notice.actionId || notice.id, 'notice')}>Open</button>
                     {notice.critical ? (
-                      <button type="button" onClick={() => window.YouGeAssistant?.acknowledge(notice.id)}>Acknowledge</button>
+                      <button type="button" onClick={() => YouGeAssistant.attach().acknowledge(notice.id)}>Acknowledge</button>
                     ) : (
-                      <button type="button" onClick={() => window.YouGeAssistant?.dismiss(notice.id)}>Dismiss</button>
+                      <button type="button" onClick={() => YouGeAssistant.attach().dismiss(notice.id)}>Dismiss</button>
                     )}
                   </div>
                 </li>
