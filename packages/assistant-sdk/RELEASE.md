@@ -403,12 +403,33 @@ least-privilege credential. The path below avoids that ambiguity entirely.
 #### Recommended: a minimum-permission granular access token
 
 As of November 2025 npm supports **granular access tokens** only. They can be
-scoped to specific packages/scopes, restricted by IP range, given a **short
-expiry**, and — importantly for this step — granted **write** access so they
-can publish. Granular tokens cannot be created from the CLI yet: create one on
-npmjs.com. The CLI reference documents the granular options, but the website's
+scoped to specific packages **or scopes**, restricted by IP range, given a
+**short expiry**, and — importantly for this step — granted **write** access so
+they can publish. Granular tokens cannot be created from the CLI yet: create one
+on npmjs.com. The CLI reference documents the granular options, but the website's
 *Creating and viewing access tokens* page states CLI support *"will be added in
 the future"* — **prefer the website UI**.
+
+**Can the token be scoped before the package exists? — yes, to the `@youge`
+scope.** Granular tokens are not limited to individual packages: the *Creating
+and viewing access tokens* page says to choose *"up to 50 specific packages or
+scopes"*. The `@youge` scope is already registered on the registry (org/scope
+`youge` exists), so the token **can** be limited to `@youge` before
+`@youge/assistant-sdk` exists. Once the package exists, narrow it further to
+`@youge/assistant-sdk` itself.
+
+Two scoping traps to avoid:
+
+- **Do not use the *Organizations* section of the form.** Granting a token
+  access to an organization only lets it manage that organization's settings,
+  teams and members — npm states explicitly that *"It does not give the token
+  the right to publish packages managed by the organization."* Use the
+  **Packages and scopes** section instead.
+- **If the dropdown does not offer the `@youge` scope before the package
+  exists, stop and verify** (with npm support or the owner) rather than silently
+  falling back to **All Packages**. All Packages is broad enough that it should
+  only be accepted deliberately, with the shortest expiry, and revoked
+  immediately.
 
 Create the token on npmjs.com → profile menu → **Access Tokens** →
 **Generate New Token** → **Granular Access Token**, with the **minimum** set
@@ -417,11 +438,18 @@ of permissions:
 | Setting | Value | Why |
 | --- | --- | --- |
 | Token name | e.g. `first-publish-0.1.0` | easy to identify and revoke |
-| Packages and scopes | `@youge/assistant-sdk` (or the `@youge` scope) only | least privilege — never "All Packages" |
-| Permissions | **Read and write (stage only)** for the safest path; **Read and write (publish and stage)** only if a direct publish is wanted | a stage-only token cannot push a version live by itself |
-| Bypass two-factor authentication | **unchecked (false)** | keep account- and package-level 2FA enforced |
+| Packages and scopes | `@youge` scope (or `@youge/assistant-sdk` once it exists) | least privilege — never "All Packages" |
+| Permissions | **Read and write (stage only)** | a stage-only token cannot push a version live by itself |
+| Bypass two-factor authentication | **unchecked (false)** | not needed — see below |
 | Allowed IP ranges | your publish machine, if it has a stable address | optional but recommended |
 | Expiration | the **shortest** available date (must be ≥ 1 day in the future) | the token should not outlive the task |
+
+**No `Bypass 2FA` is needed, and it should stay off.** The `npm stage`
+documentation's token-behavior table states that a granular access token
+**without** bypass **can stage** (`npm publish` would prompt for 2FA instead),
+and npm's own best practice is to *"create a GAT without bypass and use
+`npm stage publish`"*. Bypass is only relevant to *direct* publishing, and
+setting it to true overrides account- and package-level 2FA — leave it off.
 
 Then use it **only** for the initial publish and **revoke it immediately
 afterwards**.
@@ -429,11 +457,28 @@ afterwards**.
 > ⚠️ **Credential hygiene.** Never put this token in repository files, in a
 > committed `.npmrc`, in shell history, in CI logs, in GitHub secrets, or in any
 > chat/agent transcript. Pass it to the CLI through an environment variable for
-> a single command, then revoke it. Nothing in this repository creates, stores
-> or requests it — it is an owner action documented here so the first release
-> is not a dead end.
+> a single command, then revoke it. GitHub Actions secrets are deliberately
+> **not** used here even though npm's general CI guidance suggests them.
+> Nothing in this repository creates, stores or requests it — it is an owner
+> action documented here so the first release is not a dead end.
 
-Two concrete paths, in order of preference:
+Two concrete paths, in order of preference.
+
+**Does `npm stage publish` run the package's `prepublishOnly`? — yes, verified
+rather than assumed.** `npm stage publish` is implemented in the npm CLI as
+`StagePublish extends Publish` (`npm/cli` → `lib/commands/stage/publish.js`), so
+it runs the **entire `npm publish` lifecycle**, including `prepublishOnly`
+(before packing), `prepack` / `prepare` / `postpack` (during packing) and
+`publish` / `postpublish` (after the registry call). The only difference is that
+staging calls the registry with `stage: true` and **bypasses the 2FA prompt**,
+deferring proof-of-presence to the approve step. Staging also respects
+`"private": true` and refuses with `EPRIVATE`.
+
+Caveat: the npm docs' *Scripts* page still says `prepublishOnly` runs *"ONLY on
+`npm publish`"* and lists no `npm stage` entry in its lifecycle order. That page
+predates the stage subcommand; the CLI source above is authoritative. **The
+command below therefore must keep `SDK_RELEASE_CONFIRM=publish`** — the package's
+`prepublishOnly` refuses without it (§5).
 
 **Path A — staged publishing (recommended).** `npm stage publish` uploads the
 version to a staging area; it does **not** go live, and a maintainer with 2FA
@@ -447,10 +492,9 @@ Requires **npm CLI ≥ 11.15.0** and Node ≥ 22.14.0.
 cd packages/assistant-sdk
 SDK_RELEASE_CONFIRM=publish npm stage publish --access public
 
-# 2. A maintainer reviews and approves with 2FA (CLI or npmjs.com →
-#    Staged Packages → Approve). The package's prepublishOnly re-runs
-#    validation and REQUIRES SDK_RELEASE_CONFIRM=publish for this command too —
-#    that variable is an accidental-publish guard only (see §5).
+# 2. A maintainer reviews and approves with 2FA. The package's prepublishOnly
+#    re-runs validation and REQUIRES SDK_RELEASE_CONFIRM=publish for this
+#    command too — that variable is an accidental-publish guard only (see §5).
 npm stage list
 npm stage view <stage-id>
 npm stage approve <stage-id> --otp <code>
@@ -458,6 +502,28 @@ npm stage approve <stage-id> --otp <code>
 # 3. Revoke the token immediately (or from the website's token list):
 npm token revoke <id>
 ```
+
+**`npm stage approve` syntax (verified).** `npm stage approve <stage-id>` takes
+`--otp <code>` (a two-factor one-time password) and `--registry`. If `--otp` is
+omitted and the registry challenges for a one-time password, npm **prompts
+interactively** — so the flag is optional, not required. `npm stage reject
+<stage-id>` accepts the same flags. `npm stage list`, `npm stage view` and
+`npm stage download` take only `--json` / `--registry` and **do not** require
+2FA; `npm stage list` and `npm stage view` accept an optional `<package-spec>`.
+
+**What happens to the version.** Staging a package that does not yet exist
+publishes a public **`0.0.0-stage` placeholder**; the staged `0.1.0` and its
+contents stay hidden until a maintainer approves it. Approval can happen in the
+CLI or on npmjs.com (**Staged Packages** tab → **Approve**) and **always prompts
+for 2FA**. After approval, the staged `0.1.0` is published to the package page.
+
+Two constraints to keep in mind:
+
+- **Staged versions share the same semver unique index as published ones** —
+  once `0.1.0` is staged, that name+version can never be published again.
+- **The `--tag` is immutable** for a staged package. A pre-release must carry
+  its tag explicitly (`npm stage publish --tag next`), exactly as for
+  `npm publish`.
 
 **Path B — direct publish with the granular token.** Use
 `SDK_RELEASE_CONFIRM=publish npm publish --access public` instead of the stage
@@ -580,14 +646,31 @@ npmjs.com) as the source of truth:
 
 | Check | Command | Result |
 | --- | --- | --- |
-| Static checks + all tests | `npm run check` (root) | ✅ **275** static `PASS`, **159/159** tests pass, 0 fail |
+| Static checks + all tests | `npm run check` (root) | ✅ **275** static `PASS`, **165/165** tests pass, 0 fail |
 | Validator OIDC gates | `node packages/assistant-sdk/scripts/validate-package.mjs` | ✅ 12/12 release-workflow gates pass |
-| Security-wording contracts | `node --test tests/release-security-wording.test.mjs` | ✅ 7/7 pass |
+| Security-wording contracts | `node --test tests/release-security-wording.test.mjs` | ✅ 13/13 pass |
 | Standalone SDK tests | `npm test` (in `packages/assistant-sdk`) | ✅ 29/29 pass |
 | Browser-bundle sync | `node scripts/sync-sdk-browser.mjs --check` | ✅ in sync |
 | Pack contents | `npm pack --dry-run` | ✅ 19 files, 33.5 kB packed / 132.4 kB unpacked |
 | Consumer build | `npm ci && npm run typecheck && npm run build` (in `example/`) | ✅ `tsc --noEmit` clean, `vite build` OK |
 | Registry identity unchanged | `npm view @youge/assistant-sdk version` | ✅ HTTP 404 — still unpublished; **not published by this task** |
+
+### Staged-bootstrap audit (2026-11-07)
+
+The first-publish staged bootstrap was audited against the current official npm
+documentation **and the npm CLI source**, not assumed:
+
+| # | Question | Verified answer |
+| --- | --- | --- |
+| 1 | Can a granular stage-only token be restricted to the `@youge` scope before `@youge/assistant-sdk` exists? | **Yes.** Granular tokens can be limited to *"up to 50 specific packages or scopes"*, and the `@youge` scope is already registered. Use the **Packages and scopes** section — the *Organizations* section only grants org-management rights and *"does not give the token the right to publish packages managed by the organization."* |
+| 2 | What is the safest available permission configuration? | **Read and write (stage only)**, scoped to `@youge` (narrow to `@youge/assistant-sdk` once it exists), **Bypass 2FA unchecked**. npm's token-behavior table states a GAT **without** bypass can stage, and npm's own best practice is to *"create a GAT without bypass and use `npm stage publish`"*. |
+| 3 | Does `SDK_RELEASE_CONFIRM=publish npm stage publish --access public` run `prepublishOnly`? | **Yes.** `npm/cli` implements `npm stage publish` as `StagePublish extends Publish` (`lib/commands/stage/publish.js`), so it runs the whole `npm publish` lifecycle: `prepublishOnly`, `prepack` / `prepare` / `postpack`, `publish` / `postpublish`. The only difference is `stage: true` on the registry call, which bypasses the 2FA prompt. Note the npm docs' *Scripts* page still says `prepublishOnly` runs *"ONLY on `npm publish`"* and lists no `npm stage` entry — that page predates the subcommand; the CLI source is authoritative. |
+| 4 | Exact `npm stage approve` syntax; is `--otp` supported? | `npm stage approve <stage-id>` takes **`--otp <code>`** and `--registry`. `--otp` is **optional** — if omitted and the registry challenges, npm **prompts interactively**. `npm stage reject <stage-id>` takes the same flags. `npm stage list` / `view` / `download` take only `--json` / `--registry` and need **no** 2FA. |
+| 5 | Placeholder `0.0.0-stage` behaviour | Staging a package that does not exist publishes a public **`0.0.0-stage` placeholder**; the staged `0.1.0` and its contents stay hidden until a maintainer approves with 2FA (CLI or npmjs.com → Staged Packages → Approve), after which `0.1.0` is published to the package page. Staged versions share the **same semver unique index** as published ones, and the **`--tag` is immutable** once staged. |
+| 6 | Credential exposure | The documented procedure passes the token via an **environment variable for a single command** only, and states explicitly that it must never be placed in repository files, a committed `.npmrc`, shell history, CI logs, **GitHub secrets**, or any chat/agent transcript. It is revoked immediately afterwards. No token was created by this work. |
+
+No token was created, no publish or staging was performed, and no workflow was
+dispatched for this audit.
 
 ## 8. Required follow-ups (before the first publish)
 

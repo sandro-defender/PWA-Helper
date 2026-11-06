@@ -95,3 +95,36 @@ test('runbook must document the current trusted-publisher limits', () => {
 test('runbook must state the manual first publish carries no OIDC provenance', () => {
   assert.match(runbook, /no OIDC\s+provenance/i);
 });
+
+test('runbook must document scoping the token to the @youge scope before the package exists', () => {
+  assert.match(runbook, /Can the token be scoped before the package exists/i);
+  assert.match(runbook, /`@youge`\s*scope/);
+  // The Organizations section must not be used to obtain publish rights.
+  assert.match(runbook, /Organizations\*\s+section of the form/);
+  assert.match(runbook, /does not give the token\s+the right to publish/i);
+});
+
+test('runbook must document that npm stage publish runs prepublishOnly', () => {
+  assert.match(runbook, /StagePublish extends Publish/);
+  assert.match(runbook, /`npm stage publish` run the package's `prepublishOnly`/i);
+});
+
+test('runbook must document the npm stage approve syntax and --otp behaviour', () => {
+  assert.match(runbook, /`npm stage approve <stage-id>` takes/);
+  assert.match(runbook, /--otp <code>/);
+  assert.match(runbook, /prompts\s+interactively/i);
+});
+
+test('runbook must document the 0.0.0-stage placeholder and 2FA approval', () => {
+  assert.match(runbook, /0\.0\.0-stage/);
+  assert.match(runbook, /always prompts\s+for 2FA/i);
+  assert.match(runbook, /Staged versions share the same semver unique index/i);
+});
+
+test('runbook must state that Bypass 2FA is not needed for staging', () => {
+  assert.match(runbook, /No `Bypass 2FA` is needed/i);
+});
+
+test('runbook must state that GitHub Actions secrets are deliberately not used', () => {
+  assert.match(runbook, /GitHub Actions secrets are deliberately/i);
+});

@@ -43,6 +43,19 @@
   pre-release is the way to keep provenance for the real first release. After
   the package exists, the trusted publisher is registered and all subsequent
   releases use OIDC.
+- **Staged bootstrap audited against the npm CLI source (§6.4):** the token can
+  be scoped to the `@youge` **scope** before `@youge/assistant-sdk` exists — the
+  *Organizations* section must not be used, since it grants no package publish
+  rights. The safest configuration is **Read and write (stage only)** with
+  **Bypass 2FA off**, which npm's token-behavior table confirms is sufficient to
+  stage. `npm stage publish` is implemented as `StagePublish extends Publish`,
+  so it **does** run `prepublishOnly` and `SDK_RELEASE_CONFIRM=publish` is still
+  required (the docs' *Scripts* page is stale on this). `npm stage approve
+  <stage-id>` accepts an optional `--otp <code>` and otherwise prompts
+  interactively. Staging a new package publishes a public `0.0.0-stage`
+  placeholder; the real `0.1.0` stays hidden until a maintainer approves with
+  2FA. The credential is passed via an environment variable for one command and
+  never placed in repo files, history, logs, GitHub secrets or transcripts.
 - **Trusted-publisher limits reconciled (§6.3):** the npm website allows **up
   to 10 trusted publisher connections per package** (independently
   add/deleted); the CLI reference still says one per package. Where the two
