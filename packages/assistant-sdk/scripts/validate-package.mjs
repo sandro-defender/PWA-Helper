@@ -14,8 +14,8 @@
  *   - source hygiene: relative imports only, nothing escapes the package root
  *   - publishability and release gates (prepublishOnly authorization + the
  *     sdk-release-prep workflow's manual-only trigger, confirm input, approval
- *     variable, protected environment, secret reference and publish
- *     authorization env)
+ *     variable, protected environment, OIDC trusted-publishing configuration
+ *     and publish authorization env)
  *
  * Exits 1 on failure.
  */
@@ -112,6 +112,19 @@ if (pkg.publishConfig && pkg.publishConfig.access === 'public') {
   pass('publishConfig.access is "public" (required for the first scoped publish)');
 } else {
   fail('publishConfig.access must be "public" so an approved scoped release does not default to restricted');
+}
+
+// npm Trusted Publishing (OIDC) requires the package's repository.url to
+// exactly match the GitHub repository that publishes it (npm validates this
+// against the trusted publisher and provenance reuses the same identity).
+if (
+  pkg.repository &&
+  typeof pkg.repository.url === 'string' &&
+  /github\.com\/sandro-defender\/you-ge-assistant(\.git)?$/.test(pkg.repository.url)
+) {
+  pass('repository.url points at the canonical GitHub repository (required for npm OIDC trusted publishing)');
+} else {
+  fail('repository.url must point at https://github.com/sandro-defender/you-ge-assistant for npm OIDC trusted publishing');
 }
 
 /* 2. Version synchronization ---------------------------------------------- */
@@ -351,13 +364,29 @@ if (process.env.npm_lifecycle_event === 'prepublishOnly') {
 const workflowPath = join(repoRoot, '.github', 'workflows', 'sdk-release-prep.yml');
 if (existsSync(workflowPath)) {
   const workflow = readFileSync(workflowPath, 'utf8');
+
+  // Slice out the `publish:` job block so the OIDC gates are checked against
+  // the job that actually publishes — never the whole file (the `verify` job
+  // must stay completely publish-free).
+  const publishBlock = (() => {
+    const start = workflow.indexOf('\n  publish:');
+    if (start === -1) return '';
+    const rest = workflow.slice(start);
+    const nextJob = rest.slice(1).search(/\n  \S/);
+    return nextJob === -1 ? rest : rest.slice(0, nextJob + 1);
+  })();
+
   const gates = [
     ['workflow_dispatch-only trigger', /^on:\s*\n\s+workflow_dispatch:/m.test(workflow) && !/^\s+(push|pull_request):/m.test(workflow)],
     ['confirm_publish explicit-authorization input', workflow.includes('confirm_publish')],
     ['SDK_RELEASE_ENABLED approval variable', workflow.includes('SDK_RELEASE_ENABLED')],
-    ['sdk-npm-publish protected environment', workflow.includes('environment: sdk-npm-publish')],
-    ['NPM_TOKEN secret reference (value never committed)', workflow.includes('secrets.NPM_TOKEN')],
+    ['sdk-npm-publish protected environment', publishBlock.includes('environment: sdk-npm-publish')],
     ['SDK_RELEASE_CONFIRM publish authorization (set only by the publish job)', workflow.includes('SDK_RELEASE_CONFIRM: publish')],
+    ['OIDC: id-token write permission on the publish job', /id-token:\s*write/.test(publishBlock)],
+    ['OIDC: npm public registry URL on the publish job', /registry-url:\s*https:\/\/registry\.npmjs\.org/.test(publishBlock)],
+    ['OIDC: GitHub-hosted runner for the publish job', /runs-on:\s*ubuntu-latest/.test(publishBlock)],
+    ['OIDC: Node >= 22.14 toolchain (publish job pins Node 24)', /node-version:\s*24/.test(publishBlock)],
+    ['OIDC: no long-lived NPM_TOKEN / NODE_AUTH_TOKEN secret anywhere', !/NODE_AUTH_TOKEN|secrets\.NPM_TOKEN/.test(workflow)],
   ];
   let gatesOk = true;
   for (const [name, ok] of gates) {
@@ -368,7 +397,7 @@ if (existsSync(workflowPath)) {
     }
   }
   if (gatesOk) {
-    note('publishing stays disabled until the owner completes the runbook (RELEASE.md §4 steps 3-5)');
+    note('publishing stays disabled until the owner completes the runbook (RELEASE.md §4 steps 3-5 and §6 OIDC trusted publishing)');
   }
 } else {
   fail('release workflow .github/workflows/sdk-release-prep.yml is missing');

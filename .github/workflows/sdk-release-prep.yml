@@ -6,7 +6,7 @@ name: sdk-release-prep
 #   on push, pull_request or merge.
 # - The `verify` job is the full release checklist: static checks, SDK tests,
 #   build/sync verification, package validation, version validation and a pack
-#   dry-run.
+#   dry-run. It NEVER publishes.
 # - The `publish` job is STRUCTURE ONLY and stays disabled until a release is
 #   explicitly approved. It requires ALL of:
 #     1. manual dispatch with action=publish and confirm_publish=publish
@@ -14,15 +14,22 @@ name: sdk-release-prep
 #     3. the protected `sdk-npm-publish` environment with required reviewers
 #        (create it BEFORE any publish run — GitHub auto-creates an
 #        unprotected environment on first use otherwise)
-#     4. an NPM_TOKEN repository secret (configure at publish time only)
+#     4. npm Trusted Publishing (OIDC) configured for this package on npmjs.com:
+#        GitHub Actions publisher → owner `sandro-defender`, repo
+#        `you-ge-assistant`, workflow filename `sdk-release-prep.yml`,
+#        environment `sdk-npm-publish`. No long-lived npm token secret is used
+#        anywhere — the runner mints a short-lived OIDC token
+#        (`id-token: write`) that npm exchanges for a publish token.
 #     5. the SDK_RELEASE_CONFIRM env that this publish job injects — the
 #        package's prepublishOnly refuses any npm publish without it, so a
 #        stray direct `npm publish` can never release the package
 #   The 0.1.0 release PR satisfied the former package-level requirement
 #   ("private": true removed per the runbook); gates 1-5 remain closed.
-#   Releases are signed with npm provenance (--provenance + id-token: write).
-#   See packages/assistant-sdk/RELEASE.md for the full runbook. Never commit
-#   tokens; NPM_TOKEN lives only as an encrypted Actions secret.
+#   Provenance attestations are generated automatically by npm over OIDC
+#   (--provenance is kept explicit). OIDC trusted publishing requires
+#   npm CLI >= 11.5.1 and Node >= 22.14.0, so the publish job pins Node 24 and
+#   guards the npm version. See packages/assistant-sdk/RELEASE.md §6.
+#   Never commit tokens; OIDC needs none.
 
 on:
   workflow_dispatch:
@@ -103,24 +110,38 @@ jobs:
     environment: sdk-npm-publish
     permissions:
       contents: read
-      id-token: write   # npm provenance (trusted publishing) when configured
+      id-token: write   # npm Trusted Publishing (OIDC) — required
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+
+      - name: Verify npm CLI supports OIDC trusted publishing
+        run: |
+          set -euo pipefail
+          npm -v | awk -F. '
+            $1 < 11 || ($1 == 11 && ($2 < 5 || ($2 == 5 && $3 < 1))) {
+              print "::error::npm >= 11.5.1 is required for npm Trusted Publishing (OIDC); found " $0
+              exit 1
+            }
+            { print "npm " $0 " satisfies the npm Trusted Publishing requirement (>= 11.5.1)" }
+          '
 
       - name: Final package validation
         run: node packages/assistant-sdk/scripts/validate-package.mjs
 
-      - name: Publish to npm (requires explicit release approval)
+      - name: Publish to npm via OIDC trusted publishing (requires explicit release approval)
         run: npm publish --access public --provenance
         working-directory: packages/assistant-sdk
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           # Explicit publish authorization: prepublishOnly refuses any npm
           # publish that lacks this variable, so a stray direct `npm publish`
           # outside this gated job can never release the package.
+          # NOTE: deliberately no npm auth token is set here — npm
+          # authenticates with the short-lived OIDC token minted by
+          # `id-token: write` above (npm Trusted Publishing).
           SDK_RELEASE_CONFIRM: publish

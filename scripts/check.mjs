@@ -848,9 +848,24 @@ contract(designSource.includes('## 9. Phase 2 — `@youge/assistant-sdk`'), 'DES
 const releaseWorkflow = readFileSync(at('.github/workflows/sdk-release-prep.yml'), 'utf8');
 contract(/^on:\s*\n\s+workflow_dispatch:/m.test(releaseWorkflow), 'sdk-release-prep triggers on workflow_dispatch only');
 contract(!/^\s+(push|pull_request):/m.test(releaseWorkflow), 'sdk-release-prep never triggers on push or pull_request');
-for (const gate of ['SDK_RELEASE_ENABLED', 'confirm_publish', 'environment: sdk-npm-publish', 'secrets.NPM_TOKEN', 'SDK_RELEASE_CONFIRM: publish']) {
+for (const gate of [
+  'SDK_RELEASE_ENABLED',
+  'confirm_publish',
+  'environment: sdk-npm-publish',
+  'id-token: write',
+  'registry-url: https://registry.npmjs.org',
+  'SDK_RELEASE_CONFIRM: publish',
+]) {
   contract(releaseWorkflow.includes(gate), `sdk-release-prep publishing gate present: ${gate}`);
 }
+contract(
+  !/NODE_AUTH_TOKEN|secrets\.NPM_TOKEN/.test(releaseWorkflow),
+  'sdk-release-prep publish path authenticates via npm OIDC trusted publishing (no long-lived NPM_TOKEN / NODE_AUTH_TOKEN)',
+);
+contract(
+  /node-version:\s*24/.test(releaseWorkflow),
+  'sdk-release-prep publish job pins Node 24 (npm >= 11.5.1 / Node >= 22.14 required for OIDC trusted publishing)',
+);
 contract(typeof sdkPkg.scripts?.prepublishOnly === 'string', 'SDK package keeps prepublishOnly validation as the final publish net');
 
 function listSdkSourceFiles(dir, acc = []) {

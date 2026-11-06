@@ -1,5 +1,36 @@
 # Changelog
 
+## Unreleased — migrate SDK publishing to npm Trusted Publishing (OIDC)
+
+- **Publishing authentication migrated from a long-lived npm token to npm
+  Trusted Publishing (OIDC).** `.github/workflows/sdk-release-prep.yml` now
+  authenticates the publish job with a short-lived OIDC token minted by
+  `id-token: write`; **no npm token secret is used or stored anywhere** (the
+  publish step sets only `SDK_RELEASE_CONFIRM`).
+- **Publish toolchain pinned to the official OIDC requirements:** the publish
+  job runs Node `24` (Node ≥ 22.14.0 / npm ≥ 11.5.1), sets
+  `registry-url: https://registry.npmjs.org` and `package-manager-cache: false`,
+  and adds a guard step that fails the run unless npm ≥ 11.5.1.
+- **All existing safeguards preserved:** manual `workflow_dispatch` only;
+  `action=publish` **and** `confirm_publish=publish`; `SDK_RELEASE_ENABLED =
+  'true'`; the protected `sdk-npm-publish` environment with required reviewers;
+  and the `prepublishOnly` `SDK_RELEASE_CONFIRM=publish` authorization.
+  `action=verify` remains completely non-publishing.
+- **Enforcement extended:** `packages/assistant-sdk/scripts/validate-package.mjs`
+  and the standing contracts in `scripts/check.mjs` now also require the OIDC
+  configuration (`id-token: write`, registry URL, hosted runner, Node 24, no
+  token anywhere, canonical `repository.url`); `tests/release-gates.test.mjs`
+  gains mutation coverage proving that re-adding a token fails validation.
+- **Documentation:** `packages/assistant-sdk/RELEASE.md` gains §6 (OIDC
+  requirements, workflow configuration, trusted-publisher registration, and the
+  first-publish bootstrap caveat — a trusted publisher can only be configured
+  for a package that already exists on the registry); §3/§4/§5/§7/§8 updated.
+  Verified with **149/149** tests passing.
+
+> **Not published.** The package remains unpublished; no secrets, environments,
+> variables, tags or releases were created or changed. The trusted-publisher
+> registration and the first-publish bootstrap are owner actions.
+
 ## 0.1.0 — 2026-11-06 (initial release)
 
 First release of **`@youge/assistant-sdk`** — the framework-independent SDK
