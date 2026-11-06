@@ -15,8 +15,12 @@ name: sdk-release-prep
 #        (create it BEFORE any publish run — GitHub auto-creates an
 #        unprotected environment on first use otherwise)
 #     4. an NPM_TOKEN repository secret (configure at publish time only)
+#     5. the SDK_RELEASE_CONFIRM env that this publish job injects — the
+#        package's prepublishOnly refuses any npm publish without it, so a
+#        stray direct `npm publish` can never release the package
 #   The 0.1.0 release PR satisfied the former package-level requirement
-#   ("private": true removed per the runbook); gates 1-4 remain closed.
+#   ("private": true removed per the runbook); gates 1-5 remain closed.
+#   Releases are signed with npm provenance (--provenance + id-token: write).
 #   See packages/assistant-sdk/RELEASE.md for the full runbook. Never commit
 #   tokens; NPM_TOKEN lives only as an encrypted Actions secret.
 
@@ -108,11 +112,15 @@ jobs:
           node-version: 22
           registry-url: https://registry.npmjs.org
 
-      - name: Final package validation (release context)
-        run: node packages/assistant-sdk/scripts/validate-package.mjs --release-context
+      - name: Final package validation
+        run: node packages/assistant-sdk/scripts/validate-package.mjs
 
       - name: Publish to npm (requires explicit release approval)
-        run: npm publish --access public
+        run: npm publish --access public --provenance
         working-directory: packages/assistant-sdk
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          # Explicit publish authorization: prepublishOnly refuses any npm
+          # publish that lacks this variable, so a stray direct `npm publish`
+          # outside this gated job can never release the package.
+          SDK_RELEASE_CONFIRM: publish

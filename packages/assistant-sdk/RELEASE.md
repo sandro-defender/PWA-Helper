@@ -189,8 +189,10 @@ decided the registry ([§3](#3-publishing-destination-evaluation)).
    [§7](#7-required-follow-ups-before-the-first-publish).**
 4. **Publish** — run the `sdk-release-prep` workflow with `action: publish`
    and `confirm_publish: publish`. The publish job runs only with all gates
-   from step 3 and only on this manual dispatch. **Status: NOT DONE — no
-   authorization to publish has been given.**
+   from step 3 and only on this manual dispatch. Direct `npm publish` is
+   refused: the `prepublishOnly` hook aborts any publish attempt that lacks
+   the `SDK_RELEASE_CONFIRM` authorization injected by this job. **Status:
+   NOT DONE — no authorization to publish has been given.**
 5. **Post-publish smoke test** — `npm view @youge/assistant-sdk version`,
    install the exact version in a scratch project and in staff.you.ge's
    lockfile (see [`MIGRATION.md`](MIGRATION.md)). **Status: pending step 4.**
@@ -207,15 +209,20 @@ job requires **all** of them at once.
 
 | Gate | Mechanism | State |
 | --- | --- | --- |
-| Workflow trigger | `sdk-release-prep.yml` runs on `workflow_dispatch` **only** (never on push/PR/merge) | **Closed** |
+| Workflow trigger | `sdk-release-prep.yml` runs on `workflow_dispatch` **only** (never on push/PR/merge/tag) | **Closed** |
 | Explicit authorization | Publish requires manual `action=publish` **and** `confirm_publish=publish` **and** `SDK_RELEASE_ENABLED = 'true'` (the approval variable is not set; repository variables are not readable by this automation — treat as unset) | **Closed** |
 | Protected environment | `sdk-npm-publish` with required reviewers. **Verified missing (2026-11-06):** only the `github-pages` environment exists. Create `sdk-npm-publish` **with required reviewers before** any publish run — GitHub silently auto-creates an unprotected environment on first use otherwise | **Missing — owner action** |
 | Registry credential | `NPM_TOKEN` repository secret (masked). Nothing is committed; secret existence is not readable by this automation (HTTP 403) — configure at publish time only | **Missing — owner action** |
+| Package-level publish authorization | The `prepublishOnly` hook **refuses any `npm publish` that lacks `SDK_RELEASE_CONFIRM=publish`** — a variable injected only by the gated publish job. A stray direct `npm publish` (even by someone with npm org rights) aborts at `prepublishOnly` | **Closed** |
 
-Defense in depth: `prepublishOnly` re-runs the full package validation on any
-publish attempt, `validate-package.mjs` fails CI if any workflow gate is
-removed, and `npm publish` cannot succeed without the `NPM_TOKEN` credential
-regardless of workflow state.
+Defense in depth: `validate-package.mjs` fails CI if any workflow gate is
+removed (standing contracts in `scripts/check.mjs` and regression tests in
+`tests/release-gates.test.mjs` enforce this by mutation), and
+`npm publish` cannot succeed without the `NPM_TOKEN` credential regardless of
+workflow state. Honest limits: an actor who can edit the repository *and*
+holds npm publish rights can always bypass any in-repo guard (e.g.
+`npm publish --ignore-scripts`) — the real credential boundary is npm org
+membership; the guards above stop every accidental or ordinary path.
 
 ## 6. Verification results (2026-11-06)
 
@@ -244,6 +251,15 @@ regardless of workflow state.
 | GitHub environment inventory | ⚠️ `sdk-npm-publish` **missing** (only `github-pages`); owner action §7 |
 | `NPM_TOKEN` / `SDK_RELEASE_ENABLED` visibility | ⚠️ not readable by automation (HTTP 403); treat as unconfigured, owner verifies |
 | Consumer install smoke test (packed tarball, exact name/version) | ✅ see the release PR for the run log |
+
+### Independent pre-merge audit pass (PR #11 review)
+
+| Check | Result |
+| --- | --- |
+| Standing-contract mutation tests | ✅ `check.mjs` and `validate-package.mjs` both fail (exit 1, named gate) when any of the 5 workflow gates, the `prepublishOnly` script, or the release-ready version contract is removed/weakened |
+| Stray-publish refusal | ✅ `prepublishOnly` aborts `npm publish` without `SDK_RELEASE_CONFIRM=publish` (regression-tested in `tests/release-gates.test.mjs`) |
+| Provenance/OIDC consistency | ✅ `npm publish --access public --provenance` matches the granted `id-token: write` and the §3 provenance recommendation |
+| Runbook ↔ workflow accuracy | ✅ §4/§5 updated to describe the `SDK_RELEASE_CONFIRM` package-level gate; no-op `--release-context` flag removed from the workflow |
 
 ## 7. Required follow-ups (before the first publish)
 

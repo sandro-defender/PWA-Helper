@@ -12,9 +12,10 @@
  *   - package contents: files whitelist, npm pack list, README, LICENSE
  *   - dependency requirements: zero runtime deps, optional react peer only
  *   - source hygiene: relative imports only, nothing escapes the package root
- *   - publishability and release gates (prepublishOnly + the sdk-release-prep
- *     workflow's manual-only trigger, confirm input, approval variable,
- *     protected environment and secret reference)
+ *   - publishability and release gates (prepublishOnly authorization + the
+ *     sdk-release-prep workflow's manual-only trigger, confirm input, approval
+ *     variable, protected environment, secret reference and publish
+ *     authorization env)
  *
  * Exits 1 on failure.
  */
@@ -335,6 +336,18 @@ if (typeof pkg.scripts?.prepublishOnly === 'string') {
   fail('prepublishOnly script is missing — every publish attempt must re-run package validation');
 }
 
+// A real publish attempt (npm runs this script as prepublishOnly) must carry
+// the explicit authorization that only the gated sdk-release-prep publish job
+// sets. A stray local `npm publish` therefore fails prepublishOnly and aborts
+// (npm >= 7 aborts a publish when a lifecycle script exits non-zero).
+if (process.env.npm_lifecycle_event === 'prepublishOnly') {
+  if (process.env.SDK_RELEASE_CONFIRM === 'publish') {
+    pass('publish attempt carries the explicit SDK_RELEASE_CONFIRM authorization set by the gated release workflow');
+  } else {
+    fail('publish attempt without SDK_RELEASE_CONFIRM authorization — direct npm publish is refused; use the gated sdk-release-prep workflow (RELEASE.md §4 step 4)');
+  }
+}
+
 const workflowPath = join(repoRoot, '.github', 'workflows', 'sdk-release-prep.yml');
 if (existsSync(workflowPath)) {
   const workflow = readFileSync(workflowPath, 'utf8');
@@ -344,6 +357,7 @@ if (existsSync(workflowPath)) {
     ['SDK_RELEASE_ENABLED approval variable', workflow.includes('SDK_RELEASE_ENABLED')],
     ['sdk-npm-publish protected environment', workflow.includes('environment: sdk-npm-publish')],
     ['NPM_TOKEN secret reference (value never committed)', workflow.includes('secrets.NPM_TOKEN')],
+    ['SDK_RELEASE_CONFIRM publish authorization (set only by the publish job)', workflow.includes('SDK_RELEASE_CONFIRM: publish')],
   ];
   let gatesOk = true;
   for (const [name, ok] of gates) {

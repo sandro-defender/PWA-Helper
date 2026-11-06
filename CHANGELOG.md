@@ -23,7 +23,9 @@ never-published working name `@you-ge/assistant-sdk`).
 - **Packaging:** MIT license, progressive-disclosure README (quick start →
   subpath table → config/security pipeline → API reference → host-integration
   example), `files` whitelist (19 files, ~33 kB packed / ~132 kB unpacked),
-  `publishConfig.access: "public"`, `prepublishOnly` validation gate.
+  `publishConfig.access: "public"`, `prepublishOnly` validation **and**
+  publish-authorization gate (any `npm publish` without the gated workflow's
+  `SDK_RELEASE_CONFIRM` is refused).
 - **Release engineering:** `packages/assistant-sdk/scripts/validate-package.mjs`
   (identity, version sync, export map + declarations, tarball contents,
   dependency policy, source hygiene, publishing-gate checks) wired into

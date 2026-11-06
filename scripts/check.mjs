@@ -848,7 +848,7 @@ contract(designSource.includes('## 9. Phase 2 — `@youge/assistant-sdk`'), 'DES
 const releaseWorkflow = readFileSync(at('.github/workflows/sdk-release-prep.yml'), 'utf8');
 contract(/^on:\s*\n\s+workflow_dispatch:/m.test(releaseWorkflow), 'sdk-release-prep triggers on workflow_dispatch only');
 contract(!/^\s+(push|pull_request):/m.test(releaseWorkflow), 'sdk-release-prep never triggers on push or pull_request');
-for (const gate of ['SDK_RELEASE_ENABLED', 'confirm_publish', 'environment: sdk-npm-publish', 'secrets.NPM_TOKEN']) {
+for (const gate of ['SDK_RELEASE_ENABLED', 'confirm_publish', 'environment: sdk-npm-publish', 'secrets.NPM_TOKEN', 'SDK_RELEASE_CONFIRM: publish']) {
   contract(releaseWorkflow.includes(gate), `sdk-release-prep publishing gate present: ${gate}`);
 }
 contract(typeof sdkPkg.scripts?.prepublishOnly === 'string', 'SDK package keeps prepublishOnly validation as the final publish net');
