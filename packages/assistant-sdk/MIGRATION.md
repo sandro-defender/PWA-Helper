@@ -5,9 +5,11 @@
 > `staff.you.ge` PR #249).
 >
 > **Status:** `@youge/assistant-sdk@0.1.0` is **release-ready but not yet
-> published** (publication is the owner's runbook step, [`RELEASE.md`](RELEASE.md)
-> §4 steps 3–5). This is the migration plan; execute it only after the first
-> version appears on npm. Nothing in this document modifies `staff.you.ge`.
+> published** (publication is the owner's runbook, [`RELEASE.md`](RELEASE.md)
+> §4: staged via the GitHub Actions `stage` job, then published only when the
+> owner approves the stage on npmjs.com with 2FA). This is the migration plan;
+> execute it only after the first version appears on npm. Nothing in this
+> document modifies `staff.you.ge`.
 
 Compatibility references: **SDK `0.1.0`** (public API per [`README.md`](README.md)),
 **kit compatibility `1.0.5`** (`KIT_COMPAT_VERSION`), **config schema `1`**.

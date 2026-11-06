@@ -5,8 +5,11 @@
 - **Publishing authentication migrated from a long-lived npm token to npm
   Trusted Publishing (OIDC).** `.github/workflows/sdk-release-prep.yml` now
   authenticates the publish job with a short-lived OIDC token minted by
-  `id-token: write`; **no npm token secret is used or stored anywhere** (the
-  publish step sets only `SDK_RELEASE_CONFIRM`).
+  `id-token: write`; the publish step sets only `SDK_RELEASE_CONFIRM` and the
+  verify and OIDC publish paths use **no npm token at all** (the only npm
+  token this repository ever references is the temporary first-publication
+  `NPM_STAGE_TOKEN` stage-only bootstrap described below — never on the OIDC
+  path).
 - **Publish toolchain pinned to the official OIDC requirements:** the publish
   job runs Node `24` (Node ≥ 22.14.0 / npm ≥ 11.5.1), sets
   `registry-url: https://registry.npmjs.org` and `package-manager-cache: false`,
@@ -54,8 +57,10 @@
   <stage-id>` accepts an optional `--otp <code>` and otherwise prompts
   interactively. Staging a new package publishes a public `0.0.0-stage`
   placeholder; the real `0.1.0` stays hidden until a maintainer approves with
-  2FA. The credential is passed via an environment variable for one command and
-  never placed in repo files, history, logs, GitHub secrets or transcripts.
+  2FA. The credential is supplied only to the stage job's staging step and
+  never placed in repo files, history, logs, artifacts or transcripts; its
+  only permitted storage is the dedicated `NPM_STAGE_TOKEN` Actions secret,
+  deleted immediately after staging.
 - **Trusted-publisher limits reconciled (§6.3):** the npm website allows **up
   to 10 trusted publisher connections per package** (independently
   add/deleted); the CLI reference still says one per package. Where the two
@@ -64,12 +69,37 @@
   re-create), automatic provenance over OIDC (no `--provenance` flag needed),
   dist-tag permission (npm ≥ 11.21.0 / 12.2.0) and stage-only as the
   maximum-security posture.
+- **First publication staged from GitHub Actions — no PC terminal.**
+  `sdk-release-prep.yml` gains a manual-only `stage` job: dispatch with
+  `action=stage` **and** `confirm_stage=stage` **from `main`**, after the full
+  `verify` job, inside the existing protected `sdk-npm-publish` environment,
+  on `ubuntu-latest` with `permissions: contents: read` only (**no
+  `id-token: write`**). It guards **npm ≥ 11.15.0** (staged-publishing
+  requirement), runs the package validator immediately before
+  `npm stage publish --access public` from `packages/assistant-sdk`, and
+  authenticates with the dedicated repository secret **`NPM_STAGE_TOKEN`**
+  (granular token: *Read and write (stage only)*, `@youge` scope, Bypass 2FA
+  off — owner-created; the exact setup-node `registry-url` →
+  `NODE_AUTH_TOKEN` mechanism, verified against GitHub's and npm's docs).
+  `SDK_RELEASE_CONFIRM=publish` is set only for the staging command because
+  `npm stage publish` executes the publish lifecycle. The job **stages, never
+  publishes**: no `npm publish`, no `npm stage approve`/`reject`, no
+  `SDK_RELEASE_ENABLED`; its run summary reports the **stage ID**, the
+  **staged-NOT-published** state, the possible public **`0.0.0-stage`
+  placeholder**, and the owner's approval (npmjs.com → Staged Packages →
+  Approve with 2FA), revocation and OIDC-migration steps. `RELEASE.md` §4/§6.2/
+  §6.4 now document the full procedure (token → secret → dispatch → approve →
+  revoke → OIDC); verify and OIDC publishing keep using **no npm token**.
 - **Enforcement extended:** `validate-package.mjs` and the standing contracts
   in `scripts/check.mjs` now also require the OIDC configuration (`id-token:
-  write`, registry URL, hosted runner, Node 24, no token anywhere, canonical
-  `repository.url`), plus structural contracts — **the `verify` job never
-  publishes**, **`SDK_RELEASE_ENABLED` is never hardcoded**, and **the
-  workflow never claims direct publishing is impossible**.
+  write`, registry URL, hosted runner, Node 24, canonical `repository.url`),
+  the stage-job gates (manual-only + `confirm_stage`, `refs/heads/main`,
+  `needs: verify`, protected environment, least-privilege, dedicated
+  `NPM_STAGE_TOKEN` as env only, `npm stage publish` only, no approve/reject,
+  staged-NOT-published summary), token references confined to the stage job,
+  plus structural contracts — **the `verify` job never publishes**, **the
+  workflow never claims direct publishing is impossible**, and no token
+  material (`npm_…` values or `.npmrc`) exists anywhere in the repository.
   `tests/release-gates.test.mjs` gains mutation coverage for the first two; the
   new `tests/release-security-wording.test.mjs` locks in the corrected security
   wording.
@@ -121,9 +151,9 @@ never-published working name `@you-ge/assistant-sdk`).
   [`packages/assistant-sdk/MIGRATION.md`](packages/assistant-sdk/MIGRATION.md).
 
 Release prepared per [`RELEASE.md`](packages/assistant-sdk/RELEASE.md) §4;
-npm publication is executed separately by the repository owner (runbook
-steps 3–5) and is **not** claimed by this entry. The detailed development log
-follows under *Unreleased*.
+npm publication is executed separately by the repository owner (runbook §4 —
+staged via GitHub Actions, then approved on npmjs.com) and is **not** claimed
+by this entry. The detailed development log follows under *Unreleased*.
 
 ## Unreleased
 

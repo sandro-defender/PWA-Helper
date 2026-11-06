@@ -6,7 +6,32 @@ name: sdk-release-prep
 #   on push, pull_request or merge.
 # - The `verify` job is the full release checklist: static checks, SDK tests,
 #   build/sync verification, package validation, version validation and a pack
-#   dry-run. It NEVER publishes.
+#   dry-run. It NEVER publishes and never uses any npm token.
+# - The `stage` job is the FIRST-PUBLICATION BOOTSTRAP only: it runs
+#   `npm stage publish` with the dedicated, temporary, stage-only granular npm
+#   token stored in the repository Actions secret `NPM_STAGE_TOKEN`
+#   (owner-created on npmjs.com, revoking it right after staging — see
+#   packages/assistant-sdk/RELEASE.md §4/§6.4). Staging does NOT publish: the
+#   real version (0.1.0) stays hidden until the owner approves it on npmjs.com
+#   with 2FA, and staging a brand-new package may first expose a public
+#   `0.0.0-stage` placeholder. The job requires ALL of:
+#     1. manual dispatch with action=stage and confirm_stage=stage
+#     2. github.ref == refs/heads/main (never on untrusted branches)
+#     3. the full `verify` job having succeeded first (needs: verify)
+#     4. the protected `sdk-npm-publish` environment (owner-configured with
+#        required reviewers — the existing environment; never recreated)
+#     5. npm CLI >= 11.15.0 (staged-publishing requirement) — guarded below
+#     6. the package validator immediately before staging
+#   It sets no `SDK_RELEASE_ENABLED`, never runs `npm publish`, and never
+#   approves, rejects or promotes a stage — approval is the owner's decision
+#   on npmjs.com (or interactively with 2FA), never this workflow's. The token
+#   is injected ONLY as the `NODE_AUTH_TOKEN` env var of the staging step (the
+#   exact mechanism `actions/setup-node` configures via `registry-url` — see
+#   the step comment) and is never echoed, interpolated into command text,
+#   persisted or uploaded. After staging, the owner approves 0.1.0 (that — and
+#   only that — publishes it), revokes the token, deletes `NPM_STAGE_TOKEN`,
+#   then registers npm Trusted Publishing for the `publish` job (§6.3) so all
+#   later releases are tokenless OIDC.
 # - The `publish` job is STRUCTURE ONLY and stays disabled until a release is
 #   explicitly approved. It requires ALL of:
 #     1. manual dispatch with action=publish and confirm_publish=publish
@@ -17,9 +42,9 @@ name: sdk-release-prep
 #     4. npm Trusted Publishing (OIDC) configured for this package on npmjs.com:
 #        GitHub Actions publisher → owner `sandro-defender`, repo
 #        `you-ge-assistant`, workflow filename `sdk-release-prep.yml`,
-#        environment `sdk-npm-publish`. No long-lived npm token secret is used
-#        anywhere — the runner mints a short-lived OIDC token
-#        (`id-token: write`) that npm exchanges for a publish token.
+#        environment `sdk-npm-publish`. No npm token secret is used on this
+#        path — the runner mints a short-lived OIDC token (`id-token: write`)
+#        that npm exchanges for a publish token.
 #     5. the SDK_RELEASE_CONFIRM env that this publish job injects — the
 #        package's prepublishOnly refuses an npm publish without it. This is
 #        an accidental-publish guard only: it does NOT make direct publishing
@@ -31,18 +56,25 @@ name: sdk-release-prep
 #   (--provenance is kept explicit). OIDC trusted publishing requires
 #   npm CLI >= 11.5.1 and Node >= 22.14.0, so the publish job pins Node 24 and
 #   guards the npm version. See packages/assistant-sdk/RELEASE.md §6.
-#   Never commit tokens; OIDC needs none.
+#   Never commit tokens. The only npm token this repository ever references is
+#   the temporary stage-only bootstrap `NPM_STAGE_TOKEN`, used exclusively by
+#   the stage job and revoked/deleted after the first staging; verify and OIDC
+#   publishing use none.
 
 on:
   workflow_dispatch:
     inputs:
       action:
-        description: 'verify = full release checklist without publishing. publish = reserved for explicitly approved releases (see workflow header).'
+        description: 'verify = full release checklist without publishing. stage = stage the first publication for owner approval on npm (see workflow header). publish = reserved for explicitly approved releases (see workflow header).'
         type: choice
-        options: [verify, publish]
+        options: [verify, stage, publish]
         default: verify
       confirm_publish:
-        description: 'For action=publish only: type "publish" to confirm. Ignored for verify.'
+        description: 'For action=publish only: type "publish" to confirm. Ignored for verify and stage.'
+        required: false
+        default: ''
+      confirm_stage:
+        description: 'For action=stage only: type "stage" to confirm. Ignored for verify and publish.'
         required: false
         default: ''
 
@@ -147,3 +179,97 @@ jobs:
           # authenticates with the short-lived OIDC token minted by
           # `id-token: write` above (npm Trusted Publishing).
           SDK_RELEASE_CONFIRM: publish
+
+  stage:
+    name: Stage first publication for owner approval (never publishes)
+    needs: verify
+    # FIRST-PUBLICATION BOOTSTRAP ONLY — see the workflow header. Runs only on
+    # an explicit manual dispatch (action=stage + confirm_stage=stage) from
+    # main, after the full verify job succeeded, inside the protected
+    # `sdk-npm-publish` environment. Never runs on push, pull_request or
+    # merge — this workflow has no such triggers, so the stage-only token is
+    # never exposed to pull-request or untrusted-branch workflows.
+    if: >-
+      github.event.inputs.action == 'stage' &&
+      github.event.inputs.confirm_stage == 'stage' &&
+      github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: sdk-npm-publish
+    permissions:
+      contents: read   # least privilege — no id-token: staging needs no OIDC
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+
+      - name: Verify npm CLI supports staged publishing (npm >= 11.15.0)
+        run: |
+          set -euo pipefail
+          npm -v | awk -F. '
+            $1 < 11 || ($1 == 11 && $2 < 15) {
+              print "::error::npm >= 11.15.0 is required for npm stage publish; found " $0
+              exit 1
+            }
+            { print "npm " $0 " satisfies the staged-publishing requirement (>= 11.15.0)" }
+          '
+
+      - name: Final package validation
+        run: node packages/assistant-sdk/scripts/validate-package.mjs
+
+      - name: Stage the package version for owner approval (npm stage publish)
+        id: stage
+        working-directory: packages/assistant-sdk
+        env:
+          # Exact supported authentication (verified against the official
+          # GitHub + npm docs, not assumed): actions/setup-node with
+          # `registry-url` writes an .npmrc that reads the auth token from the
+          # NODE_AUTH_TOKEN environment variable, so the token is supplied
+          # here — only for this step, only inside the protected
+          # `sdk-npm-publish` environment. The value is the dedicated
+          # stage-only granular token (Read and write (stage only), scoped to
+          # @youge, bypass 2FA disabled): a direct publish with it is rejected
+          # by npm (E_STAGE_REQUIRED), and it is never echoed, written to a
+          # file, persisted or uploaded.
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_STAGE_TOKEN }}
+          # `npm stage publish` runs the publish lifecycle, so the package's
+          # prepublishOnly guard requires its explicit authorization here too.
+          # Accidental-publish guard only (see workflow header).
+          SDK_RELEASE_CONFIRM: publish
+        run: |
+          set -euo pipefail
+          out="$(npm stage publish --access public 2>&1)"
+          printf '%s\n' "$out"
+          stage_id="$(printf '%s\n' "$out" | sed -n 's/.*staged with id \([0-9A-Za-z-]*\).*/\1/p' | tail -n 1)"
+          if [ -z "${stage_id}" ]; then
+            echo "::warning::Stage ID not found in the npm output — find it on npmjs.com (Staged Packages tab) or with npm stage list."
+          fi
+          echo "stage_id=${stage_id}" >> "$GITHUB_OUTPUT"
+
+      - name: Owner review instructions (staged — NOT published)
+        env:
+          STAGE_ID: ${{ steps.stage.outputs.stage_id }}
+        run: |
+          version="$(node -p "require('./packages/assistant-sdk/package.json').version")"
+          {
+            echo "## Staged: @youge/assistant-sdk@${version} — NOT published"
+            echo ""
+            echo "This run only **staged** the version. Nothing is public yet:"
+            echo ""
+            echo "- **${version} will not install until you approve it** — staging never publishes by itself."
+            echo "- Brand-new package: a public **\`0.0.0-stage\` placeholder** may already appear on the package page; that is expected. The real ${version} and its contents stay hidden until approval."
+            echo "- Stage ID: \`${STAGE_ID:-see the Staged Packages tab}\`"
+            echo ""
+            echo "### Owner: approve ${version} (this — and only this — publishes it)"
+            echo ""
+            echo "1. Sign in to npmjs.com with the publishing account (2FA required)."
+            echo "2. Open the package page, **Staged Packages** tab, and review the staged ${version}."
+            echo "3. Click **Approve** and complete the 2FA prompt; npm then publishes ${version}. (The CLI alternative is documented in RELEASE.md §6.4.)"
+            echo "4. Immediately revoke the bootstrap credential: delete the repository secret \`NPM_STAGE_TOKEN\` and delete the granular token on npmjs.com (Access Tokens)."
+            echo "5. Then register npm Trusted Publishing for this workflow (RELEASE.md §6.3) so later releases go out via OIDC with no token."
+            echo ""
+            echo "This workflow only stages: it never publishes and never approves or rejects a stage."
+          } >> "$GITHUB_STEP_SUMMARY"

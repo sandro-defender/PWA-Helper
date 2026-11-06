@@ -10,9 +10,12 @@
  *   2. `SDK_RELEASE_CONFIRM` / `confirm_publish` / `SDK_RELEASE_ENABLED` are
  *      accidental-publish guards, never described as making direct publishing
  *      impossible.
- *   3. The first publish of a new package uses a minimum-permission granular
- *      access token (stage-only preferred), revoked immediately — never a
- *      credential committed, logged or stored in a secret.
+ *   3. The first publish of a new package is STAGED by the manual GitHub
+ *      Actions `stage` job with a minimum-permission granular stage-only
+ *      token (scoped to @youge, bypass 2FA off) stored only in the dedicated
+ *      `NPM_STAGE_TOKEN` Actions secret — a temporary bootstrap credential
+ *      revoked immediately after staging; verify runs and OIDC publishing
+ *      still use no token at all, and no token value is ever committed.
  *   4. The trusted-publisher limit follows the npm website (up to 10
  *      connections per package), not the stale CLI reference (one per package).
  *   5. A manual first publish carries no OIDC provenance.
@@ -125,6 +128,33 @@ test('runbook must state that Bypass 2FA is not needed for staging', () => {
   assert.match(runbook, /No `Bypass 2FA` is needed/i);
 });
 
-test('runbook must state that GitHub Actions secrets are deliberately not used', () => {
-  assert.match(runbook, /GitHub Actions secrets are deliberately/i);
+test('runbook must document the NPM_STAGE_TOKEN GitHub Actions bootstrap as temporary', () => {
+  assert.match(runbookFlat, /NPM_STAGE_TOKEN/);
+  assert.match(runbookFlat, /GitHub Actions secret/i);
+  assert.match(runbookFlat, /temporary bootstrap credential/i);
+  assert.match(runbookFlat, /stage only/i);
+  assert.match(runbookFlat, /`@youge`/);
+  // The bootstrap is explicitly not the future publishing method: after the
+  // package exists, npm Trusted Publishing (OIDC) takes over.
+  assert.match(runbookFlat, /Trusted Publishing/);
+  assert.match(runbookFlat, /revok/i);
+});
+
+test('runbook must keep verify and OIDC publishing token-free', () => {
+  assert.match(runbookFlat, /verify[^.]{0,160}no npm token/i);
+  assert.match(runbookFlat, /OIDC[^.]{0,200}no npm token|no npm token[^.]{0,200}OIDC/i);
+});
+
+test('workflow must report staged-NOT-published with placeholder, approval and revocation instructions', () => {
+  assert.match(workflow, /0\.0\.0-stage/);
+  assert.match(workflow, /NOT published/);
+  assert.match(workflow, /Staged Packages/);
+  assert.match(workflow, /Approve/);
+  assert.match(workflow, /NPM_STAGE_TOKEN/);
+  assert.match(workflow, /revok/i);
+  // Staging must never be reported as a completed publication.
+  assert.doesNotMatch(workflow, /has been published|is published|published successfully/i);
+  // The workflow itself never runs the approve/reject commands.
+  const nonComment = workflow.split('\n').filter((line) => !/^\s*#/.test(line)).join('\n');
+  assert.doesNotMatch(nonComment, /npm\s+stage\s+(approve|reject)/);
 });
