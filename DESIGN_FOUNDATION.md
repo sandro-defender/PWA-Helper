@@ -420,3 +420,29 @@ changelog entry above the version log. Skill instructions read from
 `https://github.com/nextlevelbuilder/ui-ux-pro-max-skill`
 (`.claude/skills/ui-ux-pro-max/SKILL.md`); no skill data or generated catalog is
 committed.
+
+## 13. First-publication GitHub Actions staging (2026-11-06)
+
+The `ui-ux-pro-max-skill` instructions were located and read for this phase:
+the repository's own references (`AGENTS.md` — *"the `ui-ux-pro-max-skill` is
+mandatory for interface changes"* — and `DESIGN_FOUNDATION.md` §10–§12, plus
+`WIDGET.md` §`ui-ux-pro-max-skill`), and the skill's `SKILL.md` from
+`https://github.com/nextlevelbuilder/ui-ux-pro-max-skill` (clone not
+committed).
+
+**Applicability decision (following the skill's own guidance):** its *When to
+Apply* section says to skip the skill for *infrastructure/DevOps work that does
+not change how something looks, feels, moves or is interacted with*. This task
+— a GitHub Actions staging job, release-gate tests and runbook updates — is
+exactly that: no UI surface was added, changed or removed, and none may change.
+The skill's `--design-system` / `--domain` / `--stack` search workflow was
+therefore **not run**, consistent with the recorded decision for the OIDC
+migration (§10, *Phase 4*).
+
+**Documentation guidance applied instead** (the same pattern as §10/§12): status
+first (the RELEASE.md banner leads with *staged or published?* state), scannable
+decision/verification tables (§6.1 requirements, §7 implementation-pass table),
+atomic runbook steps with explicit per-step `Status:` guard states (§4 steps
+3–9), and explicit failure/guard wording in the workflow header (what the stage
+job can and cannot do, placeholder behaviour, revocation). No skill data or
+generated catalog was committed.

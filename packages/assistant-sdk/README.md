@@ -8,10 +8,13 @@ installation integration.
 > **Package status (0.1.0 — release-ready):** `@youge/assistant-sdk@0.1.0`
 > is extracted, tested, validated and prepared for publication to the public
 > npm registry (org `youge`, scope `@youge`). The release is **prepared but
-> not yet published**: publication is executed by the repository owner via
-> the approved runbook ([`RELEASE.md`](RELEASE.md) §4 steps 3–5) and is gated
-> by the manual-only `sdk-release-prep` workflow. Until then, consume it
-> locally via `"file:../packages/assistant-sdk"` or workspace linking.
+> not yet published**: the first publication is staged by the repository
+> owner through the manual-only `sdk-release-prep` workflow's `stage` job
+> (temporary stage-only secret) and becomes public only when the owner
+> approves the staged version on npmjs.com with 2FA — the approved runbook is
+> [`RELEASE.md`](RELEASE.md) §4; later releases publish via the OIDC job with
+> no npm token. Until then, consume it locally via
+> `"file:../packages/assistant-sdk"` or workspace linking.
 > Release procedure and registry decision: [`RELEASE.md`](RELEASE.md).
 > Vendored-copy → package migration (staff.you.ge): [`MIGRATION.md`](MIGRATION.md).
 

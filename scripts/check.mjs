@@ -848,10 +848,27 @@ contract(designSource.includes('## 9. Phase 2 — `@youge/assistant-sdk`'), 'DES
 const releaseWorkflow = readFileSync(at('.github/workflows/sdk-release-prep.yml'), 'utf8');
 contract(/^on:\s*\n\s+workflow_dispatch:/m.test(releaseWorkflow), 'sdk-release-prep triggers on workflow_dispatch only');
 contract(!/^\s+(push|pull_request):/m.test(releaseWorkflow), 'sdk-release-prep never triggers on push or pull_request');
+
+// Job-block extraction (same slicing as validate-package.mjs) so each gate is
+// checked against the job it belongs to.
+const releaseJobBlock = (job) => {
+  const start = releaseWorkflow.indexOf(`\n  ${job}:`);
+  if (start === -1) return '';
+  const rest = releaseWorkflow.slice(start);
+  const nextJob = rest.slice(1).search(/\n  \S/);
+  return nextJob === -1 ? rest : rest.slice(0, nextJob + 1);
+};
+const withoutCommentLines = (text) =>
+  text.split('\n').filter((line) => !/^\s*#/.test(line)).join('\n');
+const releasePublishBlock = releaseJobBlock('publish');
+const releaseStageBlock = withoutCommentLines(releaseJobBlock('stage'));
+const releaseNonComment = withoutCommentLines(releaseWorkflow);
+const releaseWithoutStage = releaseWorkflow.replace(releaseJobBlock('stage'), '');
+
 for (const gate of [
   'SDK_RELEASE_ENABLED',
   'confirm_publish',
-  'environment: sdk-npm-publish',
+  'confirm_stage',
   'id-token: write',
   'registry-url: https://registry.npmjs.org',
   'SDK_RELEASE_CONFIRM: publish',
@@ -859,32 +876,76 @@ for (const gate of [
   contract(releaseWorkflow.includes(gate), `sdk-release-prep publishing gate present: ${gate}`);
 }
 contract(
-  !/NODE_AUTH_TOKEN|secrets\.NPM_TOKEN/.test(releaseWorkflow),
-  'sdk-release-prep publish path authenticates via npm OIDC trusted publishing (no long-lived NPM_TOKEN / NODE_AUTH_TOKEN)',
+  releasePublishBlock.includes('environment: sdk-npm-publish'),
+  'sdk-release-prep publishing gate present: environment: sdk-npm-publish',
+);
+// No npm token anywhere except the dedicated stage job: the OIDC publish path
+// and verify authenticate without any stored credential, and the stage-only
+// bootstrap (`NPM_STAGE_TOKEN`) may appear only inside the stage job.
+contract(
+  !/NODE_AUTH_TOKEN|secrets\.NPM_TOKEN/.test(withoutCommentLines(releaseWithoutStage)),
+  'sdk-release-prep publish path authenticates via npm OIDC trusted publishing (no long-lived NPM_TOKEN / NODE_AUTH_TOKEN outside the stage job)',
 );
 contract(
   /node-version:\s*24/.test(releaseWorkflow),
   'sdk-release-prep publish job pins Node 24 (npm >= 11.5.1 / Node >= 22.14 required for OIDC trusted publishing)',
 );
 
+// First-publication `stage` job: manual-only with its own confirmation, after
+// verification, inside the protected environment, least-privilege, dedicated
+// secret only, staging only (never publish / approve / reject).
+contract(
+  releaseStageBlock.includes("action == 'stage'") &&
+    releaseStageBlock.includes("confirm_stage == 'stage'"),
+  'sdk-release-prep stage job requires explicit action=stage + confirm_stage=stage dispatch',
+);
+contract(/refs\/heads\/main/.test(releaseStageBlock), 'sdk-release-prep stage job runs from main only (never untrusted branches)');
+contract(/needs:\s*verify\b/.test(releaseStageBlock), 'sdk-release-prep stage job depends on the verify job');
+contract(
+  releaseStageBlock.includes('environment: sdk-npm-publish'),
+  'sdk-release-prep stage job uses the protected sdk-npm-publish environment',
+);
+contract(
+  /contents:\s*read/.test(releaseStageBlock) && !/id-token:\s*write/.test(releaseStageBlock),
+  'sdk-release-prep stage job stays least-privilege (contents: read, no id-token: write)',
+);
+contract(
+  releaseStageBlock.includes('npm stage publish') && !/npm\s+publish/.test(releaseStageBlock),
+  'sdk-release-prep stage job stages with npm stage publish and never runs npm publish',
+);
+contract(
+  !/npm\s+stage\s+(approve|reject)/.test(releaseNonComment),
+  'sdk-release-prep never approves or rejects a stage (owner-only decision)',
+);
+contract(
+  releaseStageBlock.includes('secrets.NPM_STAGE_TOKEN') &&
+    !/secrets\.NPM_TOKEN/.test(releaseStageBlock) &&
+    !/secrets\.NPM_STAGE_TOKEN/.test(withoutCommentLines(releaseWithoutStage)),
+  'sdk-release-prep stage job authenticates only with the dedicated NPM_STAGE_TOKEN secret',
+);
+const stageTokenLines = releaseStageBlock
+  .split('\n')
+  .filter((line) => line.includes('secrets.NPM_STAGE_TOKEN') || line.includes('NODE_AUTH_TOKEN'));
+contract(
+  stageTokenLines.length > 0 &&
+    stageTokenLines.every((line) =>
+      /NODE_AUTH_TOKEN:\s*\$\{\{\s*secrets\.NPM_STAGE_TOKEN\s*\}\}\s*$/.test(line),
+    ),
+  'NPM_STAGE_TOKEN only as NODE_AUTH_TOKEN env of the staging step (never in command text)',
+);
+contract(
+  releaseStageBlock.includes('0.0.0-stage') &&
+    /NOT published/.test(releaseStageBlock) &&
+    /Staged Packages/.test(releaseStageBlock),
+  'stage job summary states staged-NOT-published with the 0.0.0-stage placeholder and approval instructions',
+);
+
 // The `verify` job must never publish (comment lines excluded so a documented
 // "never run npm publish here" note does not trip the contract).
-const verifyStart = releaseWorkflow.indexOf('\n  verify:');
-const verifyBlock = (() => {
-  if (verifyStart === -1) return '';
-  const rest = releaseWorkflow.slice(verifyStart);
-  const nextJob = rest.slice(1).search(/\n  \S/);
-  return nextJob === -1 ? rest : rest.slice(0, nextJob + 1);
-})();
-const verifyJobBlock = verifyBlock
-  .split('\n')
-  .filter((line) => !/^\s*#/.test(line))
-  .join('\n');
+const verifyJobBlock = withoutCommentLines(releaseJobBlock('verify'));
 contract(!/npm\s+publish/.test(verifyJobBlock), 'sdk-release-prep verify job never publishes');
 contract(
-  !/SDK_RELEASE_ENABLED\s*:/.test(
-    releaseWorkflow.split('\n').filter((line) => !/^\s*#/.test(line)).join('\n'),
-  ),
+  !/SDK_RELEASE_ENABLED\s*:/.test(releaseNonComment),
   'sdk-release-prep keeps SDK_RELEASE_ENABLED a repository variable (never hardcoded)',
 );
 // The in-repo gates must never be described as making direct publishing
