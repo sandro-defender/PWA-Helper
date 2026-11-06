@@ -365,16 +365,26 @@ const workflowPath = join(repoRoot, '.github', 'workflows', 'sdk-release-prep.ym
 if (existsSync(workflowPath)) {
   const workflow = readFileSync(workflowPath, 'utf8');
 
+  // Drop whole-line YAML comments so a documented "never run npm publish here"
+  // note does not trip a gate — only real configuration counts.
+  const withoutCommentLines = (block) =>
+    block
+      .split('\n')
+      .filter((line) => !/^\s*#/.test(line))
+      .join('\n');
+
   // Slice out the `publish:` job block so the OIDC gates are checked against
-  // the job that actually publishes — never the whole file (the `verify` job
-  // must stay completely publish-free).
-  const publishBlock = (() => {
-    const start = workflow.indexOf('\n  publish:');
+  // the job that actually publishes — never the whole file.
+  const jobBlock = (job) => {
+    const start = workflow.indexOf(`\n  ${job}:`);
     if (start === -1) return '';
     const rest = workflow.slice(start);
     const nextJob = rest.slice(1).search(/\n  \S/);
     return nextJob === -1 ? rest : rest.slice(0, nextJob + 1);
-  })();
+  };
+  const publishBlock = jobBlock('publish');
+  // The `verify` job must stay completely publish-free.
+  const verifyBlock = withoutCommentLines(jobBlock('verify'));
 
   const gates = [
     ['workflow_dispatch-only trigger', /^on:\s*\n\s+workflow_dispatch:/m.test(workflow) && !/^\s+(push|pull_request):/m.test(workflow)],
@@ -387,6 +397,8 @@ if (existsSync(workflowPath)) {
     ['OIDC: GitHub-hosted runner for the publish job', /runs-on:\s*ubuntu-latest/.test(publishBlock)],
     ['OIDC: Node >= 22.14 toolchain (publish job pins Node 24)', /node-version:\s*24/.test(publishBlock)],
     ['OIDC: no long-lived NPM_TOKEN / NODE_AUTH_TOKEN secret anywhere', !/NODE_AUTH_TOKEN|secrets\.NPM_TOKEN/.test(workflow)],
+    ['verify job never publishes (no npm publish step)', !/npm\s+publish/.test(verifyBlock)],
+    ['approval variable stays a repository variable (not hardcoded in the workflow)', !/SDK_RELEASE_ENABLED\s*:/.test(withoutCommentLines(workflow))],
   ];
   let gatesOk = true;
   for (const [name, ok] of gates) {

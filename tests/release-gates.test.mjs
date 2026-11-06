@@ -8,6 +8,8 @@
  *      confirm input, approval variable, protected environment, OIDC
  *      trusted-publishing configuration, publish-authorization env, provenance)
  *      and carries no long-lived NPM_TOKEN / NODE_AUTH_TOKEN secret;
+ *   1b. the `verify` job never publishes and the approval variable is never
+ *      hardcoded in the workflow;
  *   2. packages/assistant-sdk/scripts/validate-package.mjs FAILS when any gate
  *      is removed or weakened;
  *   3. a stray `npm publish` (prepublishOnly without the workflow's
@@ -127,6 +129,34 @@ test('validator refuses a workflow that reintroduces a long-lived npm token', ()
   assert.match(res.stdout, /release workflow gate missing: OIDC: no long-lived NPM_TOKEN/);
 });
 
+test('validator refuses a workflow whose verify job publishes', () => {
+  resetSandboxFiles();
+  writeFileSync(
+    join(validatorSandbox, workflowRel),
+    pristineWorkflow.replace(
+      '        run: npm run check\n',
+      '        run: npm run check && npm publish\n',
+    ),
+  );
+  const res = runValidator(validatorSandbox);
+  assert.equal(res.status, 1, 'validation must fail when the verify job publishes');
+  assert.match(res.stdout, /release workflow gate missing: verify job never publishes/);
+});
+
+test('validator refuses a workflow that hardcodes the approval variable', () => {
+  resetSandboxFiles();
+  writeFileSync(
+    join(validatorSandbox, workflowRel),
+    pristineWorkflow.replace(
+      '    environment: sdk-npm-publish\n',
+      "    environment: sdk-npm-publish\n    env:\n      SDK_RELEASE_ENABLED: 'true'\n",
+    ),
+  );
+  const res = runValidator(validatorSandbox);
+  assert.equal(res.status, 1, 'validation must fail when SDK_RELEASE_ENABLED is hardcoded');
+  assert.match(res.stdout, /release workflow gate missing: approval variable stays a repository variable/);
+});
+
 test('validator refuses a package without prepublishOnly', () => {
   resetSandboxFiles();
   const pkgPath = join(validatorSandbox, pkgRel);
@@ -180,6 +210,21 @@ test('check.mjs standing contracts reject a weakened workflow', () => {
   const weakened = runNode(['scripts/check.mjs'], fullSandbox);
   assert.equal(weakened.status, 1, 'check.mjs must fail when the protected environment is weakened');
   assert.match(weakened.stdout, /sdk-release-prep publishing gate present: environment: sdk-npm-publish/);
+});
+
+test('check.mjs standing contracts reject a verify job that publishes', () => {
+  rmSync(fullSandbox, { recursive: true, force: true });
+  buildFullSandbox(fullSandbox);
+  writeFileSync(
+    join(fullSandbox, workflowRel),
+    pristineWorkflow.replace(
+      '        run: npm run check\n',
+      '        run: npm run check && npm publish\n',
+    ),
+  );
+  const res = runNode(['scripts/check.mjs'], fullSandbox);
+  assert.equal(res.status, 1, 'check.mjs must fail when the verify job publishes');
+  assert.match(res.stdout, /sdk-release-prep verify job never publishes/);
 });
 
 test('workflow wires OIDC trusted publishing, explicit authorization and provenance', () => {

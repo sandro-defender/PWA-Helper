@@ -13,23 +13,42 @@
   and adds a guard step that fails the run unless npm ≥ 11.5.1.
 - **All existing safeguards preserved:** manual `workflow_dispatch` only;
   `action=publish` **and** `confirm_publish=publish`; `SDK_RELEASE_ENABLED =
-  'true'`; the protected `sdk-npm-publish` environment with required reviewers;
-  and the `prepublishOnly` `SDK_RELEASE_CONFIRM=publish` authorization.
-  `action=verify` remains completely non-publishing.
-- **Enforcement extended:** `packages/assistant-sdk/scripts/validate-package.mjs`
-  and the standing contracts in `scripts/check.mjs` now also require the OIDC
-  configuration (`id-token: write`, registry URL, hosted runner, Node 24, no
-  token anywhere, canonical `repository.url`); `tests/release-gates.test.mjs`
-  gains mutation coverage proving that re-adding a token fails validation.
+  'true'` (left **unset** until the owner explicitly approves); the protected
+  `sdk-npm-publish` environment with required reviewers (**owner-configured** —
+  its reviewer protection is to be verified, not recreated); and the
+  `prepublishOnly` `SDK_RELEASE_CONFIRM=publish` check. `action=verify` remains
+  completely non-publishing.
+- **Security wording corrected:** `SDK_RELEASE_CONFIRM=publish` (and the other
+  in-repo gates) are **accidental-publish guards, not cryptographic
+  authorization boundaries**. The real boundaries are npm organization
+  permissions / account security (2FA), the protected environment's required
+  reviewers, and the npm Trusted Publisher registration. Direct manual
+  publishing is not claimed to be impossible.
+- **First-publication procedure documented (§6.4):** npm only configures a
+  trusted publisher for a package that **already exists**, so the first
+  release must be bootstrapped by hand. Interactive browser auth
+  (`npm login --auth-type=web` / `npm publish --auth-type=web`, npm ≥ 8.15.0)
+  publishes a new package with **no long-lived token**; the bootstrap publish
+  sets `SDK_RELEASE_CONFIRM=publish` for that one command (the guard is not a
+  security boundary) and has **no OIDC provenance**. A pre-release under
+  `next` is the recommended bootstrap when provenance on the first version
+  matters. After registration, all subsequent releases use OIDC.
+- **Enforcement extended:** `validate-package.mjs` and the standing contracts
+  in `scripts/check.mjs` now also require the OIDC configuration (`id-token:
+  write`, registry URL, hosted runner, Node 24, no token anywhere, canonical
+  `repository.url`), plus two structural contracts — **the `verify` job never
+  publishes** and **`SDK_RELEASE_ENABLED` is never hardcoded** in the workflow.
+  `tests/release-gates.test.mjs` gains mutation coverage for each.
 - **Documentation:** `packages/assistant-sdk/RELEASE.md` gains §6 (OIDC
-  requirements, workflow configuration, trusted-publisher registration, and the
-  first-publish bootstrap caveat — a trusted publisher can only be configured
-  for a package that already exists on the registry); §3/§4/§5/§7/§8 updated.
-  Verified with **149/149** tests passing.
+  requirements, workflow configuration, trusted-publisher registration via
+  `npm trust` ≥ 11.15.0, and the first-publish bootstrap); §3/§4/§5/§7/§8
+  updated. Verified with **152/152** tests passing.
 
-> **Not published.** The package remains unpublished; no secrets, environments,
-> variables, tags or releases were created or changed. The trusted-publisher
-> registration and the first-publish bootstrap are owner actions.
+> **Not published.** The package remains unpublished; no secrets, variables,
+> permissions, tags or releases were created or changed, and the
+> `sdk-npm-publish` environment was neither created nor modified. The
+> trusted-publisher registration, the first-publish bootstrap and the
+> `SDK_RELEASE_ENABLED` approval remain owner actions.
 
 ## 0.1.0 — 2026-11-06 (initial release)
 

@@ -187,13 +187,18 @@ decided the registry ([§3](#3-publishing-destination-evaluation)).
    (manual dispatch only). All jobs green. **Status: to be dispatched by the
    maintainer** (or recorded from the release PR's CI run).
 3. **Configure OIDC publishing** (see [§6](#6-npm-trusted-publishing-oidc)):
-   create the protected `sdk-npm-publish` **environment** with required
-   reviewers, register the **npm Trusted Publisher** (owner `sandro-defender`,
-   repo `you-ge-assistant`, workflow filename `sdk-release-prep.yml`,
-   environment `sdk-npm-publish`, allowed action `npm publish`), and set the
-   repository variable `SDK_RELEASE_ENABLED = true` — the explicit "publishing
-   approved" switch. **No npm token secret is created.** **Status: OWNER
-   ACTION — see [§8](#8-required-follow-ups-before-the-first-publish).**
+   the protected `sdk-npm-publish` **environment** is already created (with
+   required reviewers — verify the reviewer protection is actually enforced
+   before the first publish run), register the **npm Trusted Publisher**
+   (owner `sandro-defender`, repo `you-ge-assistant`, workflow filename
+   `sdk-release-prep.yml`, environment `sdk-npm-publish`, allowed action
+   `npm publish`), and set the repository variable `SDK_RELEASE_ENABLED = true`
+   — the explicit "publishing approved" switch. **No npm token secret is
+   created.** **Status: OWNER ACTION — see
+   [§8](#8-required-follow-ups-before-the-first-publish).**
+   - ⚠️ `SDK_RELEASE_ENABLED` must stay **unset** until the owner explicitly
+     approves publication; this repository never sets it, and no automation
+     may set it.
    - ⚠️ The trusted publisher can only be registered once the package **exists**
      on the registry; the very first release must be bootstrapped by hand first
      ([§6.4](#64-the-first-publish-of-a-new-package-cannot-use-oidc-important)).
@@ -216,25 +221,39 @@ decided the registry ([§3](#3-publishing-destination-evaluation)).
 
 The 0.1.0 release PR removed the package-level `"private": true` lock — that
 is runbook step 1 and its intentional review signal. Publishing is still
-impossible in practice: every remaining gate below is closed, and the publish
-job requires **all** of them at once.
+blocked along every ordinary path: every gate below is closed, and the publish
+job requires **all** of them at once. (These are operational guards, not
+cryptographic boundaries — see the note at the end of this section.)
 
 | Gate | Mechanism | State |
 | --- | --- | --- |
 | Workflow trigger | `sdk-release-prep.yml` runs on `workflow_dispatch` **only** (never on push/PR/merge/tag) | **Closed** |
 | Explicit authorization | Publish requires manual `action=publish` **and** `confirm_publish=publish` **and** `SDK_RELEASE_ENABLED = 'true'` (the approval variable is not set; repository variables are not readable by this automation — treat as unset) | **Closed** |
-| Protected environment | `sdk-npm-publish` with required reviewers. **Verified missing (2026-11-06):** only the `github-pages` environment exists. Create `sdk-npm-publish` **with required reviewers before** any publish run — GitHub silently auto-creates an unprotected environment on first use otherwise | **Missing — owner action** |
-| Registry credential | **None.** Authentication is npm Trusted Publishing (OIDC): the runner mints a short-lived token via `id-token: write`. No `NPM_TOKEN` secret exists or is needed. The npm-side trusted-publisher registration still has to happen (§6.3) | **Missing — owner action** |
-| Package-level publish authorization | The `prepublishOnly` hook **refuses any `npm publish` that lacks `SDK_RELEASE_CONFIRM=publish`** — a variable injected only by the gated publish job. A stray direct `npm publish` (even by someone with npm org rights) aborts at `prepublishOnly` | **Closed** |
+| Protected environment | `sdk-npm-publish`, **owner-configured with required reviewers**. Verify the reviewer protection is actually enforced before the first publish run (the environment exists — do not recreate it) | **Configured — verify protection** |
+| Registry credential | **None.** Authentication is npm Trusted Publishing (OIDC): the runner mints a short-lived token via `id-token: write`. No npm token secret exists or is needed. The npm-side trusted-publisher registration still has to happen (§6.3) | **Missing — owner action** |
+| Package-level publish authorization | The `prepublishOnly` hook **refuses any `npm publish` that lacks `SDK_RELEASE_CONFIRM=publish`** — a variable injected only by the gated publish job. This is an **accidental-publish guard, not a security boundary**: it stops a stray `npm publish` from a normal shell, but anyone with npm publish rights can set the variable (or pass `--ignore-scripts`) | **Closed (guard only)** |
 
 Defense in depth: `validate-package.mjs` fails CI if any workflow gate (or the
 OIDC configuration, or the `prepublishOnly` script, or the version contract) is
 removed or weakened; standing contracts in `scripts/check.mjs` and regression
 tests in `tests/release-gates.test.mjs` enforce this by mutation.
-Honest limits: an actor who can edit the repository *and* holds npm publish
-rights can always bypass an in-repo guard (e.g. `npm publish --ignore-scripts`)
-— the real credential boundary is npm org membership and the trusted-publisher
-registration; the guards above stop every accidental or ordinary path.
+
+**What the in-repo gates are, and are not.** `SDK_RELEASE_CONFIRM=publish`,
+`action=publish`, `confirm_publish` and `SDK_RELEASE_ENABLED` are
+**operational / accidental-publish guards**, not cryptographic authorization
+boundaries. They stop an ordinary, accidental or unreviewed publish path; they
+do **not** stop a person who already holds npm publish rights, who can set the
+environment variable themselves, run `npm publish --ignore-scripts`, or publish
+directly. **Direct manual publishing is not claimed to be impossible.** The
+real authorization boundaries are:
+
+- **npm organization permissions and account security** — who may publish to
+  `@youge/*`, and 2FA on the publishing account;
+- **the GitHub Actions protected environment** `sdk-npm-publish` and its
+  required reviewers — who may approve the workflow run;
+- **the npm Trusted Publisher configuration** — npm only accepts a publish
+  whose OIDC identity matches the exact registered workflow and environment,
+  so the token-less, workflow-scoped credential is the operative gate.
 
 ## 6. npm Trusted Publishing (OIDC)
 
@@ -278,6 +297,14 @@ A trusted publisher is configured **from an existing package's settings page**
 on npmjs.com. `@youge/assistant-sdk` does **not** exist on the registry yet, so
 it cannot be registered until the package exists — see §6.4.
 
+`npm trust` prerequisites (official `npm-trust` docs):
+
+- **npm CLI ≥ 11.15.0** (`npm install -g npm@^11.15.0`, or run via `npx npm@latest`);
+- **write permission** on the package;
+- **2FA enabled** on the account (granular tokens with *bypass 2FA* are **not**
+  accepted for `npm trust`);
+- **the package must already exist** on the registry.
+
 Once the package exists, open npmjs.com → `@youge/assistant-sdk` → **Settings**
 → **Trusted Publisher** → **GitHub Actions** and enter:
 
@@ -289,7 +316,7 @@ Once the package exists, open npmjs.com → `@youge/assistant-sdk` → **Setting
 | Environment name | `sdk-npm-publish` |
 | Allowed actions | `npm publish` (and/or `npm stage publish`) |
 
-Or, with npm CLI ≥ 11.10 (`npx npm@latest`):
+Or from the CLI:
 
 ```bash
 npm trust github @youge/assistant-sdk \
@@ -299,6 +326,14 @@ npm trust github @youge/assistant-sdk \
   --allow-publish --yes
 ```
 
+`npm trust github` accepts `--repo/--repository`, `--env/--environment`,
+`--allow-publish` and `--allow-stage-publish` (alias `--allow-staged-publish`);
+at least one of the two `--allow-*` flags is required.
+
+**The registry supports only one trusted-publisher configuration per package.**
+To replace it: `npm trust list @youge/assistant-sdk` → `npm trust revoke --id
+<id> @youge/assistant-sdk` → create the new relationship.
+
 **A newly created trusted publisher must complete its first successful publish
 within 2 days** or it expires and must be re-created. Existing connections
 cannot be edited — delete and re-create to change them.
@@ -306,29 +341,63 @@ cannot be edited — delete and re-create to change them.
 ### 6.4 The first publish of a new package cannot use OIDC (important)
 
 npm only allows a trusted publisher to be configured **for a package that
-already exists** on the registry (`npm help trust`: *"Package must exist: The
-package you're configuring must already exist on the npm registry."*).
-`@youge/assistant-sdk@0.1.0` is unpublished, so the **first** release must be
-bootstrapped by hand before OIDC can be used:
+already exists** on the registry (`npm help trust` / the `npm-trust` docs:
+*"Package must exist: The package you're configuring must already exist on the
+npm registry."*). `@youge/assistant-sdk@0.1.0` is unpublished, so the **first**
+release must be bootstrapped by hand before OIDC can be used.
 
-1. **Bootstrap the first publish** — publish `0.1.0` once from a local machine
-   with a **one-time** granular token, or `npm publish --auth-type=web` with
-   2FA. This step is deliberately outside CI; it is the *only* step that
-   touches a token, and it is never stored anywhere.
-   - npm never allows republishing a version, so a final `0.1.0` published by
-     hand could never be re-published and would never carry a provenance
-     attestation. If provenance on the very first version matters, publish a
-     *pre-release* (e.g. `0.1.0-rc.1`) by hand under the `next` tag first,
-     then register the trusted publisher and publish the real `0.1.0` via the
-     OIDC workflow.
-2. **Register the trusted publisher** (§6.3) — `npm trust github ...` or the
-   settings form.
-3. **Restrict token access** (optional, recommended): package **Settings** →
+#### Bootstrap: publish the first version without a long-lived token
+
+Interactive, browser-based authentication **can** publish a brand-new package
+with **no long-lived token at all** — npm manages a short CLI session and
+prompts for 2FA (security key or OTP). `npm login --auth-type=web` is supported
+from npm ≥ 8.14.0 and `npm publish --auth-type=web` from npm ≥ 8.15.0.
+Publishing also requires 2FA on the account.
+
+Run this from a clean checkout of the package:
+
+```bash
+# 1. Sign in interactively in the browser (no token is created or stored)
+npm login --auth-type=web
+
+# 2. Publish. The package's prepublishOnly re-runs validation and REQUIRES
+#    SDK_RELEASE_CONFIRM=publish, so set it for this one command. That variable
+#    is an accidental-publish guard only (see §5) — setting it here is
+#    intentional and safe.
+cd packages/assistant-sdk
+SDK_RELEASE_CONFIRM=publish npm publish --access public --auth-type=web
+
+# 3. Optional: drop the local CLI session
+npm logout
+```
+
+Notes:
+
+- `--access public` is passed explicitly so the scoped package is public.
+- **This bootstrap publish has no OIDC provenance.** Provenance is generated
+  automatically only when the publish comes from the registered workflow over
+  OIDC; a manual/browser publish produces none, and `--provenance` must **not**
+  be claimed for it.
+- npm never allows republishing a name+version, so if provenance on the very
+  first version matters, bootstrap a **pre-release** instead: publish e.g.
+  `0.1.0-rc.1` by hand under the `next` tag (`--tag next`), register the
+  trusted publisher, then publish the real `0.1.0` via the OIDC workflow so the
+  public `latest` release carries provenance.
+- Do **not** add an npm token secret, and do **not** store a token anywhere for
+  this step.
+
+#### After the package exists: register OIDC and use it for every release
+
+1. **Register the trusted publisher** (§6.3) — `npm trust github ...` or the
+   npmjs.com settings form.
+2. **Restrict token access** (recommended): package **Settings** →
    **Publishing access** → *"Require two-factor authentication and disallow
    tokens"*, then revoke any automation tokens.
-4. **Publish subsequent versions via the workflow** (§4 step 4).
+3. **Publish subsequent versions via the workflow** (§4 step 4) — the publish
+   job authenticates with the short-lived OIDC token and produces provenance
+   automatically.
 
-Nothing in this repository creates, stores or requests that bootstrap token;
+Nothing in this repository creates, stores or requests the bootstrap credential;
 it is an owner action documented here so the first release is not a dead end.
 
 ### 6.5 What is enforced automatically
@@ -344,6 +413,9 @@ contracts in `scripts/check.mjs`, plus the mutation tests in
 - **no** `NODE_AUTH_TOKEN` / `secrets.NPM_TOKEN` appears anywhere in the
   workflow;
 - `repository.url` matches the canonical GitHub repository;
+- the `verify` job contains no `npm publish` step (it stays non-publishing);
+- `SDK_RELEASE_ENABLED` is never hardcoded in the workflow (it stays a
+  repository variable);
 - the manual-only trigger, `confirm_publish`, `SDK_RELEASE_ENABLED`, the
   protected `sdk-npm-publish` environment and `SDK_RELEASE_CONFIRM: publish`
   are all intact.
@@ -372,7 +444,7 @@ contracts in `scripts/check.mjs`, plus the mutation tests in
 | Identity consistency | ✅ `@youge/assistant-sdk@0.1.0` in metadata; `SDK_VERSION` `0.1.0`; `KIT_COMPAT_VERSION` `1.0.5` |
 | Full test suite + contracts | ✅ see the release PR for the run log |
 | Publishability + workflow-gate validation | ✅ `validate-package.mjs` "Publishability and release gates" section passes |
-| GitHub environment inventory | ⚠️ `sdk-npm-publish` **missing** (only `github-pages`); owner action §8 |
+| GitHub environment inventory | ✅ `sdk-npm-publish` **owner-configured** with required reviewers (verified 2026-11-06); the reviewer protection itself is not readable by automation (HTTP 403) — owner confirms it before the first publish run |
 | `SDK_RELEASE_ENABLED` visibility | ⚠️ not readable by automation (HTTP 403); treat as unconfigured, owner verifies |
 | Consumer install smoke test (packed tarball, exact name/version) | ✅ see the release PR for the run log |
 
@@ -382,12 +454,14 @@ contracts in `scripts/check.mjs`, plus the mutation tests in
 | --- | --- | --- |
 | Workflow OIDC config | `grep -n "id-token: write\|registry-url\|node-version: 24"` | ✅ publish job has `id-token: write`, `registry-url: https://registry.npmjs.org`, `node-version: 24`, `package-manager-cache: false`, npm ≥ 11.5.1 guard |
 | No long-lived token | `grep -n "NODE_AUTH_TOKEN\|secrets.NPM_TOKEN" .github/workflows/sdk-release-prep.yml` | ✅ no matches — publish step sets only `SDK_RELEASE_CONFIRM` |
-| Validator OIDC gates | `node packages/assistant-sdk/scripts/validate-package.mjs` | ✅ 10/10 release-workflow gates pass |
-| Standing contracts | `npm run check` | ✅ 261 static assertions + **149/149** tests pass, 0 fail |
+| Validator OIDC gates | `node packages/assistant-sdk/scripts/validate-package.mjs` | ✅ 12/12 release-workflow gates pass |
+| Standing contracts | `npm run check` | ✅ 273 static assertions + **152/152** tests pass, 0 fail |
+| `verify` job stays non-publishing | mutation tests (`release-gates.test.mjs`) | ✅ validator and `check.mjs` both fail when the verify job gains an `npm publish` step |
+| Approval variable not hardcoded | mutation test (`release-gates.test.mjs`) | ✅ validator fails when `SDK_RELEASE_ENABLED` is set in the workflow |
 | Registry identity unchanged | `npm view @youge/assistant-sdk version` | ✅ HTTP 404 — still unpublished; **not published by this task** |
 | `action=verify` non-publishing | workflow review | ✅ verify job runs checks only; no publish path |
 | Trusted publisher registration | owner action | ⚠️ **not done** — requires the package to exist first (§6.4); no secrets created or modified |
-| `sdk-npm-publish` environment | owner action | ⚠️ **not created/changed** (only `github-pages` exists) |
+| `sdk-npm-publish` environment | owner-configured | ✅ exists with required reviewers; **not created or changed by this task** |
 
 ## 8. Required follow-ups (before the first publish)
 
@@ -395,16 +469,19 @@ Owner actions remaining (nothing in this repository can complete them):
 
 1. **npmjs.com:** confirm the publishing npm user (`you-ge`) has publish
    rights on the org `youge` (registry APIs do not expose org membership).
-2. **Bootstrap the first publish** of `@youge/assistant-sdk` (the package does
+2. **Verify the `sdk-npm-publish` environment** the owner created actually
+   enforces its required-reviewer protection (the environment exists; this
+   automation cannot read its protection rules — HTTP 403 — so the owner
+   confirms it before the first publish run). Do **not** recreate it.
+3. **Bootstrap the first publish** of `@youge/assistant-sdk` (the package does
    not exist yet, so OIDC cannot be used for it) — see
    [§6.4](#64-the-first-publish-of-a-new-package-cannot-use-oidc-important).
-3. **Register the npm Trusted Publisher** for the workflow (§6.3) and, once
-   it works, **restrict token access** (Settings → Publishing access →
-   "Require two-factor authentication and disallow tokens").
-4. **Create the protected environment `sdk-npm-publish`** with required
-   reviewers (verified missing — do this **before** any publish run).
+4. **Register the npm Trusted Publisher** for the workflow (§6.3) and, once it
+   works, **restrict token access** (Settings → Publishing access → "Require
+   two-factor authentication and disallow tokens").
 5. **Approve publication** by setting the repository variable
-   `SDK_RELEASE_ENABLED = true` (the explicit "publishing approved" switch).
+   `SDK_RELEASE_ENABLED = true` (the explicit "publishing approved" switch). It
+   must stay unset until then.
 6. **Publish** — run `sdk-release-prep` with `action=publish` and
    `confirm_publish=publish` ([§4](#4-release-runbook-when-a-release-is-approved)
    step 4), then the post-publish smoke tests (step 5) and optional tag

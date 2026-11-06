@@ -866,6 +866,27 @@ contract(
   /node-version:\s*24/.test(releaseWorkflow),
   'sdk-release-prep publish job pins Node 24 (npm >= 11.5.1 / Node >= 22.14 required for OIDC trusted publishing)',
 );
+
+// The `verify` job must never publish (comment lines excluded so a documented
+// "never run npm publish here" note does not trip the contract).
+const verifyStart = releaseWorkflow.indexOf('\n  verify:');
+const verifyBlock = (() => {
+  if (verifyStart === -1) return '';
+  const rest = releaseWorkflow.slice(verifyStart);
+  const nextJob = rest.slice(1).search(/\n  \S/);
+  return nextJob === -1 ? rest : rest.slice(0, nextJob + 1);
+})();
+const verifyJobBlock = verifyBlock
+  .split('\n')
+  .filter((line) => !/^\s*#/.test(line))
+  .join('\n');
+contract(!/npm\s+publish/.test(verifyJobBlock), 'sdk-release-prep verify job never publishes');
+contract(
+  !/SDK_RELEASE_ENABLED\s*:/.test(
+    releaseWorkflow.split('\n').filter((line) => !/^\s*#/.test(line)).join('\n'),
+  ),
+  'sdk-release-prep keeps SDK_RELEASE_ENABLED a repository variable (never hardcoded)',
+);
 contract(typeof sdkPkg.scripts?.prepublishOnly === 'string', 'SDK package keeps prepublishOnly validation as the final publish net');
 
 function listSdkSourceFiles(dir, acc = []) {
