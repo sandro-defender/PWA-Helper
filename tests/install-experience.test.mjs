@@ -80,6 +80,7 @@ class FakeNode {
   closest() { return null; }
   focus() { this.focused = true; }
   remove() { if (this.parentNode) this.parentNode.removeChild(this); }
+  get isConnected() { return Boolean(this.parentNode); }
 }
 
 class FakeCustomEvent {
@@ -149,7 +150,18 @@ function createContext(options = {}) {
       if (selector === '[data-pwa-help]') return findHelpHost({ doc });
       return null;
     },
-    querySelectorAll() { return []; },
+    querySelectorAll(selector) {
+      const pool = options.installButtons || [];
+      if (!pool.length) return [];
+      const text = String(selector);
+      if (text.charAt(0) === '.') {
+        const className = text.slice(1).split(':')[0];
+        return pool.filter((node) => node.classList.contains(className) && !node.classList.contains('captured'));
+      }
+      const attribute = /^\[([^\]=]+)/.exec(text);
+      if (!attribute) return [];
+      return pool.filter((node) => node.hasAttribute(attribute[1]));
+    },
     addEventListener(type, listener) {
       const list = documentListeners.get(type) || [];
       list.push(listener);
@@ -271,6 +283,8 @@ function createContext(options = {}) {
       this.abort = function abort() {};
     },
   };
+
+  for (const node of options.installButtons || []) doc.body.appendChild(node);
 
   vm.runInNewContext(source, context);
   assert.ok(win.PWA && win.PWA.__pwaKit, 'pwa.js exposes window.PWA');
@@ -431,4 +445,39 @@ test('registers the legacy worker path with a computed same-origin scope', async
   const [url, options] = harness.serviceWorker.registerCalls[0];
   assert.equal(url, 'https://example.test/progressier.js', '/progressier.js worker path is preserved');
   assert.equal(options.scope, '/', 'scope is computed from the manifest/worker directory');
+});
+
+/* ------------------------------------------------------------------ *
+ * Audit regressions (2026-11): markup-injection and permission-API hardening
+ * ------------------------------------------------------------------ */
+
+test('host-supplied install button labels are escaped, never parsed as HTML', () => {
+  const payload = '<img src=x onerror="window.__pwned = 1">';
+  const installButton = new FakeNode('button');
+  installButton.classList.add('progressier-install-button');
+  installButton.setAttribute('data-install', payload);
+
+  createContext({ installButtons: [installButton] });
+
+  assert.match(installButton.innerHTML, /&lt;img src=x onerror=/, 'the label is rendered as escaped text');
+  assert.doesNotMatch(installButton.innerHTML, /<img /, 'no element is parsed out of a label attribute');
+  assert.match(installButton.innerHTML, /class="pwa-btn-label"/, 'the button markup structure is preserved');
+});
+
+test('push permission requests support callback-only browsers and never throw', async () => {
+  const legacy = createContext();
+  legacy.win.Notification.requestPermission = function requestPermission(callback) { callback('granted'); };
+  assert.equal(await legacy.win.PWA.requestPushPermission(), 'granted', 'the callback channel is honoured');
+
+  const promised = createContext();
+  promised.win.Notification.requestPermission = function requestPermission() { return Promise.resolve('granted'); };
+  assert.equal(await promised.win.PWA.requestPushPermission(), 'granted', 'the promise channel is honoured');
+
+  const unsupported = createContext();
+  assert.equal(await unsupported.win.PWA.requestPushPermission(), 'denied', 'a browser without the API resolves instead of throwing');
+
+  const revoked = createContext();
+  revoked.win.Notification.permission = 'default';
+  revoked.win.Notification.requestPermission = function requestPermission() { return Promise.reject(new Error('blocked')); };
+  assert.equal(await revoked.win.PWA.requestPushPermission(), 'denied', 'a rejected request resolves denied');
 });

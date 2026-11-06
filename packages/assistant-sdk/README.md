@@ -111,6 +111,18 @@ export function ConnectionPill() {
 }
 ```
 
+The getter is resolved **once per hook creation** (and re-resolved only if the
+attached instance has been destroyed), because `useSyncExternalStore` calls
+`getSnapshot` on every render. So it is a place to *attach* — not a place to
+re-configure: a getter that calls `YouGeAssistant.attach({ ... })` with fresh
+options on every render would re-configure the assistant on every render, and
+`useAssistant` will not pick up new options passed that way after the first
+resolution. To change configuration, call `attach({ ... })` (or
+`assistant.configure({ ... })`) from an event handler or effect, then let the
+state subscription re-render the component tree. Selectors are cached, so
+`useAssistant((state) => state.badge)` only re-renders when the selected value
+actually changes.
+
 ---
 
 ## Configuration & Last-Known-Good Pipeline

@@ -20,6 +20,22 @@
   --youge-shadow: 0 18px 40px rgba(15, 23, 42, 0.18), 0 2px 8px rgba(15, 23, 42, 0.08);
   --youge-offset-x: 20px;
   --youge-offset-y: 20px;
+  /* Floating entry point: a deep, low-saturation disc with one hairline ring and
+     a short elevation shadow (no glow, no bloom). `#f8fafc` on `#2f4368` measures
+     9.45:1, so the glyph stays crisp without brightening the button. */
+  --youge-fab-bg: #2f4368;
+  --youge-fab-ink: #f8fafc;
+  --youge-fab-ring: rgba(15, 23, 42, 0.16);
+  --youge-fab-shadow: 0 4px 10px rgba(15, 23, 42, 0.16), 0 1px 2px rgba(15, 23, 42, 0.1);
+  /* Actionable state: the red is the toolkit's own critical tone, not a neon red.
+     White on `#b42318` measures 6.57:1. */
+  --youge-fab-action-bg: var(--youge-critical);
+  --youge-fab-action-ink: #ffffff;
+  --youge-fab-action-ring: rgba(180, 35, 24, 0.28);
+  /* Two shared motion tokens instead of one duration everywhere: interaction
+     feedback stays quick, a state change is allowed to read as a change. */
+  --youge-motion-fast: 160ms;
+  --youge-motion-state: 240ms;
   position: fixed;
   z-index: 2147483000;
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -44,6 +60,16 @@
   --youge-focus: #84adff;
   --youge-shadow: 0 18px 40px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.35);
   --youge-brand: #84adff;
+  /* Dark themes swap the fill for a dimmer disc and the light-salmon text tones
+     for a deep red background, because #fda29b is a foreground color: white on
+     #7a1f16 measures 10.32:1 and its ring clears 4.66:1 against the page. */
+  --youge-fab-bg: #25324c;
+  --youge-fab-ink: #e8eefb;
+  --youge-fab-ring: rgba(203, 213, 225, 0.5);
+  --youge-fab-shadow: 0 6px 14px rgba(0, 0, 0, 0.34), 0 1px 2px rgba(0, 0, 0, 0.4);
+  --youge-fab-action-bg: #7a1f16;
+  --youge-fab-action-ink: #ffe2df;
+  --youge-fab-action-ring: rgba(255, 215, 210, 0.42);
   color-scheme: dark;
 }
 
@@ -62,6 +88,16 @@
     --youge-focus: #84adff;
     --youge-shadow: 0 18px 40px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.35);
     --youge-brand: #84adff;
+    /* Dark themes swap the fill for a dimmer disc and the light-salmon text tones
+       for a deep red background, because #fda29b is a foreground color: white on
+       #7a1f16 measures 10.32:1 and its ring clears 4.66:1 against the page. */
+    --youge-fab-bg: #25324c;
+    --youge-fab-ink: #e8eefb;
+    --youge-fab-ring: rgba(203, 213, 225, 0.5);
+    --youge-fab-shadow: 0 6px 14px rgba(0, 0, 0, 0.34), 0 1px 2px rgba(0, 0, 0, 0.4);
+    --youge-fab-action-bg: #7a1f16;
+    --youge-fab-action-ink: #ffe2df;
+    --youge-fab-action-ring: rgba(255, 215, 210, 0.42);
     color-scheme: dark;
   }
 }
@@ -78,25 +114,63 @@
   width: 56px;
   height: 56px;
   padding: 0;
-  border: 1px solid rgba(255, 255, 255, 0.28);
-  border-radius: 18px;
-  background: var(--youge-brand);
-  color: #ffffff;
-  box-shadow: var(--youge-shadow);
+  border: 1px solid var(--youge-fab-ring);
+  /* A true circle at every size and every position — border-radius: 50% on a
+     square box, so the 54px small-viewport variant stays circular too. */
+  border-radius: 50%;
+  background: var(--youge-fab-bg);
+  color: var(--youge-fab-ink);
+  box-shadow: var(--youge-fab-shadow);
   cursor: pointer;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
-  transition: transform 180ms ease, box-shadow 180ms ease, background-color 180ms ease;
+  /* The color transition is longer than the interaction feedback on purpose: a
+     state change should read as a change, a hover should read as instant. */
+  transition:
+    transform var(--youge-motion-fast) ease,
+    background-color var(--youge-motion-state) ease,
+    border-color var(--youge-motion-state) ease,
+    box-shadow var(--youge-motion-state) ease;
 }
 
-.youge-fab:hover { transform: translateY(-2px); }
-.youge-fab:active { transform: translateY(0) scale(0.97); }
+/* Soft top-lit sheen instead of a glow. It is a circle of its own, so nothing
+   escapes the button and no square edge can appear around the glyph. */
+.youge-fab::before {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 20%, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0) 62%);
+  content: '';
+  pointer-events: none;
+}
+
+.youge-fab:hover { transform: translateY(-1px); }
+.youge-fab:active { transform: translateY(0) scale(0.98); }
 .youge-fab:focus-visible {
   outline: 3px solid var(--youge-focus);
   outline-offset: 4px;
 }
 
+.youge-fab .youge-icon { position: relative; z-index: 1; }
 .youge-fab .youge-icon svg { width: 26px; height: 26px; display: block; }
+
+/* Red means "there is something to act on". The button does not decide that on
+   its own: data-tone is the SDK badge tone, i.e. the tone of the highest-priority
+   notice the user has not dismissed or acknowledged. So critical (connection, DNS,
+   endpoint), auth (session needs attention) and install (an install action is
+   available) are actionable. `backup` and `info` deliberately stay calm — a backup
+   endpoint already serving the app, a restored connection, an optional update or a
+   feature announcement describe what is happening, not what the user must do — and
+   neither does a running diagnostic, which produces no notice at all. The count
+   badge and the FAB aria-label keep carrying the same message, because color is
+   never the only signal. */
+.youge-fab[data-tone="critical"],
+.youge-fab[data-tone="auth"],
+.youge-fab[data-tone="install"] {
+  background: var(--youge-fab-action-bg);
+  border-color: var(--youge-fab-action-ring);
+  color: var(--youge-fab-action-ink);
+}
 
 .youge-assistant-widget[data-position="bottom-right"] .youge-fab,
 .youge-assistant-widget[data-position="top-right"] .youge-fab {
@@ -117,6 +191,7 @@
 
 .youge-badge {
   position: absolute;
+  z-index: 2;
   top: -6px;
   right: -6px;
   display: inline-flex;
@@ -136,15 +211,40 @@
   box-sizing: border-box;
 }
 .youge-badge[hidden] { display: none !important; }
+
+/* On an actionable button the tone-colored chip would sit red-on-red, so it
+   inverts instead of disappearing: the count stays legible (>=6.5:1 against the
+   red fill) and the tone itself keeps showing in the panel's notice list. */
+.youge-fab[data-tone="critical"] .youge-badge,
+.youge-fab[data-tone="auth"] .youge-badge,
+.youge-fab[data-tone="install"] .youge-badge {
+  background: var(--youge-fab-action-ink);
+  border-color: var(--youge-fab-action-bg);
+  color: var(--youge-fab-action-bg);
+}
 .youge-badge[data-tone="critical"] { background: var(--youge-critical); color: #ffffff; }
-.youge-badge[data-tone="auth"] { background: var(--youge-auth); color: #101828; }
+/* #101828 on --youge-auth measured 3.27:1, below the 4.5:1 AA floor for the
+   11px badge text; white on #b54708 is 5.68:1. */
+.youge-badge[data-tone="auth"] { background: var(--youge-auth); color: #ffffff; }
 .youge-badge[data-tone="backup"] { background: var(--youge-backup); color: #ffffff; }
 .youge-badge[data-tone="install"] { background: var(--youge-install); color: #ffffff; }
 .youge-badge[data-tone="info"] { background: var(--youge-info); color: #ffffff; }
+/* Dark surfaces swap --youge-* tone colors to light variants, so the white
+   badge text set above must flip to ink. Without the prefers-color-scheme
+   twin, data-theme="auto" on a dark OS painted white text on pale tones
+   (contrast as low as 1.55:1). */
 .youge-assistant-widget[data-theme="dark"] .youge-badge[data-tone="critical"],
+.youge-assistant-widget[data-theme="dark"] .youge-badge[data-tone="auth"],
 .youge-assistant-widget[data-theme="dark"] .youge-badge[data-tone="backup"],
 .youge-assistant-widget[data-theme="dark"] .youge-badge[data-tone="install"],
 .youge-assistant-widget[data-theme="dark"] .youge-badge[data-tone="info"] { color: #0b1220; }
+@media (prefers-color-scheme: dark) {
+  .youge-assistant-widget[data-theme="auto"] .youge-badge[data-tone="critical"],
+  .youge-assistant-widget[data-theme="auto"] .youge-badge[data-tone="auth"],
+  .youge-assistant-widget[data-theme="auto"] .youge-badge[data-tone="backup"],
+  .youge-assistant-widget[data-theme="auto"] .youge-badge[data-tone="install"],
+  .youge-assistant-widget[data-theme="auto"] .youge-badge[data-tone="info"] { color: #0b1220; }
+}
 
 /* ------------------------------------------------------------------ *
  * In-place panel. Never a separate page or new tab.
@@ -312,7 +412,9 @@
 .youge-btn:active { transform: translateY(0) scale(0.99); }
 .youge-btn:focus-visible { outline: 3px solid var(--youge-focus); outline-offset: 3px; }
 .youge-btn .youge-icon svg { width: 18px; height: 18px; display: block; }
-.youge-btn-small { min-height: 40px; min-width: 44px; padding: 8px 10px; font-size: 12px; }
+/* 44px minimum (not 40px) so the small notice controls stay reachable for
+   touch input — they are the most-tapped buttons in the panel. */
+.youge-btn-small { min-height: 44px; min-width: 44px; padding: 8px 10px; font-size: 12px; }
 .youge-btn-quiet { background: var(--youge-surface-soft); color: var(--youge-ink); border-color: var(--youge-line); }
 .youge-assistant-widget[data-theme="dark"] .youge-btn { color: #0b1220; }
 @media (prefers-color-scheme: dark) {
@@ -354,5 +456,8 @@
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+  /* Reduced motion still gets the state change, just without travel: the fill
+     switches immediately and the button never lifts or scales. */
   .youge-fab:hover, .youge-fab:active, .youge-btn:hover, .youge-btn:active { transform: none !important; }
+  .youge-fab::before { transition: none; }
 }

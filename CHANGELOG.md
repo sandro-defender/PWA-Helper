@@ -2,6 +2,88 @@
 
 ## Unreleased
 
+- Refined the floating assistant entry point (visual only, no API change):
+  - `assistant-widget.css`: `.youge-fab` is now a **true circle**
+    (`border-radius: 50%` on a square 56px box, 54px below 480px) with a calm,
+    low-saturation fill, a hairline ring, one short elevation shadow and a soft
+    inner sheen that is itself circular — no glow, no blur, no `@keyframes`.
+    Measured glyph contrast: 9.45:1 (light) and 11.01:1 (dark/auto-dark), up
+    from 5.41:1 and **2.23:1** (the old light-blue dark fill was below the 3:1
+    non-text floor).
+  - The button turns the toolkit's **red only for actionable events**: its
+    `data-tone` is the existing `state.badge.tone`, and `critical`, `auth` and
+    `install` (connection loss, DNS failure, dead primary endpoint, session
+    attention, an available install) paint it with `--youge-critical`. `info`,
+    `backup` and `none` stay neutral, so an optional update, a restored
+    connection, a feature announcement, a backup endpoint already serving the
+    app, a diagnostic in progress, an idle or dismissed assistant never read as
+    urgent. No new state, no second source of truth, no polling; the count badge
+    (inverted for legibility on red) and the `aria-label` phrase repeat the
+    message so color is never the only signal.
+  - Two shared motion tokens replace one duration everywhere
+    (`--youge-motion-fast: 160ms` for hover/press feedback,
+    `--youge-motion-state: 240ms` for the state color/border/shadow change);
+    hover travel dropped to 1px and press to `scale(0.98)`;
+    `prefers-reduced-motion` removes both durations and the travel while the
+    color state still changes.
+  - `example/`: the sample launcher keeps its circular geometry but clips the
+    `ElectricLogo` layer to the disc (`inset: 0` + `overflow: hidden` +
+    `border-radius: 50%`, no `filter: drop-shadow`), loses its blurred outer
+    halo, dims the spotlight/glow/flicker/strands and the `GlareHover`
+    highlight, no longer chases the cursor, and mounts only while hovered,
+    focused or open — an idle assistant now runs no animation loop at all. Its
+    fill follows the same actionable-tone list as the shipped widget, asserted by
+    a parity test.
+  - Tests: `tests/assistant-widget.test.mjs` gained 7 and
+    `tests/example-ui.test.mjs` 4 assertions covering the circle, the subdued
+    resting state, computed WCAG contrast of the FAB tokens in light/dark/
+    auto-dark, the actionable-tone list (and that `info`/`backup`/`none` never
+    match), the motion tokens, reduced-motion behavior, the tone following real
+    state through dismiss/connectivity changes, and the accessibility contract.
+- Fixed the defects found by the November 2026 audit (full findings table in the
+  bug-fix pull request). Summary by area:
+  - **React adapter**: `getExternalStoreBindings` memoizes the resolved assistant
+    instance and caches selector results, so a getter that attaches/configures no
+    longer re-configures on every render (`useSyncExternalStore` calls
+    `getSnapshot` per render) and subscribers stop re-rendering on unchanged
+    state. Selector identity is now stable across emits.
+  - **Toolkit rendering**: install-button labels (from `data-install`,
+    `data-installed` or config) are HTML-escaped before being composed into the
+    button's `innerHTML`, so an untrusted attribute value can no longer inject
+    markup into the install button or the push subscribe button. The icon markup
+    stays a fixed internal SVG constant.
+  - **Navigation safety**: new `safeNavigationUrl` guard (SDK root + `./domain` +
+    `DomainResolver`, plus `window.YouGeDomain` in `domain-config.js`) accepts only
+    http(s) absolute URLs and root/relative paths. The service worker routes every
+    push-payload notification target (including per-action URLs) through it, so a
+    payload can no longer drive `client.navigate()`/`openWindow()` into
+    `javascript:`/`data:`/`vbscript:` or a protocol-relative cross-origin escape.
+  - **Recovery data**: a Last-Known-Good record must declare the `projectId` it is
+    read under; an unscoped or foreign record is refused instead of being trusted
+    as this project's config, and cross-project config leakage is closed.
+  - **Update notice**: the toolkit adapter seeds `network.updateAvailable` from
+    `hasUpdate`, so the "apply update" notice and action appear for an already
+    waiting worker instead of staying silent.
+  - **Notifications**: `requestNotificationPermission` supports the callback-only
+    `Notification.requestPermission` signature (older Safari/WebKit), resolves
+    exactly once and never throws, so a granted permission is not read as
+    `undefined` and subscription flows keep working.
+  - **Widget**: notice action buttons reuse the toolkit's delegated hooks
+    (`data-pwa-install`, `data-pwa-diagnostics`) and carry the action's real
+    wording instead of an inert "Open"; Escape yields to an open toolkit dialog;
+    host-supplied appearance values are re-validated before reaching the DOM (no
+    `undefinedpx` offsets, only `#hex` brand colors, whitelisted positions/themes);
+    `.youge-btn-small` meets the 44px touch-target floor; the auth badge gains
+    AA-contrast ink in dark and auto-dark themes.
+  - **Offline page**: the connection badge is now a polite atomic live region
+    (`role="status" aria-live="polite" aria-atomic="true"`) with the decorative dot
+    hidden from assistive tech, so "Connection restored" is announced.
+  - **Example app**: the React notice actions use the same toolkit hooks and
+    labels, replacing dead "Open" buttons.
+  - **Tests/docs**: regression coverage for every item above (`npm test` now runs
+    121 tests), README/`react.d.ts` wording on hook resolution, `WIDGET.md`
+    interaction notes; the offline example (`example/example.js`) install-button and
+    permission paths are covered by the vm-backed install-experience suite.
 - Extracted the framework-independent **Phase 2 SDK package** locally at
   `packages/assistant-sdk/` (`@you-ge/assistant-sdk` v`0.1.0`, `"private": true`
   — prepared for future npm publishing without publishing, releasing or tagging):

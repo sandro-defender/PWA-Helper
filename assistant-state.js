@@ -290,6 +290,32 @@
     })) return null;
     return normalized.charAt(normalized.length - 1) === '/' ? normalized : normalized + '/';
   }
+
+  const NAVIGATION_SCHEME = /^([a-z][a-z0-9+.-]*):/i;
+
+  /**
+   * Validate a navigation target that came from page markup or a push payload.
+   *
+   * Push payloads and host attributes are data, not instructions: this keeps only
+   * http(s) absolute URLs and root/relative paths, and rejects script-capable
+   * schemes (`javascript:`, `data:`, `blob:`, `filesystem:`), control characters
+   * that URL parsers strip (`javascript\u0000:`), and network-path forms such as
+   * `//evil.example` or `\evil.example`. Anything unsafe yields the fallback.
+   */
+  function safeNavigationUrl(value, fallback) {
+    const safeFallback = typeof fallback === 'string' && fallback ? fallback : '/';
+    const raw = typeof value === 'string' ? value.trim() : '';
+    if (!raw || /[\u0000-\u001f\u007f]/.test(raw)) return safeFallback;
+    const scheme = NAVIGATION_SCHEME.exec(raw);
+    if (scheme) {
+      const name = scheme[1].toLowerCase();
+      return name === 'http' || name === 'https' ? raw : safeFallback;
+    }
+    const authority = raw.split(/[?#]/)[0];
+    if (authority.indexOf('\\') !== -1) return safeFallback;
+    if (raw.charAt(0) === '/' && raw.charAt(1) === '/') return safeFallback;
+    return raw;
+  }
   function validateDomainConfig(raw) {
     const safeInput = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
     const config = merge(clone(DOMAIN_DEFAULTS), {
@@ -519,6 +545,7 @@
       normalizeHost: normalizeHost,
       normalizePath: normalizePath,
       rootDomain: rootDomain,
+      safeNavigationUrl: safeNavigationUrl,
       validateConfig: validateDomainConfig,
       setRegistry: function (nextRegistry) {
         registry = nextRegistry && typeof nextRegistry === 'object' ? clone(nextRegistry) : {};
@@ -764,6 +791,17 @@
     try {
       const raw = storage.getItem(lkgStorageKey(id));
       if (!raw) return null;
+      let record = null;
+      try {
+        record = JSON.parse(raw);
+      } catch (error) {
+        return null;
+      }
+      // A stored recovery record must declare the project it belongs to. Without
+      // this, a blob written under this key with no `projectId` would skip the
+      // mismatch check and be trusted as this project's last-known-good config.
+      if (!record || typeof record !== 'object' || Array.isArray(record)) return null;
+      if (safeText(record.projectId || '', 80) !== id) return null;
       const validated = validatePublishedConfig(raw, { expectedProjectId: id });
       return validated.valid ? validated : null;
     } catch (error) {
@@ -1150,6 +1188,7 @@
     let services = config.services;
 
     const listeners = new Set();
+    const listenerCounts = new Map();
     let noticeStore = { dismissed: {}, acknowledged: {} };
     let snapshot = null;
     let bound = false;
@@ -1465,6 +1504,7 @@
 
     function computeState() {
       const project = projectInfo();
+      const pwaSnapshot = readPwaSnapshot(getPwa());
       const installation = deriveInstallationState({
         pwa: getPwa(),
         enabled: config.modules.installation,
@@ -1484,7 +1524,10 @@
           reason: conditions.endpoints.reason,
         },
         session: { state: conditions.session.state, message: conditions.session.message },
-        updateAvailable: conditions.updateAvailable,
+        // The toolkit records a waiting worker in its own snapshot before (or
+        // without) a `pwa:update` event, so seed from it: otherwise an update
+        // detected before the assistant bound stays invisible forever.
+        updateAvailable: conditions.updateAvailable || pwaSnapshot.hasUpdate === true,
         recovery: conditions.recovery,
       };
       const notifications = buildNotifications(project, installation, network);
@@ -1522,9 +1565,25 @@
       };
     }
 
+    function statesEqual(a, b) {
+      if (a === b) return true;
+      if (!a || !b) return false;
+      try {
+        return JSON.stringify(a) === JSON.stringify(b);
+      } catch (error) {
+        return false;
+      }
+    }
+
     function emit() {
       if (destroyed) return;
-      snapshot = computeState();
+      const next = computeState();
+      // Snapshot identity stability. A repeated emit of an unchanged state must
+      // not churn listeners, React `useSyncExternalStore` consumers (which would
+      // re-render forever) or `localStorage`. Conditions are still re-evaluated
+      // above, so dismissal resets and persistence keep happening.
+      if (snapshot && statesEqual(snapshot, next)) return;
+      snapshot = next;
       const doc = getDoc();
       if (shouldBindEvents && exposeGlobal) {
         try {
@@ -1616,10 +1675,24 @@
     function subscribe(listener, subOptions) {
       if (typeof listener !== 'function' || destroyed) return function () {};
       listeners.add(listener);
+      listenerCounts.set(listener, (listenerCounts.get(listener) || 0) + 1);
       if (!subOptions || subOptions.immediate !== false) {
         try { listener(snapshot); } catch (error) { /* ignore */ }
       }
-      return function () { listeners.delete(listener); };
+      let active = true;
+      // Reference-counted: the same listener may be subscribed by several
+      // components/widgets, and unsubscribing one must not silence the others.
+      return function () {
+        if (!active) return;
+        active = false;
+        const remaining = (listenerCounts.get(listener) || 0) - 1;
+        if (remaining > 0) {
+          listenerCounts.set(listener, remaining);
+          return;
+        }
+        listenerCounts.delete(listener);
+        listeners.delete(listener);
+      };
     }
 
     function setConnectivity(online) {
@@ -1782,6 +1855,7 @@
         unsubscribePwa = null;
       }
       listeners.clear();
+      listenerCounts.clear();
       diagnosticsController.clear();
     }
 

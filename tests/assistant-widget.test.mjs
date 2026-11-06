@@ -733,3 +733,232 @@ test('widget renderer has no network, polling, SW registration, auto-open or hea
   const afterOnState = code.split('function onState')[1] || '';
   assert.doesNotMatch(afterOnState, /openPanel\(\s*\);/, 'state updates never open the panel');
 });
+
+/* ------------------------------------------------------------------ *
+ * Audit regressions (2026-11): working notice actions, Escape ownership,
+ * defensive appearance handling and touch/contrast CSS floors
+ * ------------------------------------------------------------------ */
+
+test('a diagnostics notice exposes a working toolkit action instead of an inert button', () => {
+  const ctx = createContext({ richDocument: true });
+  const widget = loadWidget(ctx);
+  const root = widget.getRoot();
+  ctx.api.setDnsResult({ status: 'complete', classification: 'dns_resolution_failure', message: 'NXDOMAIN for this hostname.' });
+  fire(ctx.document, root.querySelector('[data-role="toggle"]'), 'click');
+
+  const action = root.querySelector('[data-pwa-diagnostics]');
+  assert.ok(action, 'the notice action carries the delegated diagnostics hook');
+  assert.equal(action.getAttribute('data-action'), 'diagnostics');
+  assert.match(action.querySelector('.youge-btn-label').textContent, /diagnostics/i);
+  widget.destroy();
+});
+
+test('an install notice action reuses the toolkit install flow and its real wording', () => {
+  const ctx = createContext({ richDocument: true, pwaState: { canInstall: true } });
+  const widget = loadWidget(ctx);
+  const root = widget.getRoot();
+  fire(ctx.document, root.querySelector('[data-role="toggle"]'), 'click');
+
+  const noticeButton = root.querySelectorAll('[data-pwa-install]').find((node) => node.matches('.youge-btn-small'));
+  assert.ok(noticeButton, 'the notice itself has an install action, not only the section below it');
+  assert.equal(noticeButton.getAttribute('data-action'), 'install');
+  assert.match(noticeButton.querySelector('.youge-btn-label').textContent, /Install this app/, 'wording comes from the real capability');
+  widget.destroy();
+});
+
+test('Escape stays with an open toolkit dialog and still closes the panel on its own', () => {
+  const ctx = createContext({ richDocument: true });
+  const widget = loadWidget(ctx);
+  const root = widget.getRoot();
+  const panel = ctx.document.getElementById('youge-assistant-panel');
+  const escape = () => ctx.document.dispatchEvent(Object.assign(new ctx.win.CustomEvent('keydown'), { key: 'Escape', type: 'keydown' }));
+
+  fire(ctx.document, root.querySelector('[data-role="toggle"]'), 'click');
+  assert.equal(panel.hidden, false, 'panel opens');
+
+  const flow = ctx.document.createElement('div');
+  flow.classList.add('pwa-flow');
+  ctx.document.body.appendChild(flow);
+  escape();
+  assert.equal(panel.hidden, false, 'Escape while a toolkit dialog is on top must not close the panel behind it');
+
+  ctx.document.body.removeChild(flow);
+  escape();
+  assert.equal(root.querySelector('[data-role="toggle"]').getAttribute('aria-expanded'), 'false', 'Escape still closes the panel when nothing else is open');
+  widget.destroy();
+});
+
+test('hand-built appearance values are re-validated before they reach the DOM', () => {
+  const ctx = createContext({ richDocument: true });
+  const state = {
+    enabled: true,
+    project: { name: 'Odd Host', hostname: 'host.test' },
+    network: { online: true, endpoints: {}, dns: {} },
+    installation: { status: 'unavailable', support: 'none' },
+    notifications: [],
+    availableActions: [],
+    badge: { count: 0, tone: 'none', label: 'No alerts' },
+    appearance: {
+      position: 'middle-right',
+      theme: 'neon',
+      offsets: { x: 'lots' },
+      themeColor: 'red; background-image: url(//evil.test/x)',
+    },
+  };
+  ctx.win.YouGeAssistant = { getState: () => state, subscribe(fn) { fn(state); return () => {}; } };
+  const widget = loadWidget(ctx);
+  const root = widget.getRoot();
+
+  assert.equal(root.getAttribute('data-position'), 'bottom-right', 'unsupported positions fall back');
+  assert.equal(root.getAttribute('data-theme'), 'auto', 'unsupported themes fall back');
+  assert.equal(root.style['--youge-offset-x'], '20px', 'a non-numeric offset never becomes "undefinedpx"');
+  assert.equal(root.style['--youge-offset-y'], '20px');
+  assert.equal(root.style['--youge-brand'], undefined, 'only a plain hex color may set the brand token');
+  widget.destroy();
+});
+
+test('widget CSS holds the touch-target floor and dark-mode badge contrast', () => {
+  assert.match(widgetCss, /\.youge-btn-small \{[^}]*min-height:\s*44px/, 'small notice buttons stay 44px targets');
+  assert.match(widgetCss, /\.youge-badge\[data-tone="auth"\] \{ background: var\(--youge-auth\); color: #ffffff; \}/, 'light auth badge clears AA');
+  assert.match(widgetCss, /\[data-theme="dark"\] \.youge-badge\[data-tone="auth"\]/, 'explicit dark theme flips badge ink');
+  assert.match(widgetCss, /\[data-theme="auto"\] \.youge-badge\[data-tone="auth"\]/, 'auto dark theme must flip badge ink too');
+});
+
+/* ------------------------------------------------------------------ *
+ * Floating entry point visuals (November 2026 refinement): circular,
+ * restrained, and red only for events the user can act on.
+ * ------------------------------------------------------------------ */
+
+function fabRule() {
+  const block = /\.youge-fab \{([\s\S]*?)\n\}/.exec(widgetCss);
+  assert.ok(block, 'the .youge-fab rule exists');
+  return block[1];
+}
+
+function tokensOf(cssBlock) {
+  const map = Object.create(null);
+  for (const match of cssBlock.matchAll(/--([a-z-]+):\s*([^;]+);/g)) {
+    map[`--${match[1]}`] = match[2].trim();
+  }
+  return map;
+}
+
+function tokenValue(cssBlock, name) {
+  const tokens = tokensOf(cssBlock);
+  let value = tokens[name];
+  const indirect = /^var\((--[a-z-]+)\)$/.exec(value || '');
+  if (indirect) value = tokens[indirect[1]];
+  return value;
+}
+
+function channelLuminance(hex) {
+  const body = hex.replace('#', '');
+  const full = body.length === 3 ? body.replace(/./g, (c) => c + c) : body;
+  const [r, g, b] = [0, 2, 4].map((i) => parseInt(full.slice(i, i + 2), 16) / 255)
+    .map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+function contrastRatio(a, b) {
+  const [high, low] = [channelLuminance(a), channelLuminance(b)].sort((x, y) => y - x);
+  return (high + 0.05) / (low + 0.05);
+}
+
+const lightTokens = () => /\.youge-assistant-widget \{([\s\S]*?)\n\}/.exec(widgetCss)[1];
+const darkTokens = () => /\.youge-assistant-widget\[data-theme="dark"\] \{([\s\S]*?)\n\}/.exec(widgetCss)[1];
+const autoDarkTokens = () => /@media \(prefers-color-scheme: dark\) \{\s*\.youge-assistant-widget\[data-theme="auto"\] \{([\s\S]*?)\n  \}/.exec(widgetCss)[1];
+
+test('the floating entry point is a true circle at every size', () => {
+  const rule = fabRule();
+  assert.match(rule, /border-radius: 50%/, 'a real circle, not a rounded square');
+  assert.doesNotMatch(rule, /border-radius:\s*(?!50%)\d/, 'no competing radius on the button');
+  assert.doesNotMatch(widgetCss, /\.youge-fab[^{]*\{[^}]*border-radius:\s*1[68]px/, 'the old 18px radius is gone');
+
+  const compact = /@media \(max-width: 480px\) \{([\s\S]*?)\n\}/.exec(widgetCss)[1];
+  assert.match(compact, /\.youge-fab \{ width: 54px; height: 54px; \}/, 'the small-screen variant stays a square box, so 50% stays a circle');
+  assert.doesNotMatch(compact, /\.youge-fab \{[^}]*border-radius/, 'it never re-declares a different radius');
+
+  assert.match(widgetCss, /\.youge-fab::before \{[^}]*inset: 0;[^}]*border-radius: 50%/, 'the decorative light lives inside the circle');
+  assert.match(widgetCss, /\.youge-fab::before \{[^}]*pointer-events: none/, 'and cannot swallow a click');
+  assert.match(widgetCss, /\.youge-fab \.youge-icon \{ position: relative; z-index: 1; \}/, 'the glyph stays above the sheen');
+  assert.match(widgetCss, /\.youge-badge \{[\s\S]*?z-index: 2;/, 'the count badge stays above both');
+});
+
+test('the resting button is subdued: no glow, no blur, no continuous animation', () => {
+  const rule = fabRule();
+  assert.doesNotMatch(rule, /filter:|blur\(|text-shadow/, 'no glow or blur on the resting button');
+  assert.doesNotMatch(rule, /box-shadow:\s*var\(--youge-shadow\)/, 'the 40px panel shadow is no longer used for the entry point');
+  assert.match(widgetCss, /--youge-fab-shadow: 0 4px 10px/, 'depth is one short elevation step');
+  assert.doesNotMatch(widgetCss, /@keyframes/, 'the widget defines no infinite animation at all');
+  assert.doesNotMatch(widgetCss, /animation:/, 'and never animates on its own');
+  assert.match(widgetCss, /\.youge-fab:hover \{ transform: translateY\(-1px\);/, 'hover travel stays under 2px');
+  assert.match(widgetCss, /\.youge-fab:active \{ transform: translateY\(0\) scale\(0\.98\); \}/, 'press feedback survives, gently');
+  const bg = tokenValue(lightTokens(), '--youge-fab-bg');
+  assert.ok(channelLuminance(bg) < 0.16, `the default fill stays dark (${bg})`);
+});
+
+test('the button clears the text-contrast floor in light, dark and auto-dark', () => {
+  for (const [label, block] of [['light', lightTokens()], ['dark', darkTokens()], ['auto-dark', autoDarkTokens()]]) {
+    const bg = tokenValue(block, '--youge-fab-bg');
+    const ink = tokenValue(block, '--youge-fab-ink');
+    const actionBg = tokenValue(block, '--youge-fab-action-bg');
+    const actionInk = tokenValue(block, '--youge-fab-action-ink');
+    assert.ok(contrastRatio(ink, bg) >= 4.5, `${label}: glyph ink on the resting fill is ${contrastRatio(ink, bg).toFixed(2)}:1`);
+    assert.ok(contrastRatio(actionInk, actionBg) >= 4.5, `${label}: glyph ink on the red fill is ${contrastRatio(actionInk, actionBg).toFixed(2)}:1`);
+  }
+  // The inverted chip has to read against the red fill too.
+  assert.ok(contrastRatio('#ffffff', '#b42318') >= 4.5, 'the count chip stays legible on the light-theme red');
+});
+
+test('red is reserved for actionable events, by tone not by alert count', () => {
+  const tones = [...new Set([...widgetCss.matchAll(/\.youge-fab\[data-tone="([a-z]+)"\]/g)].map((match) => match[1]))].sort();
+  assert.deepEqual(tones, ['auth', 'critical', 'install'], 'the actionable list is exactly the events the user can act on');
+  for (const calm of ['info', 'backup', 'none']) {
+    assert.doesNotMatch(widgetCss, new RegExp(`\\.youge-fab\\[data-tone="${calm}"\\]`), `${calm} must never turn the button red`);
+  }
+  assert.match(widgetCss, /\.youge-fab\[data-tone="critical"\] \.youge-badge/, 'the count chip inverts instead of going red-on-red');
+});
+
+test('the state change is a smooth transition built from shared motion tokens', () => {
+  assert.match(widgetCss, /--youge-motion-fast: 160ms;/);
+  assert.match(widgetCss, /--youge-motion-state: 240ms;/);
+  const rule = fabRule();
+  assert.match(rule, /transition:\s*\n?\s*transform var\(--youge-motion-fast\)/, 'interaction feedback uses the fast token');
+  assert.match(rule, /background-color var\(--youge-motion-state\) ease/, 'the color state change uses the state token');
+  assert.match(rule, /border-color var\(--youge-motion-state\) ease/);
+  assert.doesNotMatch(rule, /transition:[^;]*\bwidth|transition:[^;]*\bheight/, 'no layout-affecting property animates');
+
+  const reduced = /@media \(prefers-reduced-motion: reduce\) \{([\s\S]*?)\n\}/.exec(widgetCss)[1];
+  assert.match(reduced, /transition-duration: 0\.01ms !important/, 'reduced motion drops the transition');
+  assert.match(reduced, /\.youge-fab:hover, \.youge-fab:active[^{]*\{ transform: none !important; \}/, 'and removes the travel, keeping the color message');
+});
+
+test('the button reflects the badge tone as events appear and are dismissed', () => {
+  const ctx = createContext({ richDocument: true, pwaState: { canInstall: true } });
+  const widget = loadWidget(ctx);
+  const root = widget.getRoot();
+  const fab = root.querySelector('[data-role="toggle"]');
+
+  assert.equal(fab.getAttribute('data-tone'), 'install', 'an install action is actionable');
+  ctx.api.dismiss('install:available');
+  assert.equal(fab.getAttribute('data-tone'), 'none', 'dismissing the event clears the color again');
+  ctx.api.setConnectivity(false);
+  assert.equal(fab.getAttribute('data-tone'), 'critical', 'losing the connection is actionable');
+  assert.match(fab.getAttribute('aria-label'), /1 alert/, 'and the count still says so in words, not only in color');
+  widget.destroy();
+});
+
+test('informational alerts and in-progress checks keep the button calm', () => {
+  // Installed already, so the only event left is the optional update: an alert
+  // that must not make the entry point shout.
+  const ctx = createContext({ richDocument: true, pwaState: { hasUpdate: true, installed: true, standalone: true } });
+  const widget = loadWidget(ctx);
+  const root = widget.getRoot();
+  const fab = root.querySelector('[data-role="toggle"]');
+
+  assert.equal(root.querySelector('.youge-badge').hidden, false, 'the update notice is still counted');
+  assert.equal(fab.getAttribute('data-tone'), 'info', 'an optional update is not something to act on now');
+  ctx.api.setDnsResult({ status: 'running', classification: 'pending', message: 'Checking this connection.' });
+  assert.equal(fab.getAttribute('data-tone'), 'info', 'a running diagnostic never turns the button red');
+  widget.destroy();
+});

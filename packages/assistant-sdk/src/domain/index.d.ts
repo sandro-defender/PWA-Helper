@@ -129,6 +129,7 @@ export interface DomainResolver {
   normalizeHost(value: string): string;
   normalizePath(value?: string, fallback?: string): string | null;
   rootDomain(hostname: string): string;
+  safeNavigationUrl(value?: string, fallback?: string): string;
   validateConfig(raw?: DomainRegistryEntry | null): Omit<ResolvedDomainConfig, 'domain'>;
   setRegistry(nextRegistry: DomainRegistry): void;
   getRegistry(): DomainRegistry;
@@ -139,6 +140,13 @@ export declare function normalizeHost(value?: string): string;
 export declare function isIpAddress(hostname: string): boolean;
 export declare function rootDomain(hostname: string): string;
 export declare function normalizePath(value?: string, fallback?: string): string | null;
+/**
+ * Validate a navigation target supplied by page markup or a push payload.
+ * Only http(s) URLs and root/relative paths are returned unchanged; unsafe
+ * input (script-capable schemes, control characters, `//host` and `\host`
+ * network-path forms) resolves to `fallback`.
+ */
+export declare function safeNavigationUrl(value?: string, fallback?: string): string;
 export declare function validateDomainConfig(raw?: DomainRegistryEntry | null): Omit<ResolvedDomainConfig, 'domain'>;
 export declare function resolveDomain(locationLike?: LocationInput | string, optionalRegistry?: DomainRegistry): ResolvedDomainConfig;
 export declare function buildManifest(config?: ResolvedDomainConfig): GeneratedWebManifest;

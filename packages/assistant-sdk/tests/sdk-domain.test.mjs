@@ -8,7 +8,9 @@ import {
   normalizePath,
   resolveDomain,
   rootDomain,
+  safeNavigationUrl,
 } from '../src/index.js';
+import * as SDK from '../src/index.js';
 
 function makeStorage() {
   const map = new Map();
@@ -134,4 +136,65 @@ test('resolves exact host before wildcard, enforces path traversal checks, and b
   assert.equal(manifest.name, 'Exact Portal UK');
   assert.equal(manifest.share_target.action, '/workspace/share-target');
   assert.deepEqual(manifest.shortcuts.map((s) => s.name), ['Valid Shortcut']);
+});
+
+/* ------------------------------------------------------------------ *
+ * Audit regressions (2026-11): navigation targets taken from push
+ * payloads, manifest shortcuts or host attributes must be validated
+ * before they reach an <a href>, client.navigate() or openWindow().
+ * ------------------------------------------------------------------ */
+
+const emptyResolver = createDomainResolver({});
+
+function resolveUrl(value) {
+  return safeNavigationUrl(value, '/');
+}
+
+test('the navigation guard is reachable from the root and the ./domain subpath', () => {
+  assert.equal(typeof SDK.safeNavigationUrl, 'function');
+  assert.equal(SDK.safeNavigationUrl, safeNavigationUrl);
+  assert.equal(typeof emptyResolver.safeNavigationUrl, 'function');
+  assert.equal(emptyResolver.safeNavigationUrl('javascript:alert(1)', '/fallback'), '/fallback');
+});
+
+test('same-document paths pass through untouched', () => {
+  for (const path of ['/inbox', '/inbox?tab=alerts', 'settings/notifications', './help', '#top']) {
+    assert.equal(resolveUrl(path), path, `${JSON.stringify(path)} is already safe`);
+  }
+});
+
+test('absolute URLs are only kept when they are http(s)', () => {
+  assert.equal(
+    resolveUrl('https://app.example.test/checkout?utm=1'),
+    'https://app.example.test/checkout?utm=1',
+  );
+  assert.equal(resolveUrl('http://localhost:5173/preview'), 'http://localhost:5173/preview');
+  assert.equal(resolveUrl('HTTPS://APP.EXAMPLE.TEST/'), 'HTTPS://APP.EXAMPLE.TEST/');
+});
+
+test('script-capable schemes fall back instead of reaching href or window.open', () => {
+  for (const value of [
+    'javascript:alert(1)',
+    '  javascript:alert(1)',
+    'JaVaScRiPt:alert(1)',
+    'java\tscript:alert(1)',
+    'vbscript:msgbox(1)',
+    'data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==',
+  ]) {
+    assert.equal(resolveUrl(value), '/', `${value.slice(0, 24)} must not survive`);
+    assert.equal(safeNavigationUrl(value), '/', 'both copies fall back to the app root when no fallback is given');
+  }
+});
+
+test('protocol-relative and backslash tricks cannot escape the origin', () => {
+  for (const value of ['//evil.test/pwn', '  //evil.test', '\\\\evil.test\\x', '/\\evil.test']) {
+    assert.equal(resolveUrl(value), '/', `${value} would leave the origin`);
+  }
+});
+
+test('blank or non-string values fall back rather than producing undefined hrefs', () => {
+  for (const value of [null, undefined, 42, {}, [], '', '   ']) {
+    assert.equal(resolveUrl(value), '/');
+    assert.equal(safeNavigationUrl(value, '/signed-in'), '/signed-in');
+  }
 });

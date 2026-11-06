@@ -36,6 +36,7 @@ import {
   normalizePath,
   resolveDomain,
   rootDomain,
+  safeNavigationUrl,
   validateDomainConfig,
 } from './domain/index.js';
 import {
@@ -101,6 +102,7 @@ export {
   normalizePath,
   validateDomainConfig,
   resolveDomain,
+  safeNavigationUrl,
   buildManifest,
   createDomainResolver,
   dnsFailure,

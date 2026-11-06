@@ -264,6 +264,17 @@ export function loadLastKnownGood(storage, projectId) {
   try {
     const raw = storage.getItem(lkgStorageKey(id));
     if (!raw) return null;
+    let record = null;
+    try {
+      record = JSON.parse(raw);
+    } catch (error) {
+      return null;
+    }
+    // A stored recovery record must declare the project it belongs to. Without
+    // this, a blob written under this key with no `projectId` would skip the
+    // mismatch check and be trusted as this project's last-known-good config.
+    if (!record || typeof record !== 'object' || Array.isArray(record)) return null;
+    if (safeText(record.projectId || '', 80) !== id) return null;
     const validated = validatePublishedConfig(raw, { expectedProjectId: id });
     return validated.valid ? validated : null;
   } catch (error) {

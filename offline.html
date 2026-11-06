@@ -14,7 +14,10 @@
       <img class="icon" src="icons/icon-192.png" alt="" />
       <p class="app-name" id="appName">You.Ge Assistant</p>
       <p class="domain-context">This installation: <strong id="currentDomain">your current domain</strong></p>
-      <span class="badge"><span class="dot" id="dot"></span><span id="statusText">You are offline</span></span>
+      <!-- One atomic live region for the connection status: offline.js rewrites
+           this text on online/offline events, and the "Connection restored"
+           message is otherwise silent for screen-reader users. -->
+      <span class="badge" role="status" aria-live="polite" aria-atomic="true"><span class="dot" id="dot" aria-hidden="true"></span><span id="statusText">You are offline</span></span>
       <h1 id="headline">No connection</h1>
       <p id="message">Check your internet connection and try again. Pages you visited recently may still be available.</p>
       <a class="button" id="retryLink" href="./">Try again</a>

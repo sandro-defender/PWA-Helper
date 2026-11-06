@@ -137,26 +137,50 @@ a { color: inherit; }
   height: 66px;
   padding: 0;
   overflow: visible;
-  border: 1px solid rgba(197, 166, 245, 0.65);
+  /* One flat, low-saturation fill plus a single short shadow: depth without a lit
+     gradient or a bloom. The hairline ring measures 3.07:1 against the page, so
+     the circle stays findable in dim light, and the mark on the fill is 15:1. */
+  --assistant-fab-fill: #221a2c;
+  --assistant-fab-ink: #f4f1f8;
+  border: 1px solid rgba(199, 187, 220, 0.42);
   border-radius: 50%;
-  background: radial-gradient(circle at 50% 37%, #30253d, #17131f 72%);
-  box-shadow: 0 9px 30px rgba(78, 48, 117, 0.34), inset 0 0 0 1px rgba(255, 255, 255, 0.07);
-  color: white;
+  background: var(--assistant-fab-fill);
+  box-shadow: 0 6px 16px rgba(8, 6, 14, 0.4);
+  color: var(--assistant-fab-ink);
   cursor: pointer;
   isolation: isolate;
+  touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
-  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+  transition: transform 160ms ease, background-color 240ms ease, border-color 240ms ease, box-shadow 240ms ease;
 }
 
-.assistant-fab::before { position: absolute; z-index: -1; inset: -8px; border-radius: 50%; background: radial-gradient(circle, rgba(173, 109, 255, 0.28), transparent 70%); content: ''; filter: blur(8px); opacity: 0.8; transition: opacity 160ms ease; }
-.assistant-fab:hover { transform: translateY(-3px); border-color: rgba(226, 204, 255, 0.95); box-shadow: 0 14px 38px rgba(78, 48, 117, 0.45), inset 0 0 0 1px rgba(255, 255, 255, 0.1); }
-.assistant-fab:hover::before, .assistant-fab[aria-expanded="true"]::before { opacity: 1; }
-.assistant-fab:active { transform: translateY(0) scale(0.96); }
-.assistant-fab:focus-visible { outline: 3px solid #ad6dff; outline-offset: 5px; }
-.assistant-fab-stage { position: absolute; inset: -12px; display: block; overflow: visible; }
+/* The blurred halo that used to sit eight pixels outside the button is gone;
+   the light now lives inside the disc, so nothing glows into the page. */
+.assistant-fab::before { position: absolute; z-index: 0; inset: 0; border-radius: 50%; background: radial-gradient(circle at 50% 20%, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0) 62%); content: ''; pointer-events: none; }
+.assistant-fab:hover { transform: translateY(-1px); border-color: rgba(214, 202, 232, 0.6); box-shadow: 0 8px 18px rgba(8, 6, 14, 0.46); }
+.assistant-fab:active { transform: translateY(0) scale(0.98); }
+.assistant-fab:focus-visible { outline: 3px solid #c7bbdc; outline-offset: 5px; }
+/* Clipped to the circle. This layer used to be a square canvas inset -12px, so
+   the electric field and its drop shadow formed a bright cube around a round
+   button — the "square logo" the button used to look like. */
+.assistant-fab-stage { position: absolute; z-index: 1; inset: 0; display: block; overflow: hidden; border-radius: 50%; }
 .assistant-fab-stage .electric-logo { width: 100%; height: 100%; }
-.assistant-fab-stage canvas { filter: drop-shadow(0 0 7px rgba(173, 109, 255, 0.38)); }
-.assistant-mark-image { position: absolute; z-index: 2; top: 50%; left: 50%; display: block; width: 42px; height: 42px; object-fit: contain; transform: translate(-50%, -50%); filter: drop-shadow(0 0 5px rgba(237, 219, 255, 0.45)); pointer-events: none; }
+.assistant-fab-stage canvas { filter: none; }
+.assistant-mark-image { position: absolute; z-index: 2; top: 50%; left: 50%; display: block; width: 38px; height: 38px; object-fit: contain; transform: translate(-50%, -50%); pointer-events: none; }
+/* Red means "act on this". The button does not decide: data-tone is the SDK
+   badge tone (the tone of the highest-priority notice still on screen), and the
+   list is the same actionable set the shipped widget uses in
+   assistant-widget.css — critical, auth, install. backup / info / none stay
+   calm, and a running diagnostic produces no notice at all, so loading never
+   turns the button red. The count badge and the aria-label repeat the message,
+   because color is never the only signal. */
+.assistant-fab[data-tone="critical"], .assistant-fab[data-tone="auth"], .assistant-fab[data-tone="install"] {
+  --assistant-fab-fill: #6d1f18;
+  --assistant-fab-ink: #ffe6e3;
+  border-color: rgba(243, 184, 177, 0.5);
+}
+.assistant-fab[data-tone="critical"]::before, .assistant-fab[data-tone="auth"]::before, .assistant-fab[data-tone="install"]::before { background: radial-gradient(circle at 50% 20%, rgba(255, 236, 232, 0.16), rgba(255, 236, 232, 0) 62%); }
+
 .visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; clip-path: inset(50%); }
 
 .main-nav { display: flex; align-items: center; gap: 30px; margin-left: auto; }
@@ -386,6 +410,7 @@ h1, h2, h3, p { margin-top: 0; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }
+  .assistant-fab:hover, .assistant-fab:active, .assistant-fab-glare .glare-hover__glare { transform: none !important; }
 }
 
 /* ------------------------------------------------------------------ *
@@ -679,7 +704,7 @@ article.foundation-card {
 
 .assistant-badge {
   position: absolute;
-  z-index: 3;
+  z-index: 4;
   top: -4px;
   right: -4px;
   display: inline-flex;
@@ -688,7 +713,7 @@ article.foundation-card {
   min-width: 20px;
   height: 20px;
   padding: 0 5px;
-  border: 2px solid #fff;
+  border: 2px solid var(--assistant-fab-fill, #fff);
   border-radius: 999px;
   background: #475467;
   color: #fff;
@@ -702,6 +727,10 @@ article.foundation-card {
 .assistant-badge[data-tone="backup"] { background: #175cd3; }
 .assistant-badge[data-tone="install"] { background: #067647; }
 .assistant-badge[data-tone="info"] { background: #475467; }
+/* Invert the chip over the red fill instead of stacking red-on-red. */
+.assistant-fab[data-tone="critical"] .assistant-badge,
+.assistant-fab[data-tone="auth"] .assistant-badge,
+.assistant-fab[data-tone="install"] .assistant-badge { background: #ffe6e3; border-color: #6d1f18; color: #6d1f18; }
 
 .spotlight-card.assistant-status-card {
   padding: 0;

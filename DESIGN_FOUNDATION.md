@@ -211,8 +211,11 @@ ownership, per-component dependencies, TS-CSS variant by hand).
 `useSyncExternalStore`, so the React example and the dependency-free
 `assistant-widget.js` renderer share one state model. No GSAP, Motion,
 HugeIcons, Tailwind, shaders, continuous WebGL backgrounds or component
-collections were added. The existing `ElectricLogo`/`ogl` launcher is retained
-for visual continuity; the new widget does not introduce another WebGL effect.
+collections were added. The existing `ElectricLogo`/`ogl` launcher is retained in
+the example, but only as interaction feedback: it mounts on hover/focus or while
+the panel is open, never idles in a loop, is clipped to the button's circle, and
+follows the same actionable-tone rule as the widget fill. The widget itself still
+introduces no WebGL effect.
 
 ### Skill influence on the widget UI
 
@@ -228,7 +231,8 @@ for visual continuity; the new widget does not introduce another WebGL effect.
 - **Style/layout HIGH:** consistent inline SVG icon set (no emoji), semantic
   tokens, single elevation scale, 480px clamp, `100dvh` max-height, no
   horizontal scroll, light/dark tokens defined together.
-- **Animation/feedback MEDIUM:** 150–180ms transitions, no looping badge or
+- **Animation/feedback MEDIUM:** shared motion tokens (160ms feedback, 240ms
+  state change) instead of one duration everywhere, no looping badge or
   bounce, `@media (prefers-reduced-motion: reduce)` fallback, empty state,
   progressive-disclosure recovery guidance.
 - **Pre-delivery checklist:** 375/768/1024/1440px responsive contracts, 4.5:1

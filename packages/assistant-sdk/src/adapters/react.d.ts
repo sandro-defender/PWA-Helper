@@ -35,12 +35,23 @@ export interface ReactAssistantAdapter {
 
 export declare const FALLBACK_ASSISTANT_STATE: AssistantState;
 
+/**
+ * Build the `useSyncExternalStore` bindings for an assistant instance.
+ *
+ * `assistantOrGetter` may be an instance or a getter (typically
+ * `() => YouGeAssistant.attach(options)`). The getter is resolved once and
+ * memoized — `getSnapshot` runs on every render, so re-resolving per render
+ * would re-configure the assistant per render. It is re-resolved only when the
+ * cached instance reports `isDestroyed()`. `selector` results are cached by
+ * identity so unrelated state changes do not re-render subscribers.
+ */
 export declare function getExternalStoreBindings<Selected = AssistantState>(
   assistantOrGetter?: AssistantInstance | (() => AssistantInstance),
   selector?: ((state: AssistantState) => Selected) | null,
   fallbackState?: AssistantState
 ): ExternalStoreBindings<Selected>;
 
+/** Same getter semantics as {@link getExternalStoreBindings}. */
 export declare function createUseAssistant(
   useSyncExternalStore: UseSyncExternalStoreFn,
   assistantOrGetter?: AssistantInstance | (() => AssistantInstance),

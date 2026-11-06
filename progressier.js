@@ -37,6 +37,24 @@ const DOMAIN_CONFIG = self.YouGeDomain && typeof self.YouGeDomain.resolve === 'f
     })
   : { features: { offline: true } };
 const OFFLINE_ENABLED = !DOMAIN_CONFIG.features || DOMAIN_CONFIG.features.offline !== false;
+
+// Navigation targets in notifications come from push payloads and action data:
+// data, never instructions. Restrict them to http(s) and in-scope paths so a
+// payload cannot drive `client.navigate()`/`openWindow()` into a script-capable
+// scheme (javascript:, data:) or a stripped-control-character look-alike.
+function resolveNotificationTarget(raw) {
+  if (self.YouGeDomain && typeof self.YouGeDomain.safeNavigationUrl === 'function') {
+    return self.YouGeDomain.safeNavigationUrl(raw, self.location.href);
+  }
+  try {
+    const url = new URL(String(raw == null ? '' : raw).trim(), self.location.href);
+    if (url.protocol !== 'https:' && url.protocol !== 'http:') return REGISTRATION_SCOPE.href;
+    return url.href;
+  } catch (error) {
+    return REGISTRATION_SCOPE.href;
+  }
+}
+
 const SHARING_ENABLED = !DOMAIN_CONFIG.features || DOMAIN_CONFIG.features.sharing !== false;
 const PUSH_ENABLED = !DOMAIN_CONFIG.features || DOMAIN_CONFIG.features.push !== false;
 const BADGES_ENABLED = !DOMAIN_CONFIG.features || DOMAIN_CONFIG.features.badges !== false;
@@ -623,7 +641,15 @@ self.addEventListener('notificationclick', (event) => {
     const action = data.actions.find((entry) => entry && entry.action === event.action);
     if (action && action.url) target = action.url;
   }
-  const targetUrl = new URL(target, self.location.origin);
+  let targetUrl;
+  try {
+    targetUrl = new URL(resolveNotificationTarget(target), self.location.origin);
+  } catch (error) {
+    targetUrl = new URL(REGISTRATION_SCOPE);
+  }
+  if (targetUrl.protocol !== 'https:' && targetUrl.protocol !== 'http:') {
+    targetUrl = new URL(REGISTRATION_SCOPE);
+  }
   targetUrl.hash = data.hash || targetUrl.hash;
 
   event.waitUntil(

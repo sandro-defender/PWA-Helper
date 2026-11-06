@@ -230,3 +230,57 @@ test('cleanup and destroy remove all listeners and stop subsequent emissions', (
   assistant.setConnectivity(false);
   assert.equal(emissions, 0, 'destroyed instance never emits again');
 });
+
+/* ------------------------------------------------------------------ *
+ * Audit regressions (2026-11): subscription and snapshot semantics
+ * ------------------------------------------------------------------ */
+
+test('identical listeners are reference counted so one unsubscribe cannot silence another', () => {
+  const { root } = makeHostEnv();
+  const assistant = YouGeAssistant.create(
+    { projectId: 'refcount-test', domain: 'workspace.example.com' },
+    { root }
+  );
+
+  const seen = [];
+  const shared = (state) => seen.push(state.network.online);
+  const first = assistant.subscribe(shared, { immediate: false });
+  const second = assistant.subscribe(shared, { immediate: false });
+
+  assistant.setConnectivity(false);
+  assert.deepEqual(seen, [false], 'one emit delivers one call while both subscriptions are live');
+
+  first();
+  assistant.setConnectivity(true);
+  assert.deepEqual(seen, [false, true], 'the other subscription must keep receiving updates after one unsubscribe');
+
+  second();
+  assistant.setConnectivity(false);
+  assert.deepEqual(seen, [false, true], 'the listener goes silent only when every subscription is released');
+
+  assistant.destroy();
+});
+
+test('an unchanged state keeps snapshot identity and does not churn listeners', () => {
+  const { root } = makeHostEnv();
+  const assistant = YouGeAssistant.create(
+    { projectId: 'identity-test', domain: 'workspace.example.com' },
+    { root }
+  );
+
+  const before = assistant.getState();
+  let notifications = 0;
+  const unsubscribe = assistant.subscribe(() => { notifications += 1; });
+  assert.equal(notifications, 1, 'subscribing delivers the current snapshot immediately');
+
+  assistant.setConnectivity(true);
+  assert.equal(notifications, 1, 'an idempotent transition must not re-notify');
+  assert.equal(assistant.getState(), before, 'snapshot identity is stable while nothing changed');
+
+  assistant.setConnectivity(false);
+  assert.equal(notifications, 2, 'a real change notifies exactly once');
+  assert.notEqual(assistant.getState(), before, 'a real change produces a new snapshot');
+
+  unsubscribe();
+  assistant.destroy();
+});

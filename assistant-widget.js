@@ -32,6 +32,29 @@
     custom: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
   };
 
+  // Mirrors the SDK's accepted appearance values so a hand-built state object
+  // cannot push an unsupported value into the widget's attributes.
+  var POSITIONS = ['bottom-right', 'bottom-left', 'top-right', 'top-left'];
+  var THEMES = ['auto', 'light', 'dark'];
+
+  // Fallback wording for notice actions that no project action list provides.
+  var NOTICE_ACTION_LABELS = {
+    install: 'Installation instructions',
+    diagnostics: 'Run network diagnostics',
+    recovery: 'Recovery guidance',
+    help: 'Get help',
+    'backup-status': 'Backup status',
+    update: 'Apply app update',
+  };
+
+  // Toolkit hooks delegated by pwa.js. Without the matching attribute a notice
+  // button would only dispatch `youge:action` and appear dead on pages that
+  // rely on the toolkit's own install/diagnostics handling.
+  var NOTICE_ACTION_HOOKS = {
+    install: 'data-pwa-install',
+    diagnostics: 'data-pwa-diagnostics',
+  };
+
   var mount = null;
   var fab = null;
   var badge = null;
@@ -87,14 +110,27 @@
     return wrap;
   }
 
+  // Appearance values reach us through a state object a host may have built
+  // itself, so they are re-validated here: a non-numeric offset would otherwise
+  // be written as `undefinedpx`, and an arbitrary color string would be
+  // injected straight into the widget's style property.
+  function offsetPx(value, fallback) {
+    var number = Number(value);
+    if (!isFinite(number)) return fallback + 'px';
+    return Math.min(160, Math.max(0, Math.round(number))) + 'px';
+  }
+
+  var HEX_COLOR = /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
+
   function applyAppearance(state) {
     if (!mount || !state) return;
     var appearance = state.appearance || {};
-    mount.setAttribute('data-position', appearance.position || 'bottom-right');
-    mount.setAttribute('data-theme', appearance.theme || 'auto');
-    mount.style.setProperty('--youge-offset-x', (appearance.offsets ? appearance.offsets.x : 20) + 'px');
-    mount.style.setProperty('--youge-offset-y', (appearance.offsets ? appearance.offsets.y : 20) + 'px');
-    if (appearance.themeColor) mount.style.setProperty('--youge-brand', appearance.themeColor);
+    var offsets = appearance.offsets || {};
+    mount.setAttribute('data-position', POSITIONS.indexOf(appearance.position) !== -1 ? appearance.position : 'bottom-right');
+    mount.setAttribute('data-theme', THEMES.indexOf(appearance.theme) !== -1 ? appearance.theme : 'auto');
+    mount.style.setProperty('--youge-offset-x', offsetPx(offsets.x, 20));
+    mount.style.setProperty('--youge-offset-y', offsetPx(offsets.y, 20));
+    if (HEX_COLOR.test(String(appearance.themeColor || ''))) mount.style.setProperty('--youge-brand', appearance.themeColor);
     mount.hidden = state.enabled === false;
   }
 
@@ -146,7 +182,14 @@
     };
   }
 
-  function renderNotice(notice) {
+  function noticeAction(notice, actions) {
+    for (var i = 0; i < actions.length; i += 1) {
+      if (actions[i] && actions[i].id === notice.actionId) return actions[i];
+    }
+    return null;
+  }
+
+  function renderNotice(notice, actions) {
     var article = el('article', 'youge-notice');
     article.setAttribute('data-priority', String(notice.priority));
     article.setAttribute('data-tone', notice.tone || 'info');
@@ -156,8 +199,16 @@
     content.appendChild(el('p', 'youge-notice-message', notice.message));
     var controls = el('div', 'youge-notice-controls');
     if (notice.actionId) {
-      var action = button('Open', 'custom', 'youge-btn youge-btn-small');
+      var linked = noticeAction(notice, actions || []);
+      var action = button(
+        (linked && linked.label) || NOTICE_ACTION_LABELS[notice.actionId] || 'Open',
+        (linked && linked.icon) || 'custom',
+        'youge-btn youge-btn-small'
+      );
       action.setAttribute('data-action', notice.actionId);
+      // Reuse the toolkit's own delegated handlers so this button actually
+      // performs the action instead of only announcing it on the document.
+      if (NOTICE_ACTION_HOOKS[notice.actionId]) action.setAttribute(NOTICE_ACTION_HOOKS[notice.actionId], '');
       controls.appendChild(action);
     }
     if (notice.critical) {
@@ -215,7 +266,7 @@
       : 'No current alerts. The Assistant remains available for help and diagnostics.');
     if (state.notifications.length) {
       var list = el('div', 'youge-notice-list');
-      state.notifications.forEach(function (notice) { list.appendChild(renderNotice(notice)); });
+      state.notifications.forEach(function (notice) { list.appendChild(renderNotice(notice, state.availableActions)); });
       notices.appendChild(list);
     } else {
       notices.appendChild(el('p', 'youge-empty', 'All clear — nothing needs your attention right now.'));
@@ -343,8 +394,22 @@
     if (action) handleAction(action, target.getAttribute('data-kind'));
   }
 
+  function toolkitDialogOpen() {
+    // pwa.js opens install/diagnostics flows as `.pwa-flow` dialogs on top of
+    // the panel. Those flows own Escape: closing the panel at the same time
+    // would drop the user out of the flow and strand focus.
+    if (!doc || typeof doc.querySelector !== 'function') return false;
+    try {
+      return Boolean(doc.querySelector('.pwa-flow'));
+    } catch (error) {
+      return false;
+    }
+  }
+
   function onKeydown(event) {
-    if (event.key === 'Escape' && isOpen) closePanel();
+    if (event.key !== 'Escape' || !isOpen) return;
+    if (toolkitDialogOpen()) return;
+    closePanel();
   }
 
   function onState(state) {

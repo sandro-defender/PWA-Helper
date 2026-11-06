@@ -122,6 +122,27 @@
     return normalized.charAt(normalized.length - 1) === '/' ? normalized : normalized + '/';
   }
 
+  var NAVIGATION_SCHEME = /^([a-z][a-z0-9+.-]*):/i;
+
+  // Validate a navigation target that came from page markup or a push payload.
+  // Only http(s) absolute URLs and root/relative paths survive: script-capable
+  // schemes (javascript:, data:, blob:), control characters that URL parsers
+  // strip, and network-path forms (//evil.example, \evil.example) fall back.
+  function safeNavigationUrl(value, fallback) {
+    var safeFallback = typeof fallback === 'string' && fallback ? fallback : '/';
+    var raw = typeof value === 'string' ? value.trim() : '';
+    if (!raw || /[\u0000-\u001f\u007f]/.test(raw)) return safeFallback;
+    var scheme = NAVIGATION_SCHEME.exec(raw);
+    if (scheme) {
+      var name = scheme[1].toLowerCase();
+      return name === 'http' || name === 'https' ? raw : safeFallback;
+    }
+    var authority = raw.split(/[?#]/)[0];
+    if (authority.indexOf('\\') !== -1) return safeFallback;
+    if (raw.charAt(0) === '/' && raw.charAt(1) === '/') return safeFallback;
+    return raw;
+  }
+
   function validConfig(raw) {
     var config = merge(clone(DEFAULTS), raw || {});
     if (typeof config.identity.name !== 'string' || !config.identity.name.trim()) config.identity.name = DEFAULTS.identity.name;
@@ -308,6 +329,7 @@
     normalizeHost: normalizeHost,
     normalizePath: normalizePath,
     rootDomain: rootDomain,
+    safeNavigationUrl: safeNavigationUrl,
     validateConfig: validConfig,
     setRegistry: function (nextRegistry) { registry = nextRegistry && typeof nextRegistry === 'object' ? nextRegistry : {}; },
   };

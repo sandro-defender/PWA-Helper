@@ -67,6 +67,34 @@ function dispatchWidgetAction(id, kind) {
   });
 }
 
+// A notice action must read like the action it performs. Project-supplied
+// actions carry the right wording (including "Install this app" versus manual
+// instructions); these labels only cover ids no project action list declares.
+const NOTICE_ACTION_LABELS = {
+  install: 'Installation instructions',
+  diagnostics: 'Run network diagnostics',
+  recovery: 'Recovery guidance',
+  help: 'Get help',
+  'backup-status': 'Backup status',
+  update: 'Apply app update',
+};
+
+/* The red state is not a second source of truth: it reads the SDK badge tone,
+ * which is already the tone of the highest-priority notice the user has not
+ * dismissed or acknowledged. This list is the same actionable set
+ * assistant-widget.css applies to .youge-fab (critical, auth, install); it
+ * exists only so the animated accent follows the same rule as the fill.
+ * `backup` and `info` stay calm — they describe what is happening, not what to
+ * do — and a running diagnostic adds no notice at all, so loading never reads
+ * as urgent. */
+const ACTIONABLE_TONES = new Set(['critical', 'auth', 'install']);
+
+function noticeActionLabel(state, notice) {
+  const match = (state.availableActions || []).find((action) => action.id === notice.actionId);
+  if (match && match.label) return match.label;
+  return NOTICE_ACTION_LABELS[notice.actionId] || 'Open';
+}
+
 function AssistantFloatingWidget() {
   const state = useSyncExternalStore(
     assistantStore.subscribe,
@@ -74,9 +102,14 @@ function AssistantFloatingWidget() {
     assistantStore.getServerSnapshot
   );
   const [open, setOpen] = useState(false);
+  // The electric accent is interaction feedback, so it only exists while the
+  // button is hovered or focused, or the panel is open. Nothing animates while
+  // the assistant is idle.
+  const [engaged, setEngaged] = useState(false);
   const widgetRef = useRef(null);
   const toggleRef = useRef(null);
   const badge = state.badge || fallbackState.badge;
+  const actionable = ACTIONABLE_TONES.has(badge.tone);
   const notifications = state.notifications || [];
   const network = state.network || fallbackState.network;
   const installation = state.installation || fallbackState.installation;
@@ -178,7 +211,17 @@ function AssistantFloatingWidget() {
                     <p>{notice.message}</p>
                   </div>
                   <div className="assistant-notice-controls">
-                    <button type="button" onClick={() => dispatchWidgetAction(notice.actionId || notice.id, 'notice')}>Open</button>
+                    <button
+                      type="button"
+                      {...(notice.actionId === 'install'
+                        ? { 'data-pwa-install': '' }
+                        : notice.actionId === 'diagnostics'
+                          ? { 'data-pwa-diagnostics': '' }
+                          : {})}
+                      onClick={() => dispatchWidgetAction(notice.actionId || notice.id, 'notice')}
+                    >
+                      {noticeActionLabel(state, notice)}
+                    </button>
                     {notice.critical ? (
                       <button type="button" onClick={() => YouGeAssistant.attach().acknowledge(notice.id)}>Acknowledge</button>
                     ) : (
@@ -244,8 +287,8 @@ function AssistantFloatingWidget() {
         borderRadius="50%"
         borderColor="transparent"
         glareColor="#ffffff"
-        glareOpacity={0.18}
-        glareSize={22}
+        glareOpacity={0.08}
+        glareSize={18}
         mode="hover"
         playOnce
       >
@@ -258,29 +301,42 @@ function AssistantFloatingWidget() {
           aria-expanded={open}
           aria-haspopup="dialog"
           title="You.Ge Assistant"
+          data-tone={badge.tone}
+          onPointerEnter={() => setEngaged(true)}
+          onPointerLeave={() => setEngaged(false)}
+          onFocus={() => setEngaged(true)}
+          onBlur={() => setEngaged(false)}
           onClick={() => setOpen((wasOpen) => !wasOpen)}
         >
           <span className="assistant-fab-stage" aria-hidden="true">
             <LogoBoundary>
-              <ElectricLogo
-                src={assistantMark}
-                color="#f4dcff"
-                glowColor="#ad6dff"
-                scale={0.7}
-                intensity={0.95}
-                glow={0.7}
-                fill={0.18}
-                strands={4}
-                bend={0.6}
-                crackle={1.5}
-                arcs={1}
-                speed={2.5}
-                interactive
-                cursorIntensity={0.75}
-                cursorRadius={70}
-                theme="dark"
-                className="assistant-electric-logo"
-              />
+              {engaged || open ? (
+                /* A faint edge of light around the mark, not lightning: no cursor
+                 * chasing (interactive off), no ambient arcs while the panel is
+                 * closed, and about a third of the old brightness and glow. It gets
+                 * slightly warmer in the actionable state so the red reads as lit
+                 * from inside the disc instead of a halo around it. ElectricLogo
+                 * damps its own motion under prefers-reduced-motion. */
+                <ElectricLogo
+                  src={assistantMark}
+                  color={actionable ? '#f6ccc6' : '#c9d4ea'}
+                  glowColor={actionable ? '#8f2a1f' : '#5d6b8c'}
+                  scale={0.62}
+                  intensity={actionable ? 0.42 : 0.16}
+                  glow={actionable ? 0.26 : 0.08}
+                  fill={0.05}
+                  strands={2}
+                  bend={0.2}
+                  crackle={actionable ? 0.5 : 0.12}
+                  flicker={0}
+                  arcs={open ? 0.4 : 0}
+                  speed={actionable ? 0.9 : 0.35}
+                  interactive={false}
+                  cursorIntensity={0}
+                  theme="dark"
+                  className="assistant-electric-logo"
+                />
+              ) : null}
             </LogoBoundary>
             <img className="assistant-mark-image" src={assistantMark} alt="" />
           </span>

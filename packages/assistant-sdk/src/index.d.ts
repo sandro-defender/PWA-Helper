@@ -297,6 +297,7 @@ export {
   normalizePath,
   resolveDomain,
   rootDomain,
+  safeNavigationUrl,
   validateDomainConfig,
 } from './domain/index.js';
 
