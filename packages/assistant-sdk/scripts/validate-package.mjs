@@ -15,8 +15,8 @@
  *   - publishability and release gates (prepublishOnly authorization + the
  *     sdk-release-prep workflow's manual-only trigger, confirm inputs,
  *     approval variable, protected environment, OIDC trusted-publishing
- *     configuration, publish authorization env, and the first-publication
- *     stage job's dedicated NPM_STAGE_TOKEN / npm stage publish gates)
+ *     configuration on BOTH the publish and stage jobs, and the absence of
+ *     any npm token reference in the workflow)
  *
  * Exits 1 on failure.
  */
@@ -386,25 +386,31 @@ if (existsSync(workflowPath)) {
   const publishBlock = jobBlock('publish');
   // The `verify` job must stay completely publish-free.
   const verifyBlock = withoutCommentLines(jobBlock('verify'));
-  // The dedicated first-publication `stage` job (comment lines excluded).
+  // The `stage` job (comment lines excluded).
   const stageBlock = withoutCommentLines(jobBlock('stage'));
 
-  // Outside the dedicated stage job there must be no npm token at all: the
-  // OIDC publish path and verify authenticate without any stored credential.
-  // `secrets.NPM_TOKEN` (any generic npm token) is forbidden everywhere.
-  const withoutStage = workflow.replace(jobBlock('stage'), '');
-  const nonCommentOutsideStage = withoutCommentLines(withoutStage);
-  // Inside the stage job the token may appear ONLY as the staging step's
-  // `NODE_AUTH_TOKEN: ${{ secrets.NPM_STAGE_TOKEN }}` env declaration — never
-  // interpolated into a run command, never echoed, never another secret.
-  const stageTokenLines = stageBlock
-    .split('\n')
-    .filter((line) => line.includes('secrets.NPM_STAGE_TOKEN') || line.includes('NODE_AUTH_TOKEN'));
-  const stageTokenEnvOnly =
-    stageTokenLines.length > 0 &&
-    stageTokenLines.every((line) =>
-      /NODE_AUTH_TOKEN:\s*\$\{\{\s*secrets\.NPM_STAGE_TOKEN\s*\}\}\s*$/.test(line),
-    );
+  // The whole workflow minus comment lines: BOTH the publish and the stage
+  // job authenticate via npm Trusted Publishing (OIDC), so no npm token
+  // reference of any kind (NODE_AUTH_TOKEN, secrets.NPM_TOKEN,
+  // secrets.NPM_STAGE_TOKEN, any other npm secret) may exist anywhere.
+  const nonComment = withoutCommentLines(workflow);
+
+  // The stage job's permissions must be EXACTLY `contents: read` +
+  // `id-token: write` (OIDC is technically required for `npm stage publish`)
+  // and nothing else.
+  const stagePermLines = stageBlock.split('\n');
+  const permStart = stagePermLines.findIndex((line) => line.trim() === 'permissions:');
+  const permEnd =
+    permStart === -1 ? -1 : stagePermLines.findIndex((line, i) => i > permStart && /^\s{4}\S/.test(line));
+  const stagePermBlock =
+    permStart === -1 ? '' : stagePermLines.slice(permStart + 1, permEnd === -1 ? undefined : permEnd).join('\n');
+  const stagePermKeys = [...stagePermBlock.matchAll(/^\s+([a-z][a-z0-9-]*):/gm)].map((m) => m[1]);
+  const stageOidcPerms =
+    stagePermKeys.length === 2 &&
+    stagePermKeys.includes('contents') &&
+    stagePermKeys.includes('id-token') &&
+    /contents:\s*read/.test(stagePermBlock) &&
+    /id-token:\s*write/.test(stagePermBlock);
 
   const gates = [
     ['workflow_dispatch-only trigger', /^on:\s*\n\s+workflow_dispatch:/m.test(workflow) && !/^\s+(push|pull_request):/m.test(workflow)],
@@ -417,16 +423,14 @@ if (existsSync(workflowPath)) {
     ['OIDC: npm public registry URL on the publish job', /registry-url:\s*https:\/\/registry\.npmjs\.org/.test(publishBlock)],
     ['OIDC: GitHub-hosted runner for the publish job', /runs-on:\s*ubuntu-latest/.test(publishBlock)],
     ['OIDC: Node >= 22.14 toolchain (publish job pins Node 24)', /node-version:\s*24/.test(publishBlock)],
-    ['OIDC publish path stays token-free (NODE_AUTH_TOKEN / npm token secrets only allowed in the stage job)', !/NODE_AUTH_TOKEN|secrets\.NPM_TOKEN/.test(nonCommentOutsideStage)],
+    ['no npm token references anywhere (verify, stage and publish authenticate without a stored npm credential)', !/NODE_AUTH_TOKEN|secrets\.NPM_/.test(nonComment)],
     ['stage job runs only on explicit action=stage + confirm_stage=stage dispatch', stageBlock.includes("action == 'stage'") && stageBlock.includes("confirm_stage == 'stage'")],
     ['stage job runs from main only (never untrusted branches)', /refs\/heads\/main/.test(stageBlock)],
     ['stage job depends on the full verify job (needs: verify)', /needs:\s*verify\b/.test(stageBlock)],
     ['stage job uses the protected sdk-npm-publish environment', stageBlock.includes('environment: sdk-npm-publish')],
-    ['stage job least-privilege permissions (contents: read, no id-token: write)', /contents:\s*read/.test(stageBlock) && !/id-token:\s*write/.test(stageBlock)],
+    ['stage job OIDC permissions (exactly contents: read + id-token: write)', stageOidcPerms],
     ['stage job invokes npm stage publish (never a direct npm publish)', stageBlock.includes('npm stage publish') && !/npm\s+publish/.test(stageBlock)],
     ['workflow never approves, rejects or promotes a stage (owner-only decision)', !/npm\s+stage\s+(approve|reject)|npm\s+unpublish/.test(withoutCommentLines(workflow))],
-    ['stage job authenticates only with the dedicated NPM_STAGE_TOKEN secret', stageBlock.includes('secrets.NPM_STAGE_TOKEN') && !/secrets\.NPM_TOKEN/.test(stageBlock) && !/secrets\.NPM_STAGE_TOKEN/.test(nonCommentOutsideStage)],
-    ['stage token only as NODE_AUTH_TOKEN env of the staging step (never in command text, never echoed)', stageTokenEnvOnly],
     ['stage job sets SDK_RELEASE_CONFIRM=publish for the staging command', stageBlock.includes('SDK_RELEASE_CONFIRM: publish')],
     ['stage job guards npm >= 11.15.0 (staged-publishing requirement)', /11\.15\.0/.test(stageBlock)],
     ['stage job reports staged-NOT-published plus the 0.0.0-stage placeholder and approval instructions', stageBlock.includes('0.0.0-stage') && /NOT published/.test(stageBlock) && /Staged Packages/.test(stageBlock)],
@@ -442,7 +446,7 @@ if (existsSync(workflowPath)) {
     }
   }
   if (gatesOk) {
-    note('staging never publishes: 0.1.0 goes live only when the owner approves the stage on npmjs.com (RELEASE.md §4/§6.4); later releases use OIDC (RELEASE.md §6)');
+    note('staging never publishes: a staged version goes live only when the owner approves it on npmjs.com with 2FA (RELEASE.md §4/§6.4); stage and publish both authenticate via OIDC (RELEASE.md §6.3)');
   }
 } else {
   fail('release workflow .github/workflows/sdk-release-prep.yml is missing');

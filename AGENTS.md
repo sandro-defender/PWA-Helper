@@ -132,7 +132,7 @@ copy for a subpath deployment.
 | `LICENSE`, `package.json` | repo | MIT license and `npm run check` / `verify` / `keys` scripts |
 | `demo/` | example | Full-feature GitHub Pages playground for testing the helper |
 | `example/` | example | ReactBits ElectricLogo sample PWA, isolated React/OGL build, subpath-safe manifest |
-| `.github/workflows/` | repo | `check.yml` static checks, `pages.yml` playground + example deploy, `sdk-release-prep.yml` manual-only SDK release checklist (`verify` never publishes; `stage` stages the first publication with the temporary `NPM_STAGE_TOKEN` secret for owner approval on npm; `publish` stays gated by explicit authorization + OIDC) |
+| `.github/workflows/` | repo | `check.yml` static checks, `pages.yml` playground + example deploy, `sdk-release-prep.yml` manual-only SDK release checklist (`verify` never publishes; `stage` runs `npm stage publish` via OIDC (`id-token: write`) for owner approval on npm — token-free, never publishes; `publish` stays gated by explicit authorization + OIDC) |
 
 Keep the directory shape when copying. If the target project uses a `public/`
 folder (Next.js, Vite, CRA), copy the **contents** of this repo into `public/`

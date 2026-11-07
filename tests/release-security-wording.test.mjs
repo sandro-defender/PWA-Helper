@@ -10,12 +10,13 @@
  *   2. `SDK_RELEASE_CONFIRM` / `confirm_publish` / `SDK_RELEASE_ENABLED` are
  *      accidental-publish guards, never described as making direct publishing
  *      impossible.
- *   3. The first publish of a new package is STAGED by the manual GitHub
- *      Actions `stage` job with a minimum-permission granular stage-only
- *      token (scoped to @youge, bypass 2FA off) stored only in the dedicated
- *      `NPM_STAGE_TOKEN` Actions secret — a temporary bootstrap credential
- *      revoked immediately after staging; verify runs and OIDC publishing
- *      still use no token at all, and no token value is ever committed.
+ *   3. Staging and publishing authenticate with npm Trusted Publishing
+ *      (OIDC): the `stage` job runs with `id-token: write` and the workflow
+ *      carries NO npm token reference anywhere. The temporary first-
+ *      publication bootstrap `NPM_STAGE_TOKEN` is recorded as created, used
+ *      and revoked; the runbook documents the trusted-publisher connection
+ *      (owner/repo/workflow/environment, both allowed actions, 48-hour
+ *      validation window, staged-first-publish UNVERIFIED).
  *   4. The trusted-publisher limit follows the npm website (up to 10
  *      connections per package), not the stale CLI reference (one per package).
  *   5. A manual first publish carries no OIDC provenance.
@@ -128,16 +129,35 @@ test('runbook must state that Bypass 2FA is not needed for staging', () => {
   assert.match(runbook, /No `Bypass 2FA` is needed/i);
 });
 
-test('runbook must document the NPM_STAGE_TOKEN GitHub Actions bootstrap as temporary', () => {
+test('runbook records the first-publication bootstrap token as created, used and revoked', () => {
   assert.match(runbookFlat, /NPM_STAGE_TOKEN/);
   assert.match(runbookFlat, /GitHub Actions secret/i);
-  assert.match(runbookFlat, /temporary bootstrap credential/i);
+  assert.match(runbookFlat, /created, used and revoked/i);
   assert.match(runbookFlat, /stage only/i);
   assert.match(runbookFlat, /`@youge`/);
-  // The bootstrap is explicitly not the future publishing method: after the
-  // package exists, npm Trusted Publishing (OIDC) takes over.
+  // The bootstrap was temporary: npm Trusted Publishing (OIDC) replaced it.
   assert.match(runbookFlat, /Trusted Publishing/);
   assert.match(runbookFlat, /revok/i);
+});
+
+test('runbook documents the OIDC trusted-publisher migration requirements', () => {
+  // The stage job now needs the OIDC permission (npm Trusted Publishing is
+  // the only authentication path left in the workflow).
+  assert.match(runbookFlat, /Trusted Publishing/);
+  assert.match(runbookFlat, /id-token: write/);
+  assert.match(runbookFlat, /sdk-release-prep\.yml/);
+  assert.match(runbookFlat, /sdk-npm-publish/);
+  // Exact trusted-publisher connection the owner must configure manually.
+  assert.match(runbookFlat, /sandro-defender/);
+  assert.match(runbookFlat, /you-ge-assistant/);
+  assert.match(runbookFlat, /Allowed actions[^.]{0,160}npm stage publish/i);
+  assert.match(runbookFlat, /npm stage publish[^.]{0,80}AND[^.]{0,80}npm publish/);
+  // The 48-hour first-publish validation window, and the fact that whether a
+  // staged publish counts as the first publish is UNVERIFIED until tested.
+  assert.match(runbookFlat, /48[- ]hour/i);
+  assert.match(runbookFlat, /UNVERIFIED/);
+  // OIDC staging: stage only — never npm stage approve/reject.
+  assert.match(runbookFlat, /stage only/i);
 });
 
 test('runbook must keep verify and OIDC publishing token-free', () => {
@@ -145,13 +165,16 @@ test('runbook must keep verify and OIDC publishing token-free', () => {
   assert.match(runbookFlat, /OIDC[^.]{0,200}no npm token|no npm token[^.]{0,200}OIDC/i);
 });
 
-test('workflow must report staged-NOT-published with placeholder, approval and revocation instructions', () => {
+test('workflow must report staged-NOT-published with placeholder, approval and OIDC-authentication instructions', () => {
   assert.match(workflow, /0\.0\.0-stage/);
   assert.match(workflow, /NOT published/);
   assert.match(workflow, /Staged Packages/);
   assert.match(workflow, /Approve/);
-  assert.match(workflow, /NPM_STAGE_TOKEN/);
-  assert.match(workflow, /revok/i);
+  // Authentication is OIDC: the summary states no npm token was used, and
+  // the workflow contains no npm token reference at all.
+  assert.match(workflow, /Trusted Publishing/);
+  assert.match(workflow, /no npm token was used or stored/);
+  assert.doesNotMatch(workflow, /NPM_STAGE_TOKEN|NODE_AUTH_TOKEN|secrets\.NPM_/);
   // Staging must never be reported as a completed publication.
   assert.doesNotMatch(workflow, /has been published|is published|published successfully/i);
   // The workflow itself never runs the approve/reject commands.

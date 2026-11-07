@@ -2,14 +2,37 @@
 
 ## Unreleased — migrate SDK publishing to npm Trusted Publishing (OIDC)
 
+- **Staging migrated to OIDC — the release workflows are token-free end to
+  end (2026-11-07).** The `stage` job of `.github/workflows/sdk-release-prep.yml`
+  gained `id-token: write` (npm Trusted Publishing is technically required
+  for `npm stage publish`) and lost the temporary `NPM_STAGE_TOKEN` /
+  `NODE_AUTH_TOKEN` mechanism entirely: `verify`, `stage` and `publish` all
+  authenticate without a stored npm credential, and the workflow contains
+  **zero npm token references** (machine-checked — any `NODE_AUTH_TOKEN` or
+  `secrets.NPM_*` reference fails `validate-package.mjs` and `check.mjs`).
+  The first-publication bootstrap is recorded as **created, used and
+  revoked** (`RELEASE.md` §4/§6.4); its temporary secret was already deleted.
+  Stage permissions are exactly `contents: read` + `id-token: write`. All
+  publication gates are unchanged: manual dispatch only, `action=stage` +
+  `confirm_stage=stage` from `main` after `verify`, the protected
+  `sdk-npm-publish` environment, `SDK_RELEASE_CONFIRM=publish` (accidental-
+  publish guard), and the workflow never runs `npm publish`,
+  `npm stage approve` or `npm stage reject`. The npm Trusted Publisher
+  connection (owner-configured, after reviewing/merging this change) must
+  allow **`npm stage publish` AND `npm publish`** on one connection — owner
+  `sandro-defender`, repo `you-ge-assistant`, workflow `sdk-release-prep.yml`,
+  environment `sdk-npm-publish` — and npm's **48-hour** first-publish
+  validation window applies from connection creation; whether a staged
+  publish counts toward that window is documented as **UNVERIFIED** until
+  tested (`RELEASE.md` §6.3).
 - **Publishing authentication migrated from a long-lived npm token to npm
   Trusted Publishing (OIDC).** `.github/workflows/sdk-release-prep.yml` now
   authenticates the publish job with a short-lived OIDC token minted by
   `id-token: write`; the publish step sets only `SDK_RELEASE_CONFIRM` and the
-  verify and OIDC publish paths use **no npm token at all** (the only npm
-  token this repository ever references is the temporary first-publication
-  `NPM_STAGE_TOKEN` stage-only bootstrap described below — never on the OIDC
-  path).
+  verify, stage and OIDC publish paths use **no npm token at all** (the
+  workflows contain no npm token reference whatsoever — the temporary
+  first-publication `NPM_STAGE_TOKEN` bootstrap was created, used and revoked
+  after the 0.1.0 staging).
 - **Publish toolchain pinned to the official OIDC requirements:** the publish
   job runs Node `24` (Node ≥ 22.14.0 / npm ≥ 11.5.1), sets
   `registry-url: https://registry.npmjs.org` and `package-manager-cache: false`,
@@ -73,46 +96,57 @@
   `sdk-release-prep.yml` gains a manual-only `stage` job: dispatch with
   `action=stage` **and** `confirm_stage=stage` **from `main`**, after the full
   `verify` job, inside the existing protected `sdk-npm-publish` environment,
-  on `ubuntu-latest` with `permissions: contents: read` only (**no
-  `id-token: write`**). It guards **npm ≥ 11.15.0** (staged-publishing
-  requirement), runs the package validator immediately before
-  `npm stage publish --access public` from `packages/assistant-sdk`, and
-  authenticates with the dedicated repository secret **`NPM_STAGE_TOKEN`**
-  (granular token: *Read and write (stage only)*, `@youge` scope, Bypass 2FA
-  off — owner-created; the exact setup-node `registry-url` →
-  `NODE_AUTH_TOKEN` mechanism, verified against GitHub's and npm's docs).
+  on `ubuntu-latest` with `permissions: contents: read` + `id-token: write`
+  (exactly those two — the OIDC migration replaced the original
+  least-privilege/no-OIDC setup). It guards **npm ≥ 11.15.0**
+  (staged-publishing requirement), runs the package validator immediately
+  before `npm stage publish --access public` from `packages/assistant-sdk`,
+  and authenticates with **npm Trusted Publishing (OIDC) — no token of any
+  kind** (the original bootstrap used the dedicated repository secret
+  **`NPM_STAGE_TOKEN`** — granular token: *Read and write (stage only)*,
+  `@youge` scope, Bypass 2FA off, owner-created — for the actual 0.1.0
+  staging on 2026-11-06; it was created, used and revoked, and the secret is
+  deleted).
   `SDK_RELEASE_CONFIRM=publish` is set only for the staging command because
   `npm stage publish` executes the publish lifecycle. The job **stages, never
   publishes**: no `npm publish`, no `npm stage approve`/`reject`, no
   `SDK_RELEASE_ENABLED`; its run summary reports the **stage ID**, the
   **staged-NOT-published** state, the possible public **`0.0.0-stage`
-  placeholder**, and the owner's approval (npmjs.com → Staged Packages →
-  Approve with 2FA), revocation and OIDC-migration steps. `RELEASE.md` §4/§6.2/
-  §6.4 now document the full procedure (token → secret → dispatch → approve →
-  revoke → OIDC); verify and OIDC publishing keep using **no npm token**.
+  placeholder**, the OIDC (no-token) authentication, and the owner's approval
+  (npmjs.com → Staged Packages → Approve with 2FA) and trusted-publisher
+  registration steps. `RELEASE.md` §4/§6.2/§6.4 document the full procedure
+  (token → secret → dispatch → approve → revoke → OIDC registration); every
+  job — verify, stage and publish — uses **no npm token**.
 - **Enforcement extended:** `validate-package.mjs` and the standing contracts
   in `scripts/check.mjs` now also require the OIDC configuration (`id-token:
-  write`, registry URL, hosted runner, Node 24, canonical `repository.url`),
-  the stage-job gates (manual-only + `confirm_stage`, `refs/heads/main`,
-  `needs: verify`, protected environment, least-privilege, dedicated
-  `NPM_STAGE_TOKEN` as env only, `npm stage publish` only, no approve/reject,
-  staged-NOT-published summary), token references confined to the stage job,
+  write` on both jobs, registry URL, hosted runner, Node 24, canonical
+  `repository.url`), the stage-job gates (manual-only + `confirm_stage`,
+  `refs/heads/main`, `needs: verify`, protected environment, **exact OIDC
+  permissions `contents: read` + `id-token: write`**, token-free authentication
+  everywhere — any `NODE_AUTH_TOKEN` / `secrets.NPM_*` reference fails,
+  `npm stage publish` only, no approve/reject, staged-NOT-published summary),
   plus structural contracts — **the `verify` job never publishes**, **the
-  workflow never claims direct publishing is impossible**, and no token
-  material (`npm_…` values or `.npmrc`) exists anywhere in the repository.
-  `tests/release-gates.test.mjs` gains mutation coverage for the first two; the
-  new `tests/release-security-wording.test.mjs` locks in the corrected security
-  wording.
+  workflow never claims direct publishing is impossible**, no token material
+  (`npm_…` values or `.npmrc`) exists anywhere in the repository, and no
+  workflow references any secret at all (except the built-in `GITHUB_TOKEN`).
+  `tests/release-gates.test.mjs` gains mutation coverage for these (removing
+  the stage job's `id-token: write`, widening its permissions, or reintroducing
+  any npm token reference all fail validation); the
+  `tests/release-security-wording.test.mjs` suite locks in the corrected
+  security wording and the OIDC documentation requirements (bootstrap recorded
+  as created/used/revoked, `id-token: write`, 48-hour window, UNVERIFIED).
 - **Documentation:** `packages/assistant-sdk/RELEASE.md` gains §6 (OIDC
   requirements, workflow configuration, trusted-publisher registration via
   `npm trust` ≥ 11.15.0, and the first-publish bootstrap); §3/§4/§5/§7/§8
   updated. Verified with **159/159** tests passing.
 
-> **Not published.** The package remains unpublished; no secrets, variables,
-> permissions, tags or releases were created or changed, and the
-> `sdk-npm-publish` environment was neither created nor modified. The
-> trusted-publisher registration, the first-publish bootstrap and the
-> `SDK_RELEASE_ENABLED` approval remain owner actions.
+> **0.1.0 published (2026-11-06)** via the staged-approval flow; the
+> temporary bootstrap was created, used and revoked. No GitHub secrets,
+> variables, permissions, tags or releases were created or changed by this
+> repository's automation, and the `sdk-npm-publish` environment was neither
+> created nor modified. The trusted-publisher registration (with its 48-hour
+> validation window) and the `SDK_RELEASE_ENABLED` approval remain owner
+> actions.
 
 ## 0.1.0 — 2026-11-06 (initial release)
 
