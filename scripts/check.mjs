@@ -990,6 +990,71 @@ contract(
   'stage job summary states staged-NOT-published with the 0.0.0-stage placeholder and approval instructions',
 );
 
+/* ---- Non-mutating OIDC verification (manual action=oidc-check) ---------- */
+const releaseOidcCheckBlock = withoutCommentLines(releaseJobBlock('oidc-check'));
+contract(
+  releaseOidcCheckBlock.includes("action == 'oidc-check'"),
+  'sdk-release-prep offers the manually dispatched oidc-check action',
+);
+contract(
+  /environment:\s*sdk-npm-publish/.test(releaseOidcCheckBlock) &&
+    /id-token:\s*write/.test(releaseOidcCheckBlock) &&
+    /node-version:\s*24/.test(releaseOidcCheckBlock) &&
+    /github\.event\.inputs\.action == 'oidc-check'/.test(releaseOidcCheckBlock) &&
+    /github\.ref == 'refs\/heads\/main'/.test(releaseOidcCheckBlock),
+  'oidc-check requires action=oidc-check AND github.ref=refs/heads/main, in the protected environment with OIDC id-token and Node 24',
+);
+contract(
+  (() => {
+    const lines = releaseOidcCheckBlock.split('\n');
+    const start = lines.findIndex((line) => line.trim() === 'permissions:');
+    if (start === -1) return false;
+    const end = lines.findIndex((line, i) => i > start && /^\s{4}\S/.test(line));
+    const perm = lines.slice(start + 1, end === -1 ? undefined : end).join('\n');
+    const keys = [...perm.matchAll(/^\s+([a-z][a-z0-9-]*):/gm)].map((m) => m[1]);
+    return (
+      keys.length === 2 &&
+      keys.includes('contents') &&
+      keys.includes('id-token') &&
+      /contents:\s*read/.test(perm) &&
+      /id-token:\s*write/.test(perm)
+    );
+  })(),
+  'oidc-check permissions stay exactly contents: read + id-token: write',
+);
+contract(
+  !/npm\s+(publish|stage|dist-tag|login|token|access|audit|config)\b/.test(releaseOidcCheckBlock) &&
+    !/secrets\./.test(releaseOidcCheckBlock) &&
+    !/NODE_AUTH_TOKEN/.test(releaseOidcCheckBlock) &&
+    !/SDK_RELEASE_ENABLED\s*:/.test(releaseOidcCheckBlock) &&
+    !/SDK_RELEASE_CONFIRM/.test(releaseOidcCheckBlock) &&
+    !/registry-url:/.test(releaseOidcCheckBlock),
+  'oidc-check job runs no npm command and holds no credential or release-authorization variable',
+);
+const oidcScriptPath = at('scripts/oidc-trust-check.mjs');
+contract(existsSync(oidcScriptPath), 'scripts/oidc-trust-check.mjs exists');
+const oidcScript = existsSync(oidcScriptPath) ? readFileSync(oidcScriptPath, 'utf8') : '';
+const oidcScriptCode = oidcScript
+  .split('\n')
+  .filter((line) => !/^\s*\/\//.test(line))
+  .join('\n')
+  .replace(/\/\*[\s\S]*?\*\//g, '');
+contract(
+  /oidc\/token\/exchange\/package\//.test(oidcScriptCode) &&
+    /npm:registry\.npmjs\.org/.test(oidcScriptCode) &&
+    /status === 201/.test(oidcScriptCode),
+  'oidc-check script targets the documented npm OIDC token-exchange operation and fails unless it returns 201',
+);
+contract(
+  /method: 'GET'/.test(oidcScriptCode) &&
+    /method: 'POST'/.test(oidcScriptCode) &&
+    !/method:\s*'(PUT|PATCH|DELETE|HEAD)'/.test(oidcScriptCode) &&
+    !/\/-\/npm\/v1\/package\//.test(oidcScriptCode) &&
+    !/dist-tag\s+(add|ls|rm|set|remove)/.test(oidcScriptCode) &&
+    !/\bnpm\s+(publish|stage)\b/.test(oidcScriptCode),
+  'oidc-check script issues only the GitHub id_token GET and the npm token-exchange POST (no registry mutation)',
+);
+
 // The `verify` job must never publish (comment lines excluded so a documented
 // "never run npm publish here" note does not trip the contract).
 const verifyJobBlock = withoutCommentLines(releaseJobBlock('verify'));

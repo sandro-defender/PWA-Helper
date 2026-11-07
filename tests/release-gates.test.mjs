@@ -279,7 +279,7 @@ test('stage job is manual-only with its own explicit confirmation and main-branc
   // per-run OIDC credential is never exposed to PR or untrusted-branch runs.
   assert.doesNotMatch(pristineWorkflow, /^\s+(push|pull_request):/m);
   assert.match(pristineWorkflow, /confirm_stage:/);
-  assert.match(pristineWorkflow, /options: \[verify, stage, publish\]/);
+  assert.match(pristineWorkflow, /options: \[verify, stage, publish, oidc-check\]/);
 });
 
 test('stage job depends on successful verification and the protected environment', () => {
@@ -380,8 +380,11 @@ test('validator refuses a stage job that does not depend on verify', () => {
 
 test('validator refuses a stage job outside the protected environment', () => {
   resetSandboxFiles();
-  // Target the stage job's (last) environment entry specifically.
-  const idx = pristineWorkflow.lastIndexOf('environment: sdk-npm-publish');
+  // Target the environment entry INSIDE the stage job specifically (the
+  // oidc-check job carries its own copy of the line later in the file).
+  const stageStart = pristineWorkflow.indexOf('\n  stage:');
+  assert.ok(stageStart !== -1);
+  const idx = pristineWorkflow.indexOf('environment: sdk-npm-publish', stageStart);
   assert.ok(idx !== -1);
   const mutated =
     pristineWorkflow.slice(0, idx) +
@@ -552,6 +555,153 @@ test('no npm token material or extra secrets exist anywhere in the repository', 
     assert.equal(name, 'GITHUB_TOKEN', `unexpected secret reference in ${file}: ${name} — the workflows must stay token-free`);
   }
 });
+
+/* ---- Non-mutating OIDC verification (manual action=oidc-check) ---------- */
+
+const oidcCheckBlock = jobBlock(pristineWorkflow, 'oidc-check');
+const stripAllComments = (text) =>
+  text.split('\n').filter((line) => !/^\s*#/.test(line)).join('\n');
+
+test('oidc-check job exists: manually gated, protected environment, OIDC-only', () => {
+  assert.ok(oidcCheckBlock.length > 0, 'the workflow must define an oidc-check job');
+  assert.match(oidcCheckBlock, /github\.event\.inputs\.action == 'oidc-check'/);
+  assert.match(oidcCheckBlock, /environment: sdk-npm-publish/);
+  assert.match(oidcCheckBlock, /id-token:\s*write/);
+  assert.match(oidcCheckBlock, /node-version:\s*24/);
+  assert.match(oidcCheckBlock, /npm >= 11\.5\.1/);
+  assert.match(oidcCheckBlock, /scripts\/oidc-trust-check\.mjs/);
+  // The release checklist is skipped for the standalone check dispatch, and
+  // for verify/stage/publish dispatches it runs exactly as before.
+  const verifyBlock = jobBlock(pristineWorkflow, 'verify');
+  assert.match(stripAllComments(verifyBlock), /action != 'oidc-check'/);
+  assert.match(stripAllComments(verifyBlock), /run: npm run check/);
+});
+
+test('oidc-check job cannot run from any branch other than main', () => {
+  const block = jobBlock(pristineWorkflow, 'oidc-check');
+  const lines = block.split('\n');
+  const ifIdx = lines.findIndex((line) => line.trim() === 'if: >-');
+  assert.ok(
+    ifIdx !== -1,
+    'oidc-check must use the multiline `if: >-` style of the protected release jobs',
+  );
+  const exprLines = [];
+  for (let i = ifIdx + 1; i < lines.length && /^\s{6}\S/.test(lines[i]); i += 1) {
+    exprLines.push(lines[i].trim());
+  }
+  const clauses = exprLines
+    .join(' ')
+    .split('&&')
+    .map((clause) => clause.trim())
+    .filter(Boolean);
+  assert.deepEqual(
+    clauses,
+    ["github.event.inputs.action == 'oidc-check'", "github.ref == 'refs/heads/main'"],
+    'oidc-check must require BOTH the manual action AND a main-branch ref — nothing else',
+  );
+  // Truth table over the parsed clauses: the job runs only for
+  // (action=oidc-check, ref=refs/heads/main). The job holds id-token: write,
+  // so modified code dispatched from any other branch must never run it.
+  const evaluate = (action, ref) =>
+    clauses.every((clause) => {
+      const match = clause.match(/^([\w.]+) == '([^']*)'$/);
+      assert.ok(match, `unexpected condition clause: ${clause}`);
+      const paths = { 'github.event.inputs.action': action, 'github.ref': ref };
+      assert.ok(match[1] in paths, `unexpected condition path: ${match[1]}`);
+      return paths[match[1]] === match[2];
+    });
+  assert.equal(evaluate('oidc-check', 'refs/heads/main'), true);
+  for (const [action, ref] of [
+    ['oidc-check', 'refs/heads/feature'],
+    ['oidc-check', 'refs/heads/arena/96ca9641-you-ge-assistant'],
+    ['stage', 'refs/heads/main'],
+    ['verify', 'refs/heads/main'],
+    ['publish', 'refs/heads/main'],
+  ]) {
+    assert.equal(evaluate(action, ref), false, `must not run for action=${action} ref=${ref}`);
+  }
+});
+
+test('oidc-check job permissions stay exactly contents: read + id-token: write', () => {
+  const lines = oidcCheckBlock.split('\n');
+  const start = lines.findIndex((line) => line.trim() === 'permissions:');
+  assert.ok(start !== -1, 'oidc-check must declare its permissions block');
+  const end = lines.findIndex((line, i) => i > start && /^\s{4}\S/.test(line));
+  const perm = lines.slice(start + 1, end === -1 ? undefined : end).join('\n');
+  const keys = [...perm.matchAll(/^\s+([a-z][a-z0-9-]*):/gm)].map((m) => m[1]);
+  assert.deepEqual(keys, ['contents', 'id-token'], 'exactly two permission keys, nothing more');
+  assert.match(perm, /contents:\s*read/);
+  assert.match(perm, /id-token:\s*write/);
+  assert.doesNotMatch(perm, /packages:\s*write/);
+  assert.match(oidcCheckBlock, /environment:\s*sdk-npm-publish/);
+});
+
+test('stage and publish protections remain intact alongside the oidc-check gate', () => {
+  const stageBlock = jobBlock(pristineWorkflow, 'stage');
+  assert.match(stageBlock, /github\.event\.inputs\.action == 'stage'/);
+  assert.match(stageBlock, /github\.event\.inputs\.confirm_stage == 'stage'/);
+  assert.match(stageBlock, /github\.ref == 'refs\/heads\/main'/);
+  assert.match(stageBlock, /needs:\s*verify\b/);
+  assert.match(stageBlock, /environment: sdk-npm-publish/);
+  assert.match(stageBlock, /npm stage publish/);
+  const publishBlock = jobBlock(pristineWorkflow, 'publish');
+  assert.match(publishBlock, /github\.event\.inputs\.action == 'publish'/);
+  assert.match(publishBlock, /github\.event\.inputs\.confirm_publish == 'publish'/);
+  assert.match(publishBlock, /vars\.SDK_RELEASE_ENABLED == 'true'/);
+  assert.match(publishBlock, /environment: sdk-npm-publish/);
+  assert.match(publishBlock, /npm publish --access public --provenance/);
+  // The verify checklist still runs for every non-oidc-check dispatch.
+  const verifyBlock = stripAllComments(jobBlock(pristineWorkflow, 'verify'));
+  assert.match(verifyBlock, /action != 'oidc-check'/);
+  assert.match(verifyBlock, /run: npm run check/);
+});
+
+test('oidc-check job cannot publish, stage, approve, retag, or touch a credential', () => {
+  const code = stripAllComments(oidcCheckBlock);
+  // No registry-mutating (or any) npm command, no dist-tag operation, no
+  // approval/rejection, no release authorization variables, no secrets, no
+  // .npmrc credential placeholder, no ad-hoc registry client.
+  assert.doesNotMatch(code, /npm\s+(publish|stage|dist-tag|login|token|access|audit|config)\b/);
+  assert.doesNotMatch(code, /dist-tag/);
+  assert.doesNotMatch(code, /\bapprove\b|\breject\b/);
+  assert.doesNotMatch(code, /secrets\./);
+  assert.doesNotMatch(code, /NODE_AUTH_TOKEN/);
+  assert.doesNotMatch(code, /SDK_RELEASE_ENABLED\s*:/);
+  assert.doesNotMatch(code, /SDK_RELEASE_CONFIRM/);
+  assert.doesNotMatch(code, /registry-url:/);
+  assert.doesNotMatch(code, /\bcurl\b|\bwget\b/);
+  assert.doesNotMatch(code, /npm\s+run\s+(check|test)/);
+  // The job's only executable step is the check script itself.
+  assert.match(code, /run: node scripts\/oidc-trust-check\.mjs/);
+  // And it never claims a completed publication (workflow-wide wording ban).
+  assert.doesNotMatch(pristineWorkflow, /has been published|is published|published successfully/i);
+});
+
+test('oidc-check script is non-mutating by construction (documented exchange only)', () => {
+  const script = readFileSync(join(repoRoot, 'scripts', 'oidc-trust-check.mjs'), 'utf8');
+  // Strip comments for code-level assertions; strings (URLs) survive.
+  const code = script
+    .split('\n')
+    .filter((line) => !/^\s*\/\//.test(line))
+    .join('\n')
+    .replace(/\/\*[\s\S]*?\*\//g, '');
+  // Exactly two HTTP verbs: GitHub id_token GET + documented npm exchange POST.
+  assert.match(code, /method: 'GET'/);
+  assert.match(code, /method: 'POST'/);
+  assert.doesNotMatch(code, /method:\s*'(PUT|PATCH|DELETE|HEAD)'/);
+  // The only npm endpoint targeted is the documented token-exchange operation.
+  assert.match(code, /oidc\/token\/exchange\/package\//);
+  assert.equal(code.includes(EXCHANGE_BASE_SENTINEL), true);
+  assert.doesNotMatch(code, /\/-\/npm\/v1\/package\//); // no package-document writes
+  assert.doesNotMatch(code, /dist-tag\s+(add|ls|rm|set|remove)/); // no dist-tag command form
+  assert.doesNotMatch(code, /\bnpm\s+(publish|stage)\b/);
+  // Success is defined solely as exchange HTTP 201; failures exit non-zero.
+  assert.match(code, /status === 201/);
+  // Output path can never carry the exchanged token or id_token to the log.
+  assert.match(code, /redact\(/);
+  assert.match(script, /Exchanged token not shown/);
+});
+const EXCHANGE_BASE_SENTINEL = 'https://registry.npmjs.org/-/npm/v1/oidc/token/exchange/package/';
 
 test('release-gate sandbox teardown', () => {
   rmSync(sandboxRoot, { recursive: true, force: true });

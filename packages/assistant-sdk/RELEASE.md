@@ -2,9 +2,11 @@
 
 > **Status: 0.1.0 published (2026-11-06) — staged by the manual GitHub
 > Actions `stage` job, then made public only when the owner approved the
-> staged version on npmjs.com with 2FA. · 0.1.1 prepared (2026-11-07), NOT
-> staged and NOT published — the owner dispatches the release workflow
-> manually after the release PR merges.** Nothing in this repository publishes
+> staged version on npmjs.com with 2FA. · 0.1.1 published (2026-11-07,
+> 07:07 UTC) — staged at 07:04 by the `stage` job, whose OIDC token exchange
+> npm Trusted Publishing accepted, then made public when the owner approved
+> it with 2FA; the `publish` job never ran and no npm token was involved.**
+> Nothing in this repository publishes
 > the package on push, pull request or merge. The first publication used a
 > temporary stage-only bootstrap secret `NPM_STAGE_TOKEN` (granular, stage
 > only, `@youge` scope) that was **created, used and revoked** after staging
@@ -12,9 +14,13 @@
 > workflow is fully **npm Trusted Publishing (OIDC)**: the `stage` job carries
 > `id-token: write`, and the `verify` job, the `stage` job and the `publish`
 > job all use **no npm token** at all — no npm token reference exists anywhere
-> in this repository's workflows. The remaining owner action is registering
-> the npm Trusted Publisher connection (§6.3), which must complete its first
-> successful publish within a **48-hour** validation window. See
+> in this repository's workflows. The Trusted Publisher connection (§6.3)
+> is registered and validated: `0.1.1` was staged (07:04 UTC) and approved
+> (07:07 UTC) on 2026-11-07, completing the **48-hour** first-publish
+> validation window (§7, §8 item 6). Until the next version bump,
+> `action=verify` correctly fails its "Version has not been published yet"
+> gate — the release gate working as designed
+> ([§6.6](#66-non-mutating-verification-of-npm-trusted-publishing-oidc)). See
 > [§5](#5-publishing-remains-disabled) and
 > [§8](#8-required-follow-ups-before-the-first-publish).
 
@@ -35,8 +41,8 @@ Related documents: [`README.md`](README.md) (public API and consumption) ·
 | Item | Value | Notes |
 | --- | --- | --- |
 | Package name | `@youge/assistant-sdk` | Scope `@youge` (npm org `youge`, npm user `you-ge`) — confirmed by the project owner, see [§2](#2-package-identity-decisions); published at `0.1.0` (2026-11-06) |
-| Version | `0.1.1` (prepared 2026-11-07, not staged) | Synced with `SDK_VERSION` in `src/core/constants.js` and the `check.mjs` release-ready gate |
-| Visibility | published (`0.1.0`, 2026-11-06); `0.1.1` prepared, not staged | `"private": true` lock removed in the 0.1.0 release PR per [§4](#4-release-runbook-when-a-release-is-approved) step 1; every publish path stays gated ([§5](#5-publishing-remains-disabled)) |
+| Version | `0.1.1` (published 2026-11-07, 07:07 UTC) | Synced with `SDK_VERSION` in `src/core/constants.js` and the `check.mjs` release-ready gate |
+| Visibility | published (`0.1.0`, 2026-11-06; `0.1.1`, 2026-11-07) | `"private": true` lock removed in the 0.1.0 release PR per [§4](#4-release-runbook-when-a-release-is-approved) step 1; every publish path stays gated ([§5](#5-publishing-remains-disabled)) |
 | Publish config | `publishConfig.access: "public"` | Ready for an approved first scoped publish |
 | Module system | ESM only (`"type": "module"`) | Buildless: `src/` **is** the published runtime |
 | TypeScript | Paired `.d.ts` per export entry | `.`, `./domain`, `./config`, `./diagnostics`, `./installation`, `./browser`, `./react` |
@@ -194,12 +200,16 @@ decided the registry ([§3](#3-publishing-destination-evaluation)).
      `scripts/check.mjs` and the example lockfile; `CHANGELOG.md` gained the
      `0.1.1` entry (Android Chrome handoff + floating-icon auto-scale/manual
      adjustment); both features documented (README, WIDGET.md, MIGRATION).
-     **Status: prepared in this PR — not staged, not published** (steps 2+
-     below remain the owner's manual dispatch).
+     **Status: DONE — staged and published 2026-11-07 (07:04/07:07 UTC)
+     via the OIDC `stage` job + owner approval; the `publish` job never
+     ran** (§7, §6.6).
 2. **Verify** — run the `sdk-release-prep` workflow with `action: verify`
    (manual dispatch only). All jobs green. The verify job never publishes and
-   uses no npm token. **Status: to be dispatched by the maintainer** (or
-   recorded from the release PR's CI run).
+   uses no npm token. **Status: recorded** — verify runs 42349081896 /
+   42349219049 / 42349614361 were green before the 0.1.1 release; the
+   2026-11-07 07:18 UTC run (42350738180) fails at "Version has not been
+   published yet" because `0.1.1` is on the registry — **expected gate
+   behavior until the next release PR bumps the version** (§6.6, §7).
 3. **Stage the first publication — DONE (2026-11-06, via the temporary
    bootstrap)** (see [§6.4](#64-the-first-publish-of-a-new-package-cannot-use-oidc-important)
    for the full detail). This was a **staging** step, not a publication:
@@ -803,6 +813,112 @@ contracts in `scripts/check.mjs`, plus the mutation tests in
   the repository, and no workflow references any secret at all except the
   built-in `GITHUB_TOKEN` (`tests/release-gates.test.mjs`).
 
+### 6.6 Non-mutating verification of npm Trusted Publishing (OIDC)
+
+**Question this section answers:** after every temporary npm token was
+removed, is there a *safe* way to prove — through this repository's GitHub
+Actions workflow — that npm Trusted Publishing accepts this
+repository/workflow/environment identity **without** publishing, staging,
+approving, rejecting or changing any dist-tag, and without creating or
+requesting any npm token?
+
+**Answer: yes — and it is implemented** (`action=oidc-check` +
+`scripts/oidc-trust-check.mjs`). The proof is npm's own documented
+token-exchange operation — the exact first step every OIDC-authorized
+publish performs; running it alone changes nothing on the registry.
+
+#### Findings (investigated 2026-11-07)
+
+1. **`npm whoami` cannot answer the question** — npm's Trusted Publishing
+   docs state explicitly that `npm whoami` (or any npm CLI output) is **not**
+   a check of Trusted Publishing permissions; only a real OIDC-authorized
+   registry operation can prove the configuration.
+2. **`npm view` / `npm install` prove nothing about OIDC** — they are
+   anonymous registry reads; and receiving a GitHub OIDC JWT on a runner
+   proves only GitHub's side (layer 2 below), never that npm accepts it.
+3. **The documented, non-mutating proof exists:** npm's Registry API
+   specification (api-docs.npmjs.com — the "Learn more" target of the
+   Trusted Publishers docs) documents
+   `POST /-/npm/v1/oidc/token/exchange/package/{package_name}` — *"Exchange a
+   valid OIDC id_token … for a short-lived npm registry access token for the
+   specified package"* — authorized **only** by the OIDC `id_token`
+   (Bearer), audience `npm:registry.npmjs.org`; responses `201` (success),
+   `400`, `401`, `404`, `500`. The npm CLI performs this identical call in
+   `lib/utils/oidc.js` *before* `npm publish`, `npm stage publish` or
+   dist-tag operations; exchange failures surface misleadingly as
+   404/`ENEEDAUTH` (npm/cli#9088 — open issue documenting that wording).
+4. **A `201` proves the Trusted Publisher match** — repository
+   `sandro-defender/you-ge-assistant` + workflow `sdk-release-prep.yml` +
+   environment `sdk-npm-publish` for `@youge/assistant-sdk`; any other status
+   means no matching configuration or an invalid identity. The exchange only
+   mints a short-lived, package-scoped credential **in memory** — nothing is
+   published, staged or tagged, the credential is discarded with the
+   process, and no token is written to the log, to disk or to GitHub Secrets.
+5. **Rejected alternatives:** `npm publish --dry-run` cannot prove via exit
+   code (a refused exchange only warns and still exits 0), it runs
+   `prepublishOnly` (which requires `SDK_RELEASE_CONFIRM=publish` — the
+   accidental-publish guard only the gated jobs may set), and success
+   detection would depend on undocumented verbose-log wording — log-scraping
+   an undocumented line is not a reliable test.
+
+#### The four distinct layers — never conflate them
+
+| # | Layer | How it is proven | Status in this repository |
+| - | ----- | ---------------- | ------------------------- |
+| 1 | **Ordinary npm authentication** (tokens, `npm login`) | Not applicable — no npm token exists or is used anywhere in the workflows (only the historical, revoked `NPM_STAGE_TOKEN` bootstrap, §6.4) | ✅ token-free by construction |
+| 2 | **GitHub OIDC token availability** | `id-token: write` on the job → `ACTIONS_ID_TOKEN_REQUEST_URL/TOKEN` present. Necessary but **never sufficient** — a minted JWT proves nothing about npm | ✅ available to the `stage`, `publish` and `oidc-check` jobs |
+| 3 | **Successful npm Trusted Publisher authentication** | The documented exchange returning **201** for this package + identity — what `action=oidc-check` measures (and what the 0.1.1 stage run at 07:04 UTC exercised live) | ✅ implemented (`scripts/oidc-trust-check.mjs`) |
+| 4 | **Actual publishing permission** | Only an actual registry-accepted `npm stage publish` / `npm publish` proves it. Recorded: `npm stage publish` accepted 2026-11-07 07:04 UTC (run 42349730622, stage job SUCCESS), owner-approved 07:07 UTC; the `npm publish` action itself remains **unexercised** and stays owner-gated | ⚠️ stage action proven; publish action pending its future approved release |
+
+#### Safe operating instructions (the implemented check)
+
+1. GitHub → Actions → **sdk-release-prep** → **Run workflow**:
+   `action: **oidc-check**` (only field needed; branch `main`; leave
+   `confirm_publish`/`confirm_stage` unset).
+2. The `oidc-check` job runs alone (the `verify` checklist is skipped for
+   this action) and **only from the `main` branch** — its condition requires
+   BOTH `action == 'oidc-check'` AND `github.ref == 'refs/heads/main'` (the
+   same main-only gate as the `stage` job): the job holds `id-token: write`,
+   so modified code dispatched from any other branch must never receive that
+   permission. It runs inside the protected `sdk-npm-publish` environment (an
+   environment approval may be requested if required reviewers are
+   configured), on `ubuntu-latest`, Node 24, npm ≥ 11.5.1, with
+   `permissions: contents: read` + `id-token: write` **only** — no
+   `registry-url`, no `.npmrc`, no secret of any kind.
+3. The job runs `node scripts/oidc-trust-check.mjs`, which performs exactly
+   two HTTP calls: GET GitHub's id_token endpoint (audience
+   `npm:registry.npmjs.org`), then POST the documented exchange above with
+   that id_token as the Bearer credential. Output contains only the HTTP
+   status, the expiry timestamp and npm's error message (redacted) — never
+   any token.
+4. **PASS (exit 0)** = exchange `201` → layers 2 + 3 verified for this exact
+   package/workflow/environment. **FAIL (exit 1)** with stage
+   `no-id-token-permission` (job lost `id-token: write`),
+   `id-token-request-failed` (GitHub side), or `exchange-failed` (HTTP
+   400/401/404/… → npm did not accept the identity — check the Trusted
+   Publisher configuration; npm/cli#9088 explains why the raw 404 wording is
+   misleading).
+5. What the check **never** does: no `npm publish`, no `npm stage`, no
+   approval/rejection, no `npm dist-tag`, no version bump, no npm token
+   creation, no GitHub secret, no registry data change of any kind — by
+   construction (GET + POST-to-exchange only) **and** by the contracts in
+   `scripts/check.mjs` and `tests/release-gates.test.mjs` (the `oidc-check`
+   job block must contain no npm command, no `secrets.` reference, no
+   `SDK_RELEASE_ENABLED`/`SDK_RELEASE_CONFIRM`, no `registry-url`).
+
+#### What only an explicitly approved registry operation can prove next
+
+Layer 4's `npm publish` action (and the dist-tag permission, default-off in
+the Trusted Publisher configuration) can only be exercised by a future,
+explicitly approved release: dispatch `action=stage` for a version not yet
+on the registry (registry effect: **one staged version record** — invisible
+to installers, no dist-tag change; the owner later approves or rejects it),
+then `action=publish` with `SDK_RELEASE_ENABLED=true` after approval
+(registry effect: the staged version becomes public and `latest` moves to
+it). This alternative is **not implemented or executed** here — it requires
+explicit approval per [§4](#4-release-runbook-when-a-release-is-approved)
+and the standing restrictions.
+
 ## 7. Verification results (2026-11-06)
 
 ### Release-preparation pass (PR #9/#10 era)
@@ -930,7 +1046,7 @@ GitHub documentation (not assumed):
 | Consumer build | `npm run typecheck && npm run build` (in `example/`) | ✅ `tsc --noEmit` clean, `vite build` OK |
 | Workflow YAML parse | `npx js-yaml .github/workflows/sdk-release-prep.yml` | ✅ parses |
 | Shell syntax of run blocks | `bash -n` on every `run:` block (5 block + 9 single-line) | ✅ all OK |
-| Trusted publisher registration | owner action | ⚠️ **not done** — the owner configures it manually after reviewing/merging this change (§6.3); the 48-hour window applies from creation, and staged-counts-as-first-publish stays **UNVERIFIED** until tested |
+| Trusted publisher registration | owner action | ⚠️ **not done at that pass** — completed later on 2026-11-07; validation outcome recorded in §7 (non-mutating verification pass) and §8 item 6 (staged-counts-as-first-publish moot for this connection — the staged+approved publish landed inside the 48-hour window) |
 | Secrets / environments / variables / tags / dispatches / publishes | — | **none created, modified or executed by this task** |
 | Registry state | `npm view @youge/assistant-sdk` (2026-11-07) | ✅ `0.1.0` published via the staged-approval path with the `0.0.0-stage` placeholder; unchanged by this task |
 
@@ -948,6 +1064,19 @@ GitHub documentation (not assumed):
 | Consumer build | `npm run typecheck && npm run build` (in `example/`) | ✅ `tsc --noEmit` clean, `vite build` OK; lockfile refreshed to `0.1.1` |
 | Workflows / tokens / OIDC gates | `git diff --stat .github/` + token grep | ✅ **untouched** — no workflow, secret, environment, permission or gate change; no token reference added |
 | Stage / approve / publish / dispatch / release | — | **none executed** — `0.1.1` is prepared only; the owner runs `verify` → `stage` → approve → publish manually after merge |
+
+### Non-mutating Trusted Publishing verification pass (2026-11-07)
+
+| Check | Result |
+| --- | --- |
+| Failed run root cause (42350738180, 07:18 UTC) | ✅ **expected gate behavior, not an OIDC failure**: `verify`'s "Version has not been published yet" step saw `0.1.1` on the registry (published 07:07 UTC). The stage run 42349730622 (07:04 UTC) had already completed `npm stage publish` with the stage job SUCCESS — live proof of the stage action's Trusted Publishing authentication (§6.6) |
+| Non-mutating test feasibility | ✅ **supported** — npm's documented `exchangeOidcToken` operation (api-docs.npmjs.com) called with the GitHub id_token; `npm whoami` ruled out by npm's own docs; dry-run exit code and log-scraping ruled out (§6.6 findings 1–5) |
+| Implementation | ✅ `scripts/oidc-trust-check.mjs` + `action=oidc-check` job (protected environment, `id-token: write`, Node 24, npm ≥ 11.5.1 guard, no `registry-url`, no secrets); the job block contains no npm command of any kind |
+| Static contracts | ✅ `scripts/check.mjs` — 5 new oidc-check/script contracts pass (manual action, protected environment + OIDC + Node 24, no credential/release-variable in the job, script targets the documented exchange and fails unless 201, GET+POST only); `validate-package.mjs` unchanged and green |
+| New tests | ✅ `tests/oidc-trust-check.test.mjs` **12/12** (201 success, 401/404/201-without-token failures, fail-closed without `id-token: write`, audience `npm:registry.npmjs.org`, exact exchange URL, no credential in any output, exit codes 0/1) · `tests/release-gates.test.mjs` **43/43** incl. 3 new oidc-check job/script contract tests · wording contracts untouched and green |
+| Workflow YAML | ✅ parses (`js-yaml`); workflow wording bans clean (no completion-of-publishing claims, no token references, no approve/reject command) |
+| Full suite | ✅ `npm run check` (root) — all static assertions + **230/230** tests pass; SDK `validate-package.mjs` ✅ PASS |
+| Registry effect of this pass | ✅ **none** — no registry command was executed; versions remain `0.0.0-stage`, `0.1.0`, `0.1.1`; dist-tags remain `{latest: 0.1.1}` |
 
 ## 8. Required follow-ups (before the first publish)
 
@@ -974,28 +1103,30 @@ Owner actions remaining (nothing in this repository can complete them):
    `NPM_STAGE_TOKEN` repository secret were deleted
    ([§4](#4-release-runbook-when-a-release-is-approved) step 5); no npm
    token reference remains anywhere in this repository's workflows.
-6. **Register the npm Trusted Publisher (the one remaining release-blocking
-   owner action)** — after reviewing/merging the OIDC migration PR, add the
-   trusted-publisher connection exactly as specified in
+6. ~~Register the npm Trusted Publisher~~ — **DONE (2026-11-07).** The
+   owner added the connection exactly as specified in
    [§6.3](#63-registering-the-trusted-publisher-owner-action): owner
    `sandro-defender`, repo `you-ge-assistant`, workflow filename
    `sdk-release-prep.yml`, environment `sdk-npm-publish`, allowed actions
    **`npm stage publish` AND `npm publish`** (one connection serves both
-   jobs). ⚠️ The connection must complete its **first successful publish
-   within 48 hours** of creation or it expires; whether a staged+approved
-   publish counts toward that window is **UNVERIFIED** until tested —
-   register at a moment when a publish can land inside the window (or
-   confirm the staged-counts question with npm first) and record the
-   validation outcome in §7. Then keep `SDK_RELEASE_ENABLED` **unset** until
-   a later release is explicitly approved, and once OIDC is validated
+   jobs). **Validation outcome (recorded 2026-11-07):** the `stage` job's
+   OIDC token exchange was accepted at 07:04 UTC (run 42349730622) and the
+   owner's 2FA approval published `0.1.1` at 07:07 UTC — the **48-hour**
+   first-publish window was met, and the staged-counts question is moot for
+   this connection (the staged+approved publish landed inside the window
+   regardless). The ongoing non-mutating re-check is `action=oidc-check`
+   ([§6.6](#66-non-mutating-verification-of-npm-trusted-publishing-oidc)).
+   Then keep `SDK_RELEASE_ENABLED` **unset** until
+   a later release is explicitly approved, and once the owner is satisfied
    **restrict token access** (Settings → Publishing access → "Require
    two-factor authentication and disallow tokens") — no npm token exists in
    this repository anymore.
 7. **Later releases** — run `sdk-release-prep` with `action=publish` and
    `confirm_publish=publish` ([§4](#4-release-runbook-when-a-release-is-approved)
    step 7), then the post-publish smoke tests (step 8) and optional tag
-   (step 9). (`0.1.0` itself completed at §4 step 4 — approval, not this
-   job.)
+   (step 9). (`0.1.0` and `0.1.1` both completed at §4 step 4 — owner
+   approval of a staged version, not this job; `0.1.1` additionally proved
+   the OIDC stage path end-to-end.)
 8. Migrate staff.you.ge off the vendored copy per
    [`MIGRATION.md`](MIGRATION.md) after the first published version.
 
