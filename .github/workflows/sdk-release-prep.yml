@@ -59,14 +59,24 @@ name: sdk-release-prep
 #   guard the npm version. See packages/assistant-sdk/RELEASE.md §6.
 #   Never commit tokens: this workflow references no npm token at all —
 #   verify, stage and publish authenticate without any stored npm credential.
+# - The `oidc-check` action is a NON-MUTATING Trusted Publishing verification
+#   (RELEASE.md §6.6): inside the protected environment it exchanges this
+#   workflow's GitHub OIDC id_token for a short-lived package-scoped npm
+#   token using the documented npm Registry API operation
+#   `POST /-/npm/v1/oidc/token/exchange/package/<name>` and prints only the
+#   HTTP status and expiry. It runs no staging, no approval, no dist-tag
+#   operation and no release publish command, stores nothing in GitHub
+#   Secrets, and never claims more than Trusted Publisher authentication:
+#   publishing permission is proven only by an actual registry-accepted
+#   stage or publish run, never by this check.
 
 on:
   workflow_dispatch:
     inputs:
       action:
-        description: 'verify = full release checklist without publishing. stage = stage the package version for owner approval on npm (see workflow header). publish = reserved for explicitly approved releases (see workflow header).'
+        description: 'verify = full release checklist without publishing. stage = stage the package version for owner approval on npm (see workflow header). publish = reserved for explicitly approved releases (see workflow header). oidc-check = non-mutating Trusted Publishing (OIDC) token-exchange check — no publish, no stage, no approval, no dist-tag change (see workflow header and RELEASE.md §6.6).'
         type: choice
-        options: [verify, stage, publish]
+        options: [verify, stage, publish, oidc-check]
         default: verify
       confirm_publish:
         description: 'For action=publish only: type "publish" to confirm. Ignored for verify and stage.'
@@ -88,6 +98,13 @@ jobs:
   verify:
     name: Verify release readiness
     runs-on: ubuntu-latest
+    # Runs for action=verify/stage/publish exactly as before. Skipped only for
+    # action=oidc-check: the standalone non-mutating OIDC check does not need
+    # the release checklist — and its "Version has not been published yet"
+    # step (correctly) fails while 0.1.1 sits on the registry after the
+    # 2026-11-07 release (see RELEASE.md §7); gating keeps the check's run
+    # green-or-red for exactly what it measures.
+    if: github.event.inputs.action != 'oidc-check'
     steps:
       - uses: actions/checkout@v4
 
@@ -270,3 +287,44 @@ jobs:
             echo ""
             echo "This workflow only stages: it never publishes and never approves or rejects a stage."
           } >> "$GITHUB_STEP_SUMMARY"
+
+  oidc-check:
+    name: Verify npm Trusted Publishing (OIDC) without any registry change
+    # Non-mutating verification (RELEASE.md §6.6). Runs only on an explicit
+    # manual dispatch (action=oidc-check) inside the protected
+    # `sdk-npm-publish` environment so the OIDC subject matches the Trusted
+    # Publisher's environment field. The job performs exactly two HTTP calls:
+    # GET GitHub's id_token endpoint (id-token: write) and POST the documented
+    # npm Registry API token-exchange operation. It never runs a staging,
+    # approval, dist-tag or release publish command, never reads a secret,
+    # and writes no credential to disk or to the log output.
+    if: github.event.inputs.action == 'oidc-check'
+    runs-on: ubuntu-latest
+    environment: sdk-npm-publish
+    permissions:
+      contents: read           # checkout only
+      id-token: write          # GitHub OIDC id_token for the documented npm exchange
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          # Deliberately NO registry-url: this job must hold no .npmrc
+          # credential placeholder of any kind — the only credential it ever
+          # handles is the in-memory OIDC exchange inside the check script.
+          package-manager-cache: false
+
+      - name: npm CLI supports Trusted Publishing (OIDC) (npm >= 11.5.1)
+        run: |
+          set -euo pipefail
+          npm -v | awk -F. '
+            $1 < 11 || ($1 == 11 && ($2 < 5 || ($2 == 5 && $3 < 1))) {
+              print "::error::npm >= 11.5.1 is required for npm Trusted Publishing (OIDC); found " $0
+              exit 1
+            }
+            { print "npm " $0 " satisfies the npm Trusted Publishing requirement (>= 11.5.1)" }
+          '
+
+      - name: Exchange the GitHub OIDC identity for this package (documented npm API, no registry mutation)
+        run: node scripts/oidc-trust-check.mjs
