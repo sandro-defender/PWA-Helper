@@ -2,7 +2,7 @@
  * @youge/assistant-sdk — core constants
  */
 
-export const SDK_VERSION = '0.1.0';
+export const SDK_VERSION = '0.1.1';
 export const KIT_COMPAT_VERSION = '1.0.5';
 export const SCHEMA_VERSION = 1;
 

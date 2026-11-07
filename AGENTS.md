@@ -100,7 +100,7 @@ copy for a subpath deployment.
 | `pwa.js` | yes | Client SDK: config, SW registration, install/push UI, floating toolbox, QR, banners, meta, splash |
 | `pwa.css` | yes (unless `data-no-css`) | All component styles and Progressier CSS variables |
 | `assistant-state.js` | yes | Centralized, event-driven state + configurable SDK API for the Intelligent Floating Assistant |
-| `assistant-widget.js`, `assistant-widget.css` | yes (unless disabled) | Dependency-free DOM renderer, fixed placement, safe areas, badges and in-place panel |
+| `assistant-widget.js`, `assistant-widget.css` | yes (unless disabled) | Dependency-free DOM renderer, fixed placement, safe areas, badges, in-place panel, auto-scaling launcher with manual size/position adjustment, Android Chrome handoff offer |
 | `progressier.js` | yes | Service worker: offline cache, push display, share target, badge |
 | `manifest.webmanifest` | yes | App identity, icons, share target, protocol handlers |
 | `qrcode.js` | only for QR | Vendored MIT `qrcode-generator` 2.0.4 |
@@ -125,7 +125,7 @@ copy for a subpath deployment.
 | `packages/assistant-sdk/scripts/validate-package.mjs` | tool | Package metadata, export map, version sync and tarball validation release gate |
 | `reference/` | research only | Original manifest/client source and readable copies; never deploy |
 | `scripts/check.mjs` | tool | Static checks for manifests, assets, versions, domain/DNS and floating-Assistant contracts |
-| `tests/assistant-widget.test.mjs` | tool | 24 state/renderer/priority/a11y/lifecycle tests |
+| `tests/assistant-widget.test.mjs` | tool | 46 state/renderer/priority/a11y/lifecycle + 0.1.1 feature tests (auto-scale, manual adjust, Chrome handoff) |
 | `scripts/verify-deployment.mjs` | tool | Live deployment checker |
 | `scripts/generate-vapid-keys.mjs` | tool | VAPID key generator |
 | `examples/push-server/` | example | Minimal Node push sender |

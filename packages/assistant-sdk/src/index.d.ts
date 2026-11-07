@@ -44,6 +44,14 @@ import type {
   InstallationSupport,
   PwaRuntimeLike,
 } from './installation/index.js';
+import type {
+  ChromeHandoffController,
+  ChromeHandoffInstructions,
+  ChromeHandoffLabels,
+  ChromeHandoffOpenResult,
+  InAppBrowserDetection,
+  InAppBrowserName,
+} from './browser/index.js';
 
 export type {
   AssistantAction,
@@ -84,6 +92,12 @@ export type {
   ResolvedAssistantConfig,
   ResolvedDomainConfig,
   StorageLike,
+  ChromeHandoffController,
+  ChromeHandoffInstructions,
+  ChromeHandoffLabels,
+  ChromeHandoffOpenResult,
+  InAppBrowserDetection,
+  InAppBrowserName,
 };
 
 export type NotificationTone = 'critical' | 'auth' | 'backup' | 'install' | 'info';
@@ -253,6 +267,9 @@ export interface YouGeAssistantStatic {
   resolveDomain(locationLike?: LocationInput | string, optionalRegistry?: DomainRegistry): ResolvedDomainConfig;
   buildManifest(config?: ResolvedDomainConfig): GeneratedWebManifest;
   validatePublishedConfig(rawInput: unknown, options?: { expectedProjectId?: string }): PublishedValidationResult;
+  detectInAppBrowser(userAgent?: string): InAppBrowserDetection;
+  buildChromeIntentUrl(url: string, options?: { packageName?: string }): string | null;
+  createChromeHandoff(options?: import('./browser/index.js').ChromeHandoffEnvironment): ChromeHandoffController;
 }
 
 export interface ToolkitSummary {
@@ -314,6 +331,16 @@ export {
   readPwaSnapshot,
   requestPwaInstall,
 } from './installation/index.js';
+
+export {
+  CHROME_OFFER_STORAGE_KEY,
+  CHROME_PACKAGE,
+  buildChromeIntentUrl,
+  chromeHandoffInstructions,
+  createChromeHandoff,
+  detectInAppBrowser,
+  isChromeHandoffCandidate,
+} from './browser/index.js';
 
 export declare function createAssistant(
   initialOptions?: CreateAssistantOptions,

@@ -1,6 +1,53 @@
 # Changelog
 
-## Unreleased — migrate SDK publishing to npm Trusted Publishing (OIDC)
+## 0.1.1 — 2026-11-07
+
+- **Android in-app browser detection + Chrome handoff (reusable SDK
+  feature, not project-specific).** New framework-independent
+  `packages/assistant-sdk/src/browser/` module exported from the root
+  entry, the frozen `YouGeAssistant` static and a new `./browser` subpath
+  (paired TypeScript declarations): `detectInAppBrowser(userAgent)`
+  classifies Facebook / Messenger / Instagram / Android WebView markers
+  (Messenger wins over its FBAN parents; iOS in-apps are identified but
+  never candidates; a missing user agent reports `uncertain: true`),
+  `isChromeHandoffCandidate()` allows only confident Android restricted
+  detections, `buildChromeIntentUrl(url, { packageName })` produces the
+  best-effort Android `intent://…#Intent;…` handoff that preserves the
+  original pathname, query **and** hash (the full URL also travels
+  percent-encoded in `S.browser_fallback_url`; only absolute http(s) URLs
+  are accepted), `chromeHandoffInstructions()` returns copy-ready manual
+  steps, and `createChromeHandoff()` orchestrates detection → explicit
+  `open()` → immediate/lingering failure → manual fallback with
+  injectable `location`/`document`/`setTimeout` and a `destroy()` timer
+  guard. Nothing navigates unless the caller invokes `open()` on a
+  confident candidate: normal Chrome/Safari/other supported browsers,
+  iOS in-apps and uncertain detections are never offered and never
+  redirected. New `modules.chromeHandoff` config flag (default `true`,
+  surfaced as `state.capabilities.chromeHandoff`). The shipped widget
+  renders the **Open in Chrome** offer above the launcher for Android
+  Facebook/Messenger/Instagram/webview sessions only, with a three-step
+  manual fallback (original URL selectable, clipboard copy with a graceful
+  manual hint), per-origin dismissal
+  (`youge-assistant:chrome-offer-dismissed`) and no overlap with the open
+  panel; the React example demonstrates the same SDK flow.
+- **Floating Assistant entry point: automatic responsive scaling + manual
+  adjustment.** The launcher diameter became a single token
+  (`--youge-fab-size`, default 56px) with responsive tiers — 54px below
+  480px (exact square/circle regression gates unchanged), 60px at
+  ≥768px, 64px at ≥1280px — and the glyph follows `--youge-fab-glyph`;
+  the panel gap and the Chrome offer track the launcher at its real size
+  while `border-radius: 50%` keeps it a true circle at every tier. A new
+  **Adjust icon** section in the panel exposes native range inputs
+  (44–72px size, 0–160px horizontal/vertical; 44px touch targets,
+  `touch-action: manipulation`, visible focus rings, labels + outputs):
+  size applies as an inline override that outranks every media tier,
+  horizontal/vertical override the configured offsets, values persist per
+  origin as `youge-assistant:fab-adjust` (`{size,x,y}`) across reloads and
+  PWA restarts, and **Reset to automatic defaults** clears both the inline
+  styles and the stored value. Keyboard, touch and pointer share one
+  delegated `input` path; still zero dependencies, no polling and no
+  forced motion.
+
 
 - **Staging migrated to OIDC — the release workflows are token-free end to
   end (2026-11-07).** The `stage` job of `.github/workflows/sdk-release-prep.yml`

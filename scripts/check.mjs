@@ -838,12 +838,64 @@ for (const rel of sdkRequired) {
 
 const sdkPkg = JSON.parse(readFileSync(at('packages/assistant-sdk/package.json'), 'utf8'));
 contract(sdkPkg.name === '@youge/assistant-sdk', 'SDK package name is @youge/assistant-sdk');
-contract(sdkPkg.version === '0.1.0' && sdkPkg.private !== true, 'SDK package is release-ready at 0.1.0 (private lock removed by the approved release PR; publishing still gated by sdk-release-prep)');
+contract(sdkPkg.version === '0.1.1' && sdkPkg.private !== true, 'SDK package is release-ready at 0.1.1 (0.1.1 feature release; publishing still gated by sdk-release-prep)');
 contract(!sdkPkg.dependencies, 'SDK package has zero mandatory runtime dependencies');
 contract(Boolean(sdkPkg.exports && sdkPkg.exports['.'] && sdkPkg.exports['./react']), 'SDK package declares explicit subpath exports');
 contract(assistantState === buildBrowserStateScript(), 'assistant-state.js is deterministically synchronized with packages/assistant-sdk/src/');
 contract(mainJsxSource.includes('@youge/assistant-sdk'), 'React example consumes @youge/assistant-sdk directly');
 contract(designSource.includes('## 9. Phase 2 — `@youge/assistant-sdk`'), 'DESIGN_FOUNDATION.md records Phase 2 skill application');
+
+// 0.1.1 feature release: Android in-app browser detection + Chrome handoff.
+const sdkBrowserSource = readFileSync(at('packages/assistant-sdk/src/browser/index.js'), 'utf8');
+contract(
+  /export function detectInAppBrowser[\s\S]*export function buildChromeIntentUrl[\s\S]*export function createChromeHandoff/.test(sdkBrowserSource),
+  'the SDK ships a reusable Android in-app browser detection + Chrome handoff module'
+);
+contract(
+  Boolean(sdkPkg.exports['./browser'] && sdkPkg.exports['./browser'].types),
+  'the browser subpath export ships with paired TypeScript types'
+);
+contract(
+  /detectInAppBrowser[\s\S]*buildChromeIntentUrl[\s\S]*createChromeHandoff/.test(assistantState),
+  'assistant-state.js bundles the Chrome handoff helpers for classic pages'
+);
+contract(
+  /youge-chrome-offer/.test(assistantWidget) && /data-chrome-open/.test(assistantWidget) && /data-chrome-fallback/.test(assistantWidget),
+  'the widget renders the Open in Chrome offer with a manual fallback'
+);
+contract(
+  /youge-assistant:chrome-offer-dismissed/.test(assistantWidget) && /youge-assistant:chrome-offer-dismissed/.test(mainJsxSource),
+  'the Chrome offer dismissal persists per origin in both renderers'
+);
+contract(
+  mainJsxSource.includes('createChromeHandoff') && mainJsxSource.includes('shouldOffer()'),
+  'the React example demonstrates the handoff as an opt-in SDK feature'
+);
+contract(
+  !/location\.href\s*=[^=]/.test(mainJsxSource),
+  'the React example never force-redirects the visitor'
+);
+
+// 0.1.1 feature release: floating entry point auto-scaling + manual adjustment.
+contract(
+  /--youge-fab-size: 56px/.test(assistantStyles) && /var\(--youge-fab-size\)/.test(assistantStyles),
+  'the launcher diameter is one token shared by every responsive tier'
+);
+contract(
+  /@media \(max-width: 480px\)[\s\S]*?--youge-fab-size: 54px/.test(assistantStyles)
+    && /@media \(min-width: 768px\)[\s\S]*?--youge-fab-size: 60px/.test(assistantStyles)
+    && /@media \(min-width: 1280px\)[\s\S]*?--youge-fab-size: 64px/.test(assistantStyles),
+  'the launcher scales across phone, tablet and desktop tiers'
+);
+contract(
+  /youge-assistant:fab-adjust/.test(assistantWidget) && /data-adjust-reset/.test(assistantWidget),
+  'the widget persists manual icon adjustments and offers a reset to defaults'
+);
+contract(
+  /\.youge-adjust-row input\[type="range"\][\s\S]*?min-height: 44px/.test(assistantStyles)
+    && /\.youge-adjust-row input\[type="range"\][\s\S]*?touch-action: manipulation/.test(assistantStyles),
+  'the manual adjustment controls are 44px touch targets'
+);
 
 const releaseWorkflow = readFileSync(at('.github/workflows/sdk-release-prep.yml'), 'utf8');
 contract(/^on:\s*\n\s+workflow_dispatch:/m.test(releaseWorkflow), 'sdk-release-prep triggers on workflow_dispatch only');

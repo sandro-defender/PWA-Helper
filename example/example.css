@@ -792,3 +792,68 @@ article.foundation-card {
   .assistant-panel { width: min(330px, calc(100vw - 24px - env(safe-area-inset-left) - env(safe-area-inset-right))); }
   .assistant-status-grid { grid-template-columns: 1fr; }
 }
+
+/* ------------------------------------------------------------------ *
+ * Android in-app browser → Chrome handoff (SDK 0.1.1).              *
+ * Renders only for a confident restricted in-app detection and sits  *
+ * directly above the floating entry point inside its grid.           *
+ * ------------------------------------------------------------------ */
+.chrome-handoff {
+  display: grid;
+  gap: 8px;
+  width: min(300px, calc(100vw - 32px));
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  color: var(--ink);
+  font-size: 14px;
+}
+.chrome-handoff-text { margin: 0; line-height: 1.45; }
+.chrome-handoff-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.chrome-handoff-actions button {
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.chrome-handoff-actions button:focus-visible {
+  outline: 3px solid var(--brand);
+  outline-offset: 3px;
+}
+.chrome-handoff-open {
+  border-color: var(--brand) !important;
+  background: var(--brand) !important;
+  color: #ffffff !important;
+}
+.chrome-handoff-fallback { display: grid; gap: 8px; }
+.chrome-handoff-steps {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.chrome-handoff-url {
+  display: block;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-soft);
+  color: var(--ink);
+  font-size: 12px;
+  line-height: 1.5;
+  user-select: all;
+  word-break: break-all;
+}
+.chrome-handoff-status { font-size: 12px; color: var(--muted); }

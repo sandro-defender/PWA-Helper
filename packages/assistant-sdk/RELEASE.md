@@ -2,7 +2,9 @@
 
 > **Status: 0.1.0 published (2026-11-06) — staged by the manual GitHub
 > Actions `stage` job, then made public only when the owner approved the
-> staged version on npmjs.com with 2FA.** Nothing in this repository publishes
+> staged version on npmjs.com with 2FA. · 0.1.1 prepared (2026-11-07), NOT
+> staged and NOT published — the owner dispatches the release workflow
+> manually after the release PR merges.** Nothing in this repository publishes
 > the package on push, pull request or merge. The first publication used a
 > temporary stage-only bootstrap secret `NPM_STAGE_TOKEN` (granular, stage
 > only, `@youge` scope) that was **created, used and revoked** after staging
@@ -33,15 +35,15 @@ Related documents: [`README.md`](README.md) (public API and consumption) ·
 | Item | Value | Notes |
 | --- | --- | --- |
 | Package name | `@youge/assistant-sdk` | Scope `@youge` (npm org `youge`, npm user `you-ge`) — confirmed by the project owner, see [§2](#2-package-identity-decisions); published at `0.1.0` (2026-11-06) |
-| Version | `0.1.0` (initial release) | Synced with `SDK_VERSION` in `src/core/constants.js` |
-| Visibility | published (`0.1.0`, 2026-11-06) | `"private": true` lock removed in the 0.1.0 release PR per [§4](#4-release-runbook-when-a-release-is-approved) step 1; every publish path stays gated ([§5](#5-publishing-remains-disabled)) |
+| Version | `0.1.1` (prepared 2026-11-07, not staged) | Synced with `SDK_VERSION` in `src/core/constants.js` and the `check.mjs` release-ready gate |
+| Visibility | published (`0.1.0`, 2026-11-06); `0.1.1` prepared, not staged | `"private": true` lock removed in the 0.1.0 release PR per [§4](#4-release-runbook-when-a-release-is-approved) step 1; every publish path stays gated ([§5](#5-publishing-remains-disabled)) |
 | Publish config | `publishConfig.access: "public"` | Ready for an approved first scoped publish |
 | Module system | ESM only (`"type": "module"`) | Buildless: `src/` **is** the published runtime |
-| TypeScript | Paired `.d.ts` per export entry | `.`, `./domain`, `./config`, `./diagnostics`, `./installation`, `./react` |
+| TypeScript | Paired `.d.ts` per export entry | `.`, `./domain`, `./config`, `./diagnostics`, `./installation`, `./browser`, `./react` |
 | Export map | Explicit subpaths, no wildcards | Deep imports like `@youge/assistant-sdk/src/...` are **blocked** |
 | Runtime dependencies | **Zero** | `react >= 18` is an optional peer only (for `./react`) |
 | License | MIT ([`LICENSE`](LICENSE)) | Matches the repository license |
-| Packed size | 19 files, ~33 kB tarball / ~132 kB unpacked | `npm pack --dry-run` |
+| Packed size | 21 files, 38.0 kB tarball / 147.4 kB unpacked | `npm pack --dry-run` (2026-11-07) |
 | Kit compatibility | `KIT_COMPAT_VERSION = 1.0.5` | Matches the You.Ge Assistant runtime version (`pwa.js` / `progressier.js`) |
 | Config schema | `SCHEMA_VERSION = 1` | Data-only `publishedConfig` pipeline, LKG fallback |
 | **Publishing auth** | **npm Trusted Publishing (OIDC) everywhere: the `stage` and `publish` jobs both carry `id-token: write`; no npm token reference exists anywhere in the workflows. First publication (0.1.0, 2026-11-06) used the temporary `NPM_STAGE_TOKEN` bootstrap — created, used and revoked** | Verify, stage and publish use no npm token at all; the bootstrap token was a temporary credential, not the future publishing method — [§4](#4-release-runbook-when-a-release-is-approved), [§6](#6-npm-trusted-publishing-oidc), [§6.4](#64-the-first-publish-of-a-new-package-cannot-use-oidc-important) |
@@ -93,8 +95,8 @@ destination ([§3](#3-publishing-destination-evaluation)).
 
 ### Version
 
-- Pre-1.0 semver (`0.1.0`) signals the API is extracted-and-tested but not yet
-  frozen by a public release. Policy once published:
+- Pre-1.0 semver (`0.1.1`; `0.1.0` published 2026-11-06) signals the API is
+  extracted-and-tested but not yet frozen by a public release. Policy:
   - **patch** — bug fixes, no API or state-model change;
   - **minor** — additive API (new exports, new optional options);
   - **major** — breaking API change (also bumps `SCHEMA_VERSION` if the config
@@ -187,6 +189,13 @@ decided the registry ([§3](#3-publishing-destination-evaluation)).
      publishability **and** that the workflow publishing gates stay intact;
    - ✅ `npm run check` and `node packages/assistant-sdk/scripts/validate-package.mjs`
      green.
+   - **0.1.1 feature-release PR (2026-11-07):** version bumped to `0.1.1` in
+     `packages/assistant-sdk/package.json`, `SDK_VERSION`,
+     `scripts/check.mjs` and the example lockfile; `CHANGELOG.md` gained the
+     `0.1.1` entry (Android Chrome handoff + floating-icon auto-scale/manual
+     adjustment); both features documented (README, WIDGET.md, MIGRATION).
+     **Status: prepared in this PR — not staged, not published** (steps 2+
+     below remain the owner's manual dispatch).
 2. **Verify** — run the `sdk-release-prep` workflow with `action: verify`
    (manual dispatch only). All jobs green. The verify job never publishes and
    uses no npm token. **Status: to be dispatched by the maintainer** (or
@@ -924,6 +933,21 @@ GitHub documentation (not assumed):
 | Trusted publisher registration | owner action | ⚠️ **not done** — the owner configures it manually after reviewing/merging this change (§6.3); the 48-hour window applies from creation, and staged-counts-as-first-publish stays **UNVERIFIED** until tested |
 | Secrets / environments / variables / tags / dispatches / publishes | — | **none created, modified or executed by this task** |
 | Registry state | `npm view @youge/assistant-sdk` (2026-11-07) | ✅ `0.1.0` published via the staged-approval path with the `0.0.0-stage` placeholder; unchanged by this task |
+
+### 0.1.1 feature-release preparation pass (2026-11-07)
+
+| Check | Command | Result |
+| --- | --- | --- |
+| Static contracts + full test suite | `npm run check` (root) | ✅ All checks passed; **215/215** tests, 0 fail (was 188 at 0.1.0) |
+| New browser-feature tests | `node --test packages/assistant-sdk/tests/sdk-browser.test.mjs` | ✅ 15/15 — UA table (Android Chrome / Facebook / Messenger / Instagram / WebView / iOS / unknown), intent URL query+hash preservation, failed handoff, delayed fallback, destroy |
+| Widget feature tests | `node --test tests/assistant-widget.test.mjs` | ✅ 46/46 — responsive tiers, manual size/position clamp+persist, reload, reset, touch/mouse/keyboard path, offer + manual fallback + dismissal |
+| React example demonstration | `node --test tests/example-ui.test.mjs` | ✅ 9/9 incl. no-forced-redirect regression |
+| Package & version validation | `node packages/assistant-sdk/scripts/validate-package.mjs` | ✅ `@youge/assistant-sdk@0.1.1` ready; exports↔types↔files↔pack gates pass |
+| Browser-bundle sync | `node scripts/sync-sdk-browser.mjs --check` | ✅ in sync (`browser/index.js` added to `SOURCE_MODULES`) |
+| Pack contents | `npm pack --dry-run` | ✅ 21 files (38.0 kB tarball / 147.4 kB unpacked) |
+| Consumer build | `npm run typecheck && npm run build` (in `example/`) | ✅ `tsc --noEmit` clean, `vite build` OK; lockfile refreshed to `0.1.1` |
+| Workflows / tokens / OIDC gates | `git diff --stat .github/` + token grep | ✅ **untouched** — no workflow, secret, environment, permission or gate change; no token reference added |
+| Stage / approve / publish / dispatch / release | — | **none executed** — `0.1.1` is prepared only; the owner runs `verify` → `stage` → approve → publish manually after merge |
 
 ## 8. Required follow-ups (before the first publish)
 

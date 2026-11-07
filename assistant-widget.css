@@ -6,6 +6,10 @@
 
 .youge-assistant-widget {
   --youge-brand: #155eef;
+  /* Single source of truth for the launcher's diameter. The responsive tiers
+     below restate it at their breakpoint; the panel gap, the Chrome offer and
+     the manual size override all follow it. */
+  --youge-fab-size: 56px;
   --youge-surface: #ffffff;
   --youge-surface-soft: #f8fafc;
   --youge-ink: #0f172a;
@@ -111,8 +115,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 56px;
-  height: 56px;
+  width: var(--youge-fab-size);
+  height: var(--youge-fab-size);
   padding: 0;
   border: 1px solid var(--youge-fab-ring);
   /* A true circle at every size and every position — border-radius: 50% on a
@@ -152,7 +156,7 @@
 }
 
 .youge-fab .youge-icon { position: relative; z-index: 1; }
-.youge-fab .youge-icon svg { width: 26px; height: 26px; display: block; }
+.youge-fab .youge-icon svg { width: var(--youge-fab-glyph, 26px); height: var(--youge-fab-glyph, 26px); display: block; }
 
 /* Red means "there is something to act on". The button does not decide that on
    its own: data-tone is the SDK badge tone, i.e. the tone of the highest-priority
@@ -280,11 +284,11 @@
 }
 .youge-assistant-widget[data-position="bottom-right"] .youge-panel,
 .youge-assistant-widget[data-position="bottom-left"] .youge-panel {
-  bottom: calc(var(--youge-offset-y) + 66px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(var(--youge-offset-y) + var(--youge-fab-size) + 10px + env(safe-area-inset-bottom, 0px));
 }
 .youge-assistant-widget[data-position="top-right"] .youge-panel,
 .youge-assistant-widget[data-position="top-left"] .youge-panel {
-  top: calc(var(--youge-offset-y) + 66px + env(safe-area-inset-top, 0px));
+  top: calc(var(--youge-offset-y) + var(--youge-fab-size) + 10px + env(safe-area-inset-top, 0px));
   transform: translateY(-8px) scale(0.985);
 }
 .youge-assistant-widget[data-position="top-right"] .youge-panel.is-open,
@@ -446,6 +450,17 @@
   }
   .youge-panel-body { padding: 14px; gap: 14px; }
   .youge-fab { width: 54px; height: 54px; }
+  .youge-assistant-widget { --youge-fab-size: 54px; --youge-fab-glyph: 24px; }
+}
+
+/* Responsive launcher tiers: phone (54px, above), small tablet (56px base),
+   tablet (60px) and desktop (64px). The manual size override in the panel is
+   applied inline on the widget root, which outranks every tier. */
+@media (min-width: 768px) {
+  .youge-assistant-widget { --youge-fab-size: 60px; --youge-fab-glyph: 28px; }
+}
+@media (min-width: 1280px) {
+  .youge-assistant-widget { --youge-fab-size: 64px; --youge-fab-glyph: 30px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -461,3 +476,107 @@
   .youge-fab:hover, .youge-fab:active, .youge-btn:hover, .youge-btn:active { transform: none !important; }
   .youge-fab::before { transition: none; }
 }
+
+/* -------------------------------------------------------------------------- *
+ * Android in-app browser → Chrome handoff offer.                            *
+ * Sits directly above the launcher at every corner, never over the panel    *
+ * (the widget hides it while the panel is open) and respects safe areas.    *
+ * -------------------------------------------------------------------------- */
+.youge-chrome-offer {
+  position: fixed;
+  z-index: 2147483000;
+  display: grid;
+  gap: 8px;
+  width: min(300px, calc(100vw - 32px));
+  padding: 12px;
+  border: 1px solid var(--youge-line);
+  border-radius: 14px;
+  background: var(--youge-surface);
+  color: var(--youge-ink);
+  box-shadow: var(--youge-shadow);
+  font-size: 14px;
+}
+.youge-chrome-offer[hidden] { display: none !important; }
+.youge-assistant-widget[data-position="bottom-right"] .youge-chrome-offer,
+.youge-assistant-widget[data-position="bottom-left"] .youge-chrome-offer {
+  bottom: calc(var(--youge-offset-y) + var(--youge-fab-size) + 18px + env(safe-area-inset-bottom, 0px));
+}
+.youge-assistant-widget[data-position="bottom-right"] .youge-chrome-offer,
+.youge-assistant-widget[data-position="top-right"] .youge-chrome-offer {
+  right: calc(var(--youge-offset-x) + env(safe-area-inset-right, 0px));
+}
+.youge-assistant-widget[data-position="bottom-left"] .youge-chrome-offer,
+.youge-assistant-widget[data-position="top-left"] .youge-chrome-offer {
+  left: calc(var(--youge-offset-x) + env(safe-area-inset-left, 0px));
+}
+.youge-assistant-widget[data-position="top-right"] .youge-chrome-offer,
+.youge-assistant-widget[data-position="top-left"] .youge-chrome-offer {
+  top: calc(var(--youge-offset-y) + var(--youge-fab-size) + 18px + env(safe-area-inset-top, 0px));
+}
+.youge-chrome-offer-text { margin: 0; line-height: 1.45; }
+.youge-chrome-offer-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.youge-chrome-offer-fallback { display: grid; gap: 8px; }
+.youge-chrome-offer-fallback[hidden] { display: none !important; }
+.youge-chrome-offer-steps {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding-left: 18px;
+  line-height: 1.45;
+}
+.youge-chrome-offer-url {
+  display: block;
+  padding: 6px 8px;
+  border: 1px solid var(--youge-line);
+  border-radius: 8px;
+  background: var(--youge-surface-soft);
+  color: var(--youge-ink);
+  font-size: 12px;
+  line-height: 1.5;
+  /* Selectable so long URLs can still be copied by hand if the clipboard is
+     unavailable inside the host app's webview. */
+  user-select: all;
+  word-break: break-all;
+}
+.youge-chrome-offer-status { font-size: 12px; color: var(--youge-muted); }
+
+/* -------------------------------------------------------------------------- *
+ * Manual icon adjustment (size / horizontal / vertical) inside the panel.    *
+ * Native range inputs keep keyboard, touch and pointer on one code path;     *
+ * 44px targets and touch-action keep them comfortable on phones.            *
+ * -------------------------------------------------------------------------- */
+.youge-adjust { display: grid; gap: 8px; }
+.youge-adjust > summary {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0;
+  font-weight: 600;
+  cursor: pointer;
+}
+.youge-adjust > summary:focus-visible {
+  outline: 3px solid var(--youge-focus);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+.youge-adjust-row { display: grid; gap: 4px; }
+.youge-adjust-label { font-size: 13px; color: var(--youge-muted); }
+.youge-adjust-row input[type="range"] {
+  width: 100%;
+  min-height: 44px;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--youge-brand);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.youge-adjust-row input[type="range"]:focus-visible {
+  outline: 3px solid var(--youge-focus);
+  outline-offset: 2px;
+}
+.youge-adjust-value {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--youge-muted);
+}
+.youge-adjust-reset { justify-self: start; }

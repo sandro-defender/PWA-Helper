@@ -271,3 +271,25 @@ test('a last-known-good record must declare the project that reads it back', () 
     'the rejected remote layer stays visible in meta',
   );
 });
+
+test('the Chrome handoff capability ships enabled and can be disabled through modules', () => {
+  const on = YouGeAssistant.create({
+    projectId: 'handoff-on',
+    domain: 'example.test',
+    bindEvents: false,
+  });
+  assert.equal(on.getState().capabilities.chromeHandoff, true);
+  on.destroy();
+
+  const off = YouGeAssistant.create({
+    projectId: 'handoff-off',
+    domain: 'example.test',
+    modules: { chromeHandoff: false },
+    bindEvents: false,
+  });
+  const state = off.getState();
+  assert.equal(state.capabilities.chromeHandoff, false, 'explicit false disables the offer');
+  assert.equal(state.capabilities.installation, BUNDLED_DEFAULTS.modules.installation);
+  assert.equal(state.capabilities.diagnostics, BUNDLED_DEFAULTS.modules.diagnostics);
+  off.destroy();
+});

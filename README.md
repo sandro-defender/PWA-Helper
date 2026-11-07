@@ -31,14 +31,16 @@ toolkit remains dependency-free. See [`example/README.md`](example/README.md).
 **Platform direction:** You.Ge Assistant is structured as a reusable PWA
 management and infrastructure platform. Phase 2 extracts the framework-independent
 SDK core locally at [`packages/assistant-sdk/`](packages/assistant-sdk/)
-(`@youge/assistant-sdk` v`0.1.0`, `"private": true` — prepared locally and not
-yet published to npm) while keeping this repository's dependency-free PWA
+(`@youge/assistant-sdk` v`0.1.1` prepared 2026-11-07; v`0.1.0` is published
+to npm) while keeping this repository's dependency-free PWA
 toolkit (`window.PWA`, `/progressier.js`, DNS diagnostics, manifest/offline
 support) intact. No standalone dashboard, remote configuration service,
 production failover engine or `staff.you.ge` modification is implemented here.
 The reusable **Intelligent Floating Assistant** widget shares the exact same
 SDK state model (`assistant-state.js` synchronized from `packages/assistant-sdk/src/`)
-with real-condition badges, a fixed priority ladder and an in-place panel; see
+with real-condition badges, a fixed priority ladder and an in-place panel —
+plus an auto-scaling launcher with per-origin manual size/position adjustment
+and the Android in-app browser → Chrome handoff offer (both new in 0.1.1); see
 [`WIDGET.md`](WIDGET.md) and [`packages/assistant-sdk/README.md`](packages/assistant-sdk/README.md).
 Read the [foundation audit](FOUNDATION_AUDIT.md),
 [platform architecture and roadmap](ASSISTANT_ARCHITECTURE.md),

@@ -5,8 +5,12 @@ multi-domain resolution, data-only configuration validation with Last-Known-Good
 fallback, explicit on-demand DNS diagnostics integration, and existing PWA
 installation integration.
 
-> **Package status (0.1.0 — published 2026-11-06):** `@youge/assistant-sdk@0.1.0`
-> is on the public npm registry (org `youge`, scope `@youge`). The first
+> **Package status (0.1.1 — prepared 2026-11-07, not yet staged):**
+> `@youge/assistant-sdk@0.1.0` is on the public npm registry (org `youge`,
+> scope `@youge`); `0.1.1` adds Android in-app browser detection + Chrome
+> handoff and ships with the floating-icon auto-scale/manual-adjustment
+> release — prepared in-repo, **not staged and not published**; the owner
+> dispatches the release workflow manually (see below). The first
 > publication was staged by the manual-only `sdk-release-prep` workflow's
 > `stage` job and became public only when the owner approved the staged
 > version on npmjs.com with 2FA — the approved runbook is
@@ -24,7 +28,7 @@ installation integration.
 | --- | --- | --- |
 | **SDK core** (`@youge/assistant-sdk`) | Public initialization (`create`, `attach`), data-only config & LKG validation, multi-domain resolution & manifest generation, centralized assistant state & subscriptions, connectivity/endpoint/session updates, explicit diagnostics & install delegation, `.d.ts` TypeScript contracts | **Zero** runtime dependencies (no React, Vue, Angular, or bundler runtime) |
 | **PWA toolkit** (`pwa.js`, `/progressier.js`, `dns-diagnostics.js`) | `window.PWA` APIs, `beforeinstallprompt` / iOS / QR install UI, single `/progressier.js` service worker, host+scope+version cache isolation, offline fallback, Cloudflare DoH A/AAAA checks | Dependency-free classic browser scripts |
-| **UI / Widget layer** (`assistant-widget.js`, `example/`) | Floating assistant DOM renderer (`assistant-widget.js`) and optional React external-store adapter (`@youge/assistant-sdk/react` + `example/`) | SDK works independently of any widget or UI framework |
+| **UI / Widget layer** (`assistant-widget.js`, `example/`) | Floating assistant DOM renderer — auto-scaling launcher, manual size/position adjustment, Android Chrome handoff offer — plus the optional React external-store adapter (`@youge/assistant-sdk/react` + `example/`) | SDK works independently of any widget or UI framework |
 
 ---
 
@@ -33,7 +37,7 @@ installation integration.
 ### From npm (after publication)
 
 ```bash
-npm install @youge/assistant-sdk@0.1.0
+npm install @youge/assistant-sdk@0.1.1
 ```
 
 Pin the **exact version** (no `^`/`~`) if you want vendor-pin semantics — the
@@ -69,6 +73,7 @@ Inside another package in this repository or a sibling local project:
 | `@youge/assistant-sdk/config` | Data-only `publishedConfig` validator, Last-Known-Good storage helpers, and override resolver |
 | `@youge/assistant-sdk/diagnostics` | Single-flight diagnostics integration controller and classification helpers |
 | `@youge/assistant-sdk/installation` | `window.PWA` state reader and install prompt delegation |
+| `@youge/assistant-sdk/browser` | Android in-app browser detection and best-effort Chrome handoff (`detectInAppBrowser`, `buildChromeIntentUrl`, `createChromeHandoff`) |
 | `@youge/assistant-sdk/react` | Optional React 18/19 `useSyncExternalStore` adapter (zero runtime `react` import in SDK) |
 
 All entry points ship paired `.d.ts` TypeScript declarations.
@@ -179,6 +184,7 @@ const assistant = YouGeAssistant.create({
       failover: true,
       help: true,
       updates: true,
+      chromeHandoff: true, // Android in-app → Chrome offer (default true)
     },
   },
   // Optional project-local override wins over published defaults:
@@ -194,6 +200,63 @@ console.log(assistant.getConfig().meta);
 - **Data-only JSON:** Functions, `<script>` payloads, `javascript:`/`vbscript:` URLs, `eval()`, and `new Function()` are rejected by `validatePublishedConfig()` and stripped from local overrides.
 - **No secrets in SDK config:** Keys matching credential patterns (`apiKey`, `secret`, `privateKey`, `password`, `accessToken`, `bearerToken`, `vapidPrivateKey`, etc.) are rejected in `publishedConfig` and stripped from local config so secrets never enter state snapshots or `localStorage`.
 - **Same-origin branding icons:** Cross-origin icon URLs are rejected in favor of safe same-origin fallback icons.
+
+---
+
+## Android in-app browser → Chrome handoff (0.1.1)
+
+Restricted Android in-app browsers (Facebook, Messenger, Instagram and the
+generic Android WebView) can hide features and break links. The SDK ships a
+reusable, dependency-free helper that detects them and offers a best-effort
+**Open in Chrome** handoff — it never touches navigation on its own.
+
+```js
+import { createChromeHandoff } from '@youge/assistant-sdk';
+// or: import { createChromeHandoff } from '@youge/assistant-sdk/browser';
+
+const handoff = createChromeHandoff({
+  userAgent: navigator.userAgent,
+  location: window.location,
+  document,
+});
+
+if (handoff.shouldOffer()) {
+  // Confident Android restricted in-app detection only (never iOS, never
+  // normal Chrome/Safari, never an uncertain/missing user agent).
+  button.onclick = () => {
+    handoff.open(window.location.href, (manualInstructions) => {
+      // The intent could not leave the app → show copy-ready manual steps
+      // (manualInstructions.steps / .url / .openLabel / …).
+    });
+  };
+}
+handoff.destroy(); // clears the pending fallback timer
+```
+
+**What it guarantees**
+
+- `detectInAppBrowser(ua)` → frozen `{ android, ios, inApp, restricted,
+  uncertain, browser }`. Facebook / Messenger / Instagram / WebView markers
+  are recognised; a missing user agent reports `uncertain: true`.
+- `isChromeHandoffCandidate()` is true only for **Android + restricted +
+  certain** — iOS in-apps are identified but never candidates, supported
+  browsers are never redirected, and ordinary navigation is never
+  intercepted.
+- `buildChromeIntentUrl(url, { packageName })` preserves the original
+  pathname, query **and** hash
+  (`intent://host/path?query#hash#Intent;…`) and also carries the full URL
+  percent-encoded in `S.browser_fallback_url`. Only absolute `http(s)` URLs
+  are accepted; anything else returns `null`.
+- The handoff is best-effort: if the `intent://` attempt fails, or the page
+  is still visible after `fallbackDelayMs` (default 900 ms), `open()` hands
+  the caller `chromeHandoffInstructions()` — a three-step manual fallback
+  with the original URL — instead of retrying or forcing anything.
+- Config flag `modules.chromeHandoff` (default `true`) surfaces as
+  `state.capabilities.chromeHandoff`; set it to `false` to disable the
+  offer everywhere.
+- The shipped widget (`assistant-widget.js`) and the React example both
+  render this offer (with per-origin dismissal
+  `youge-assistant:chrome-offer-dismissed`); see [`WIDGET.md`](../../WIDGET.md).
 
 ---
 
@@ -226,6 +289,20 @@ console.log(assistant.getConfig().meta);
 3. **`3` (`backup`):** Backup endpoint active (`api:backup-active`)
 4. **`4` (`install`):** PWA installation available (`install:available`)
 5. **`5` (`info`):** Primary endpoint restored (`api:primary-restored`), app update ready (`app:update`), configured feature announcements (`feature:<id>`)
+
+### Browser handoff helpers (0.1.1)
+
+Also reachable from the root entry, the frozen `YouGeAssistant` static and
+`@youge/assistant-sdk/browser`:
+
+| Export | Signature / Return | Description |
+| --- | --- | --- |
+| `detectInAppBrowser(ua?)` | `(string?) => InAppBrowserDetection` | Classifies the user agent; frozen result, `uncertain: true` when unavailable. |
+| `isChromeHandoffCandidate(d)` | `(d) => boolean` | Android + restricted + certain only. |
+| `buildChromeIntentUrl(url, opts?)` | `(string, { packageName? }) => string \| null` | `intent://` URL preserving path, query and hash; `null` for non-http(s)/invalid input. |
+| `chromeHandoffInstructions(url, labels?)` | `(string, labels?) => ChromeHandoffInstructions` | Copy-ready manual fallback data (title, 3 steps, URL, button labels). |
+| `createChromeHandoff(opts?)` | `(opts?) => ChromeHandoffController` | `{ detection, shouldOffer(), intentUrl(), instructions(), open(url, onFallback), destroy() }` with injectable environment for tests. |
+| `CHROME_PACKAGE` / `CHROME_OFFER_STORAGE_KEY` | `string` | `'com.android.chrome'` / `'youge-assistant:chrome-offer-dismissed'`. |
 
 ---
 
@@ -301,7 +378,8 @@ document.querySelector('#install-app-btn')?.addEventListener('click', () => {
 - **Version sources are synchronized and machine-checked:** `package.json` ↔
   `SDK_VERSION` ↔ `KIT_COMPAT_VERSION` (the compatible You.Ge Assistant
   runtime line) ↔ the runtime version.
-- **Publishing is gated, never automatic.** `0.1.0` was published (2026-11-06)
+- **Publishing is gated, never automatic.** `0.1.1` is prepared in-repo
+  (2026-11-07) and **not staged or published**; `0.1.0` was published (2026-11-06)
   only through the manual `sdk-release-prep` workflow's staged-approval flow;
   every publication still requires explicit authorization (`confirm_publish`,
   `SDK_RELEASE_ENABLED`, the protected `sdk-npm-publish` environment, npm

@@ -289,3 +289,41 @@ test('the sample keeps the accessibility contract while restyling', () => {
   assert.match(widgetSource, /className="assistant-badge" data-tone=\{badge\.tone\} aria-hidden="true"/, 'the visual chip stays decorative');
   assert.match(widgetSource, /<span className="visually-hidden" role="status" aria-live="polite">/, 'announcements keep their live region');
 });
+
+/* ------------------------------------------------------------------ *
+ * 0.1.1: the React example demonstrates the Android in-app browser → *
+ * Chrome handoff as an opt-in SDK feature — confident detections     *
+ * only, explicit user action, manual fallback, no forced redirects.  *
+ * ------------------------------------------------------------------ */
+
+test('the React example demonstrates the Chrome handoff without forced redirects', () => {
+  assert.match(
+    widgetSource,
+    /import \{ YouGeAssistant, createChromeHandoff \} from '@youge\/assistant-sdk'/,
+    'the handoff helpers come from the SDK root entry',
+  );
+  assert.match(widgetSource, /handoff\.shouldOffer\(\)/, 'the banner renders only for a confident restricted detection');
+  assert.match(
+    widgetSource,
+    /handoff\.open\(window\.location\.href, setManual\)/,
+    'opening Chrome is an explicit user action, never automatic',
+  );
+  assert.match(
+    widgetSource,
+    /localStorage\.setItem\(CHROME_OFFER_DISMISS_KEY, '1'\)/,
+    'the dismissal persists on this origin',
+  );
+  assert.match(widgetSource, /chrome-handoff-fallback/, 'a failed handoff shows the manual instructions');
+  assert.match(widgetSource, /navigator\.clipboard\.writeText\(instructions\.url\)/, 'the copy action keeps the original URL');
+  assert.match(
+    widgetSource,
+    /\{open \? null : <ChromeHandoffBanner \/>\}/,
+    'the offer never covers the open panel',
+  );
+  assert.doesNotMatch(widgetSource, /location\.href\s*=[^=]/, 'nothing force-redirects the visitor');
+  assert.match(widgetSource, /role="region" aria-label="Open in Chrome"/, 'the offer is an announced region');
+
+  assert.match(exampleCss, /\.chrome-handoff \{/, 'the example styles its offer');
+  assert.match(exampleCss, /\.chrome-handoff-url \{/, 'the preserved URL is shown, selectable');
+  assert.match(exampleCss, /\.chrome-handoff-actions button \{[^}]*min-height: 40px/s, 'touch targets stay comfortable');
+});

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { createRoot } from 'react-dom/client';
-import { YouGeAssistant } from '@youge/assistant-sdk';
+import { YouGeAssistant, createChromeHandoff } from '@youge/assistant-sdk';
 import {
   FALLBACK_ASSISTANT_STATE,
   dispatchAssistantAction,
@@ -93,6 +93,91 @@ function noticeActionLabel(state, notice) {
   const match = (state.availableActions || []).find((action) => action.id === notice.actionId);
   if (match && match.label) return match.label;
   return NOTICE_ACTION_LABELS[notice.actionId] || 'Open';
+}
+
+/* Android in-app browser → Chrome handoff (SDK 0.1.1). The SDK only ever
+ * reports a confident restricted in-app detection (Facebook, Messenger,
+ * Instagram or an Android webview on Android); every other browser — normal
+ * Chrome, Safari, or an unknown user agent — renders nothing at all, and no
+ * navigation happens unless the visitor presses "Open in Chrome". */
+const CHROME_OFFER_DISMISS_KEY = 'youge-assistant:chrome-offer-dismissed';
+
+function ChromeHandoffBanner() {
+  const [dismissed, setDismissed] = useState(() => {
+    try {
+      return window.localStorage.getItem(CHROME_OFFER_DISMISS_KEY) === '1';
+    } catch (error) {
+      return false;
+    }
+  });
+  const [manual, setManual] = useState(null);
+  const [copied, setCopied] = useState('');
+  const [handoff] = useState(() =>
+    createChromeHandoff({
+      userAgent: navigator.userAgent,
+      location: window.location,
+      document,
+    })
+  );
+
+  useEffect(() => () => handoff.destroy(), [handoff]);
+
+  if (dismissed || !handoff.shouldOffer()) return null;
+  const instructions = manual || handoff.instructions(window.location.href);
+
+  function dismiss() {
+    try {
+      window.localStorage.setItem(CHROME_OFFER_DISMISS_KEY, '1');
+    } catch (error) {
+      /* storage unavailable: dismissal stays session-only */
+    }
+    setDismissed(true);
+  }
+
+  async function copyAddress() {
+    try {
+      await navigator.clipboard.writeText(instructions.url);
+      setCopied(instructions.copiedLabel);
+    } catch (error) {
+      setCopied('Select the address above to copy it manually.');
+    }
+  }
+
+  return (
+    <aside className="chrome-handoff" role="region" aria-label="Open in Chrome">
+      <p className="chrome-handoff-text">{instructions.intro}</p>
+      <div className="chrome-handoff-actions">
+        <button
+          className="chrome-handoff-open"
+          type="button"
+          onClick={() => handoff.open(window.location.href, setManual)}
+        >
+          {instructions.openLabel}
+        </button>
+        <button className="chrome-handoff-dismiss" type="button" onClick={dismiss}>
+          {instructions.dismissLabel}
+        </button>
+      </div>
+      {manual ? (
+        <div className="chrome-handoff-fallback">
+          <ol className="chrome-handoff-steps">
+            {manual.steps.map((step) => (
+              <li key={step}>{step}</li>
+            ))}
+          </ol>
+          <code className="chrome-handoff-url">{manual.url}</code>
+          <div className="chrome-handoff-actions">
+            <button className="chrome-handoff-copy" type="button" onClick={copyAddress}>
+              {manual.copyLabel}
+            </button>
+            <span className="chrome-handoff-status" role="status">
+              {copied}
+            </span>
+          </div>
+        </div>
+      ) : null}
+    </aside>
+  );
 }
 
 function AssistantFloatingWidget() {
@@ -278,6 +363,9 @@ function AssistantFloatingWidget() {
       <span className="visually-hidden" role="status" aria-live="polite">
         {badge.count ? `${badge.count} alerts. Highest priority: ${badge.label}.` : 'No alerts.'}
       </span>
+
+      {/* The offer unmounts while the panel is open so it never covers it. */}
+      {open ? null : <ChromeHandoffBanner />}
 
       <GlareHover
         className="assistant-fab-glare"
