@@ -121,7 +121,6 @@ dependency was added.
 
 | Component | Registry dependencies | Decision | Reason |
 | --- | --- | --- | --- |
-| **ElectricLogo** | `ogl@^1.0.11` | Already adopted before this PR, retained | Existing floating assistant launcher. WebGL cost is isolated to one widget and already has reduced-motion, IntersectionObserver and cleanup handling. |
 | **SpotlightCard** (TS-CSS) | none | **Adopted** | Pointer/keyboard-focus-driven card highlight for the three foundation cards; no continuous animation, respects reduced motion, cleans up listeners. |
 | **GlareHover** (TS-CSS) | none | **Adopted** | One subtle hover/focus sweep on the install CTA; `mode="hover"`, `playOnce`, reduced-motion guard. Not a loop. |
 | **LatticeLoader** (TS-CSS) | none | **Adopted** | Accessible `role="status"` loading indicator for the short capability check; infinite animation is a loading indicator only, and our local CSS stops it under reduced motion. |
@@ -203,7 +202,7 @@ ownership, per-component dependencies, TS-CSS variant by hand).
 
 | Component | New use | Local adaptation |
 | --- | --- | --- |
-| `GlareHover` | Hover-only feedback around the React example's floating launcher. | `mode="hover"`, `playOnce`; root `overflow: visible` and a circular `clip-path` on the glare so the existing ElectricLogo stage is not clipped. Reduced-motion override retained. |
+| `GlareHover` | Hover-only feedback around the React example's floating launcher. | `mode="hover"`, `playOnce`; root `overflow: visible` and a circular `clip-path` on the glare so the existing logo stage is not clipped. Reduced-motion override retained. |
 | `SpotlightCard` | Connection-status card inside the Assistant panel. | Light theme, `ambient=false`, `flare=false`, `grain=0`, project tokens override the vendored skin; reduced-motion override retained. |
 | `LatticeLoader` | Bounded diagnostics "checking" state. | Rendered only while `network.dns.status === 'running'`; `role="status"`, reduced-motion override retained. |
 
@@ -211,11 +210,11 @@ ownership, per-component dependencies, TS-CSS variant by hand).
 `useSyncExternalStore`, so the React example and the dependency-free
 `assistant-widget.js` renderer share one state model. No GSAP, Motion,
 HugeIcons, Tailwind, shaders, continuous WebGL backgrounds or component
-collections were added. The existing `ElectricLogo`/`ogl` launcher is retained in
-the example, but only as interaction feedback: it mounts on hover/focus or while
-the panel is open, never idles in a loop, is clipped to the button's circle, and
-follows the same actionable-tone rule as the widget fill. The widget itself still
-introduces no WebGL effect.
+collections were added. The example's launcher shows one static zoomed mark —
+the former `ElectricLogo`/`ogl` animation was removed on request: no canvas,
+no arcs, nothing that mounts on hover or while the panel is open. It is
+clipped to the button's circle, and the widget itself still introduces no
+WebGL effect.
 
 ### Skill influence on the widget UI
 

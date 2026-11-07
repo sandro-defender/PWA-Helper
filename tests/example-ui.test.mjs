@@ -237,7 +237,7 @@ test('the sample floating button is a clipped circle, not a glowing square', () 
   assert.match(stage, /inset: 0;/, 'the WebGL layer no longer hangs 12px outside the button');
   assert.match(stage, /overflow: hidden;/);
   assert.match(stage, /border-radius: 50%;/, 'the accent is clipped to the disc, so no square edge appears');
-  assert.match(exampleCss, /\.assistant-fab-stage canvas \{ filter: none; \}/, 'no drop-shadow halo around the canvas');
+  assert.doesNotMatch(exampleCss, /\.assistant-fab-stage canvas|\.electric-logo/, 'the animated logo/canvas layer is gone entirely');
   assert.doesNotMatch(exampleCss, /\.assistant-fab::before \{[^}]*filter: blur\(/, 'the blurred outer halo is removed');
   assert.doesNotMatch(exampleCss, /\.assistant-mark-image \{[^}]*filter: drop-shadow/, 'the mark itself is not glowing');
   assert.match(exampleCss, /\.assistant-fab:focus-visible \{ outline: 3px solid/, 'keyboard focus stays visible');
@@ -267,16 +267,14 @@ test('the sample button shares the shipped widget’s actionable-tone rule', () 
   }
 });
 
-test('the sample button animates only while it is being used', () => {
-  assert.match(widgetSource, /const \[engaged, setEngaged\] = useState\(false\);/, 'a hover/focus gate exists');
-  assert.match(widgetSource, /\{engaged \|\| open \? \(/, 'the electric accent mounts on interaction only, so an idle assistant shows no motion');
-  assert.match(widgetSource, /onPointerEnter=\{\(\) => setEngaged\(true\)\}/);
-  assert.match(widgetSource, /onPointerLeave=\{\(\) => setEngaged\(false\)\}/);
-  assert.match(widgetSource, /onFocus=\{\(\) => setEngaged\(true\)\}/);
-  assert.match(widgetSource, /onBlur=\{\(\) => setEngaged\(false\)\}/);
-  assert.match(widgetSource, /interactive=\{false\}/, 'no cursor-chasing lightning');
-  assert.match(widgetSource, /flicker=\{0\}/, 'no flicker');
-  assert.match(widgetSource, /arcs=\{open \? 0\.4 : 0\}/, 'ambient arcs only while the panel is open');
+test('the sample button shows one static zoomed mark and no logo animation', () => {
+  assert.doesNotMatch(widgetSource, /ElectricLogo|electric-logo|LogoBoundary/, 'no animated logo component is mounted');
+  assert.doesNotMatch(widgetSource, /setEngaged|\{engaged/, 'and no interaction gate for a logo that no longer animates');
+  assert.match(widgetSource, /<img className="assistant-mark-image" src=\{assistantMark\}/, 'one simple static mark is always mounted');
+  const mark = ruleBody(exampleCss, 'assistant-mark-image');
+  assert.match(mark, /width: 44px/, 'zoomed to 44px inside the 66px circle');
+  assert.match(mark, /top: 50%;\s*left: 50%/, 'centred by positioning only');
+  assert.doesNotMatch(mark, /animation|transition/, 'the mark itself never animates');
   assert.match(widgetSource, /glareOpacity=\{0\.08\}/, 'the glare highlight is dimmed');
   assert.doesNotMatch(widgetSource, /<script|dangerouslySetInnerHTML/, 'and nothing new is injected');
   assert.match(

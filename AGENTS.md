@@ -131,7 +131,7 @@ copy for a subpath deployment.
 | `examples/push-server/` | example | Minimal Node push sender |
 | `LICENSE`, `package.json` | repo | MIT license and `npm run check` / `verify` / `keys` scripts |
 | `demo/` | example | Full-feature GitHub Pages playground for testing the helper |
-| `example/` | example | ReactBits ElectricLogo sample PWA, isolated React/OGL build, subpath-safe manifest |
+| `example/` | example | React Bits sample PWA, isolated React build, subpath-safe manifest |
 | `.github/workflows/` | repo | `check.yml` static checks, `pages.yml` playground + example deploy, `sdk-release-prep.yml` manual-only SDK release prep with ONE action dropdown (`Verify only` / `Stage release on npm` / `Publish release to npm` / `Verify OIDC trusted publishing` — no typed confirmations; `verify` never publishes; `stage` runs `npm stage publish` via OIDC (`id-token: write`) for owner approval on npm — token-free, never publishes; `publish` is main-only behind `verify` + the `SDK_RELEASE_ENABLED` authorization gate + protected environment + OIDC; `oidc-check` = non-mutating OIDC token-exchange verification, no npm command, no secrets) |
 
 Keep the directory shape when copying. If the target project uses a `public/`

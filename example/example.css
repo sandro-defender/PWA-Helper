@@ -165,13 +165,24 @@ a { color: inherit; }
 .assistant-fab:hover { transform: translateY(-1px); border-color: rgba(214, 202, 232, 0.6); box-shadow: 0 8px 18px rgba(8, 6, 14, 0.46); }
 .assistant-fab:active { transform: translateY(0) scale(0.98); }
 .assistant-fab:focus-visible { outline: 3px solid #c7bbdc; outline-offset: 5px; }
-/* Clipped to the circle. This layer used to be a square canvas inset -12px, so
-   the electric field and its drop shadow formed a bright cube around a round
-   button — the "square logo" the button used to look like. */
+/* Clipped to the circle: the stage now holds only the static zoomed mark (the
+   animated logo/canvas layer was removed), so no stray edge can form the
+   square look the button used to have. */
 .assistant-fab-stage { position: absolute; z-index: 1; inset: 0; display: block; overflow: hidden; border-radius: 50%; }
-.assistant-fab-stage .electric-logo { width: 100%; height: 100%; }
-.assistant-fab-stage canvas { filter: none; }
-.assistant-mark-image { position: absolute; z-index: 2; top: 50%; left: 50%; display: block; width: 38px; height: 38px; object-fit: contain; transform: translate(-50%, -50%); pointer-events: none; }
+/* One simple, static, zoomed mark — always mounted, never animated — sized
+   to fill the 66px disc the way the panel logo fills its circle. */
+.assistant-mark-image {
+  position: absolute;
+  z-index: 2;
+  top: 50%;
+  left: 50%;
+  display: block;
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
 /* Red means "act on this". The button does not decide: data-tone is the SDK
    badge tone (the tone of the highest-priority notice still on screen), and the
    list is the same actionable set the shipped widget uses in

@@ -8,7 +8,6 @@ owned/maintained as part of this example application:
 
 | Component | Local source | Upstream variant | Runtime dependency |
 | --- | --- | --- | --- |
-| ElectricLogo | `src/ElectricLogo.jsx`, `src/ElectricLogo.css` | JavaScript + CSS | `ogl` (already present) |
 | SpotlightCard | `src/react-bits/SpotlightCard.tsx`, `.css` | TypeScript + CSS | none |
 | GlareHover | `src/react-bits/GlareHover.tsx`, `.css` | TypeScript + CSS | none |
 | LatticeLoader | `src/react-bits/LatticeLoader.tsx`, `.css` | TypeScript + CSS | none |
@@ -27,7 +26,6 @@ connection-status card, and `LatticeLoader` only while diagnostics run. See
 [`DESIGN_FOUNDATION.md`](../DESIGN_FOUNDATION.md) §8 and
 [`WIDGET.md`](../WIDGET.md) §6 for the full adoption report.
 
-`src/ElectricLogo.jsx` depends on `ogl`. The three new TypeScript components add
 **no runtime dependencies**; `typescript`, `@types/react` and
 `@types/react-dom` are dev-only, isolated in `example/`, and used by
 `npm run typecheck`.

@@ -102,5 +102,5 @@
 | Static manifest on shared hosting | A static file cannot vary per host. Host-aware delivery requires the edge function or deployment-generated per-host manifests; document this rather than pretending client-side detection changes manifest bytes. |
 | Push sample security | `examples/push-server/server.js` is an unauthenticated sample with local JSON storage; must not be deployed as a production endpoint. |
 | DoH diagnostic overclaim | A successful Cloudflare DoH lookup does **not** prove the device's resolver works or that an ISP blocks DNS. Current classifications are deliberately cautious; keep them. |
-| WebGL/animation cost | Existing `ElectricLogo` uses OGL. New components are CSS/DOM-only, skip continuous animation, respect `prefers-reduced-motion`, and clean up observers/listeners. |
+| WebGL/animation cost | The former `ElectricLogo`/OGL animation was removed; the launcher uses a static zoomed mark. The adopted components are CSS/DOM-only, skip continuous animation, respect `prefers-reduced-motion`, and clean up observers/listeners. |
 | Preview/backup URL confusion | The future `https://staff-you-ge.sandro-1990.workers.dev` is an example value for *project-specific* configuration only. It is not a global SDK default, not hardcoded in runtime, and not an approved production backup. Sandbox preview URLs are never production infrastructure. |

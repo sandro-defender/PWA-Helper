@@ -2,9 +2,8 @@
 
 This is the user-facing Staff Space sample at the GitHub Pages `/example/` route.
 A fixed circular floating button shows the You.Ge Assistant icon and opens the
-**Intelligent Floating Assistant** panel. React Bits' ElectricLogo is mounted
-only while the button is hovered, focused or its panel is open, so the idle
-assistant shows no motion; the button fill turns the toolkit's red while
+**Intelligent Floating Assistant** panel. The launcher shows one simple static zoomed mark — the animated
+logo was removed — so the assistant never moves while idle; the button fill turns the toolkit's red while
 `state.badge.tone` is an actionable tone (`critical`, `auth` or `install`). It consumes the local
 [`@youge/assistant-sdk`](../packages/assistant-sdk/README.md) package (`file:../packages/assistant-sdk`)
 and `@youge/assistant-sdk/react` adapter (`useSyncExternalStore`), sharing the

@@ -43,6 +43,11 @@ release is **prepared in-repo, not staged and not published**.
   with `object-fit: contain` so the circular mark fills the header and is never
   cropped into a rounded square; the React example panel matches at 40px.
 
+- **Static launcher mark.** The React example's animated `ElectricLogo` canvas
+  is removed everywhere: the floating circle shows one simple static zoomed
+  mark (44px) with no WebGL runtime — `ogl` is dropped from the example —
+  so no icon animation remains anywhere in the widget or the sample.
+
 ## 0.1.1 — 2026-11-07
 
 - **Android in-app browser detection + Chrome handoff (reusable SDK

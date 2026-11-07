@@ -18,9 +18,9 @@ install, toolbox, QR, offline recovery, push, share, caches, theme, wording and
 network diagnostics.
 
 **User-facing example:** <https://sandro-defender.github.io/you-ge-assistant/example/> —
-a polished sample staff workspace with a fixed, interactive React Bits ElectricLogo
-assistant launcher. Its schedule/checklist interactions use sample data stored
-only in the visitor’s browser. The React/OGL build dependencies are isolated to `example/`; the core PWA
+a polished sample staff workspace with a fixed, interactive assistant
+launcher. Its schedule/checklist interactions use sample data stored
+only in the visitor’s browser. The React build dependencies are isolated to `example/`; the core PWA
 toolkit remains dependency-free. See [`example/README.md`](example/README.md).
 
 > **For AI coding agents:** start with [`AGENTS.md`](AGENTS.md). It is a

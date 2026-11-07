@@ -297,9 +297,9 @@ sources are used again:
 The dependency-free DOM renderer uses equivalent CSS transitions rather than
 importing React, because a classic script cannot consume React components. No
 GSAP, Motion, HugeIcons, Tailwind, shaders, WebGL backgrounds or component
-collections were added. The existing `ElectricLogo`/`ogl` brand mark in the
-React example is retained for visual continuity; no new WebGL effect was
-introduced by this widget.
+collections were added. The React example's brand mark is now a static zoomed
+image (the former `ElectricLogo`/`ogl` animation was removed on request); no
+new WebGL effect is introduced by this widget.
 
 ### `ui-ux-pro-max-skill`
 
