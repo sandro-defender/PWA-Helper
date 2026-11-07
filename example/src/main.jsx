@@ -286,7 +286,7 @@ function AssistantFloatingWidget() {
         hidden={!open}
       >
         <header className="assistant-panel-header">
-          <img className="assistant-panel-brand" src={project.icon || 'icons/icon-192.png'} alt="" width="32" height="32" />
+          <img className="assistant-panel-brand" src={project.icon || 'icons/icon-192.png'} alt="" width="40" height="40" />
           <h2 className="assistant-panel-title" id="assistant-panel-title">{project.name}</h2>
           <button
             className="assistant-panel-close"

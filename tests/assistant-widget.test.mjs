@@ -926,6 +926,19 @@ test('the floating entry point is a true circle at every size', () => {
   assert.match(widgetCss, /\.youge-badge \{[\s\S]*?z-index: 2;/, 'the count badge stays above both');
 });
 
+test('the panel identity logo is a true circle, zoomed and never cropped', () => {
+  const block = /\.youge-brand-image \{([\s\S]*?)\n\}/.exec(widgetCss);
+  assert.ok(block, 'the .youge-brand-image rule exists');
+  const rule = block[1];
+  assert.match(rule, /border-radius: 50%/, 'a real circle, not a rounded square');
+  assert.doesNotMatch(rule, /border-radius:\s*(?!50%)\d/, 'no competing radius on the logo');
+  assert.match(rule, /width: 44px/, 'zoomed up from the old 36px so the mark fills the header');
+  assert.match(rule, /object-fit: contain/, 'the whole mark stays visible — nothing is cropped');
+  assert.match(rule, /flex: none/, 'the circle never squeezes in the identity row');
+  assert.match(widgetSource, /brandIcon\.width = 44;/, 'the markup keeps its intrinsic size in sync');
+  assert.match(widgetSource, /brandIcon\.height = 44;/, 'the markup keeps its intrinsic size in sync');
+});
+
 test('the resting button is subdued: no glow, no blur, no continuous animation', () => {
   const rule = fabRule();
   assert.doesNotMatch(rule, /filter:|blur\(|text-shadow/, 'no glow or blur on the resting button');

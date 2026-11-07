@@ -533,8 +533,8 @@
     brandIcon.className = 'youge-brand-image';
     brandIcon.src = state.project.icon || 'icons/icon-192.png';
     brandIcon.alt = '';
-    brandIcon.width = 36;
-    brandIcon.height = 36;
+    brandIcon.width = 44;
+    brandIcon.height = 44;
     identity.appendChild(brandIcon);
     var identityText = el('div', 'youge-identity-text');
     identityText.appendChild(el('strong', '', state.project.name || 'You.Ge Assistant'));

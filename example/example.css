@@ -704,7 +704,16 @@ article.foundation-card {
 .assistant-fab-glare .assistant-fab { width: 100%; height: 100%; }
 
 .assistant-panel { max-height: min(72vh, calc(100dvh - 104px)); }
-.assistant-panel-brand { width: 32px; height: 32px; border-radius: 10px; object-fit: cover; border: 1px solid var(--youge-line, #eee9f4); }
+/* Same rule as the shipped widget's .youge-brand-image: a true circle, sized
+   up, and fitted so the circular mark is never cropped into a rounded square. */
+.assistant-panel-brand {
+  width: 40px;
+  height: 40px;
+  flex: none;
+  border-radius: 50%;
+  object-fit: contain;
+  border: 1px solid var(--youge-line, #eee9f4);
+}
 .assistant-panel-header .assistant-panel-title { flex: 1; margin: 0; }
 
 .assistant-badge {
