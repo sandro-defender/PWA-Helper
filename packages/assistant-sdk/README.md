@@ -5,16 +5,14 @@ multi-domain resolution, data-only configuration validation with Last-Known-Good
 fallback, explicit on-demand DNS diagnostics integration, and existing PWA
 installation integration.
 
-> **Package status (0.1.0 — release-ready):** `@youge/assistant-sdk@0.1.0`
-> is extracted, tested, validated and prepared for publication to the public
-> npm registry (org `youge`, scope `@youge`). The release is **prepared but
-> not yet published**: the first publication is staged by the repository
-> owner through the manual-only `sdk-release-prep` workflow's `stage` job
-> (temporary stage-only secret) and becomes public only when the owner
-> approves the staged version on npmjs.com with 2FA — the approved runbook is
-> [`RELEASE.md`](RELEASE.md) §4; later releases publish via the OIDC job with
-> no npm token. Until then, consume it locally via
-> `"file:../packages/assistant-sdk"` or workspace linking.
+> **Package status (0.1.0 — published 2026-11-06):** `@youge/assistant-sdk@0.1.0`
+> is on the public npm registry (org `youge`, scope `@youge`). The first
+> publication was staged by the manual-only `sdk-release-prep` workflow's
+> `stage` job and became public only when the owner approved the staged
+> version on npmjs.com with 2FA — the approved runbook is
+> [`RELEASE.md`](RELEASE.md) §4. Staging and later releases authenticate
+> with npm Trusted Publishing (OIDC); the workflows use **no npm token**
+> (the temporary stage-only bootstrap was created, used and revoked).
 > Release procedure and registry decision: [`RELEASE.md`](RELEASE.md).
 > Vendored-copy → package migration (staff.you.ge): [`MIGRATION.md`](MIGRATION.md).
 
@@ -303,12 +301,12 @@ document.querySelector('#install-app-btn')?.addEventListener('click', () => {
 - **Version sources are synchronized and machine-checked:** `package.json` ↔
   `SDK_VERSION` ↔ `KIT_COMPAT_VERSION` (the compatible You.Ge Assistant
   runtime line) ↔ the runtime version.
-- **Publishing is gated, never automatic.** `0.1.0` is release-ready (the
-  package-level `private` lock was removed in the approved release PR);
-  publication happens only through the manual `sdk-release-prep` workflow with
-  explicit authorization (`confirm_publish`, `SDK_RELEASE_ENABLED`, the
-  protected `sdk-npm-publish` environment, npm Trusted Publishing (OIDC) — no
-  npm token secret — and the `SDK_RELEASE_CONFIRM` env that `prepublishOnly`
+- **Publishing is gated, never automatic.** `0.1.0` was published (2026-11-06)
+  only through the manual `sdk-release-prep` workflow's staged-approval flow;
+  every publication still requires explicit authorization (`confirm_publish`,
+  `SDK_RELEASE_ENABLED`, the protected `sdk-npm-publish` environment, npm
+  Trusted Publishing (OIDC) on both the `stage` and `publish` jobs — no npm
+  token anywhere — and the `SDK_RELEASE_CONFIRM` env that `prepublishOnly`
   requires — a stray direct `npm publish` is refused). The registry decision
   and release runbook live in [`RELEASE.md`](RELEASE.md).
 - Replacing a vendored SDK copy (e.g. `staff.you.ge`): see

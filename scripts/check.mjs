@@ -863,7 +863,6 @@ const withoutCommentLines = (text) =>
 const releasePublishBlock = releaseJobBlock('publish');
 const releaseStageBlock = withoutCommentLines(releaseJobBlock('stage'));
 const releaseNonComment = withoutCommentLines(releaseWorkflow);
-const releaseWithoutStage = releaseWorkflow.replace(releaseJobBlock('stage'), '');
 
 for (const gate of [
   'SDK_RELEASE_ENABLED',
@@ -879,12 +878,12 @@ contract(
   releasePublishBlock.includes('environment: sdk-npm-publish'),
   'sdk-release-prep publishing gate present: environment: sdk-npm-publish',
 );
-// No npm token anywhere except the dedicated stage job: the OIDC publish path
-// and verify authenticate without any stored credential, and the stage-only
-// bootstrap (`NPM_STAGE_TOKEN`) may appear only inside the stage job.
+// No npm token reference anywhere: BOTH the publish and the stage job
+// authenticate via npm Trusted Publishing (OIDC) — verify, stage and publish
+// all work without any stored npm credential.
 contract(
-  !/NODE_AUTH_TOKEN|secrets\.NPM_TOKEN/.test(withoutCommentLines(releaseWithoutStage)),
-  'sdk-release-prep publish path authenticates via npm OIDC trusted publishing (no long-lived NPM_TOKEN / NODE_AUTH_TOKEN outside the stage job)',
+  !/NODE_AUTH_TOKEN|secrets\.NPM_/.test(releaseNonComment),
+  'sdk-release-prep authenticates via npm OIDC trusted publishing (no npm token reference anywhere in the workflow)',
 );
 contract(
   /node-version:\s*24/.test(releaseWorkflow),
@@ -892,8 +891,9 @@ contract(
 );
 
 // First-publication `stage` job: manual-only with its own confirmation, after
-// verification, inside the protected environment, least-privilege, dedicated
-// secret only, staging only (never publish / approve / reject).
+// verification, inside the protected environment, OIDC permissions (staging
+// needs `id-token: write` for `npm stage publish`), staging only (never
+// publish / approve / reject).
 contract(
   releaseStageBlock.includes("action == 'stage'") &&
     releaseStageBlock.includes("confirm_stage == 'stage'"),
@@ -906,8 +906,22 @@ contract(
   'sdk-release-prep stage job uses the protected sdk-npm-publish environment',
 );
 contract(
-  /contents:\s*read/.test(releaseStageBlock) && !/id-token:\s*write/.test(releaseStageBlock),
-  'sdk-release-prep stage job stays least-privilege (contents: read, no id-token: write)',
+  (() => {
+    const lines = releaseStageBlock.split('\n');
+    const start = lines.findIndex((line) => line.trim() === 'permissions:');
+    if (start === -1) return false;
+    const end = lines.findIndex((line, i) => i > start && /^\s{4}\S/.test(line));
+    const perm = lines.slice(start + 1, end === -1 ? undefined : end).join('\n');
+    const keys = [...perm.matchAll(/^\s+([a-z][a-z0-9-]*):/gm)].map((m) => m[1]);
+    return (
+      keys.length === 2 &&
+      keys.includes('contents') &&
+      keys.includes('id-token') &&
+      /contents:\s*read/.test(perm) &&
+      /id-token:\s*write/.test(perm)
+    );
+  })(),
+  'sdk-release-prep stage job OIDC permissions (exactly contents: read + id-token: write)',
 );
 contract(
   releaseStageBlock.includes('npm stage publish') && !/npm\s+publish/.test(releaseStageBlock),
@@ -916,22 +930,6 @@ contract(
 contract(
   !/npm\s+stage\s+(approve|reject)/.test(releaseNonComment),
   'sdk-release-prep never approves or rejects a stage (owner-only decision)',
-);
-contract(
-  releaseStageBlock.includes('secrets.NPM_STAGE_TOKEN') &&
-    !/secrets\.NPM_TOKEN/.test(releaseStageBlock) &&
-    !/secrets\.NPM_STAGE_TOKEN/.test(withoutCommentLines(releaseWithoutStage)),
-  'sdk-release-prep stage job authenticates only with the dedicated NPM_STAGE_TOKEN secret',
-);
-const stageTokenLines = releaseStageBlock
-  .split('\n')
-  .filter((line) => line.includes('secrets.NPM_STAGE_TOKEN') || line.includes('NODE_AUTH_TOKEN'));
-contract(
-  stageTokenLines.length > 0 &&
-    stageTokenLines.every((line) =>
-      /NODE_AUTH_TOKEN:\s*\$\{\{\s*secrets\.NPM_STAGE_TOKEN\s*\}\}\s*$/.test(line),
-    ),
-  'NPM_STAGE_TOKEN only as NODE_AUTH_TOKEN env of the staging step (never in command text)',
 );
 contract(
   releaseStageBlock.includes('0.0.0-stage') &&

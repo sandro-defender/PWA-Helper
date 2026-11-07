@@ -446,3 +446,25 @@ atomic runbook steps with explicit per-step `Status:` guard states (§4 steps
 3–9), and explicit failure/guard wording in the workflow header (what the stage
 job can and cannot do, placeholder behaviour, revocation). No skill data or
 generated catalog was committed.
+
+## 14. OIDC trusted-publishing staging migration (2026-11-07)
+
+The `ui-ux-pro-max-skill` was again evaluated against its *When to Apply*
+section for this phase: migrating the release workflow's staging job from a
+temporary `NPM_STAGE_TOKEN` secret to npm Trusted Publishing (OIDC) — workflow
+permissions, validator/contract/test updates and runbook/status-doc wording —
+is infrastructure/DevOps work with **no UI surface change**, so the skill's
+`--design-system` / `--domain` / `--stack` search workflow was **not run**,
+consistent with the recorded decisions in §10 (Phase 4) and §13.
+
+**Documentation guidance applied instead** (same pattern as §10/§13): status
+first (RELEASE.md banner leads with *published 0.1.0 + token-free OIDC* state),
+scannable tables (§6.1 requirements rows, §6.3 trusted-publisher connection +
+48-hour window, §7 migration-pass verification table), atomic runbook steps
+kept their per-step `Status:` guard states — now marked DONE for the
+bootstrap/revoke steps and OWNER ACTION for the trusted-publisher
+registration — and explicit guard wording in the workflow header (exact stage
+permissions, token-free authentication, never publish/approve/reject). The
+first-publication bootstrap is recorded as *created, used and revoked*, and the
+staged-publish-counts-as-first-publish question is documented **UNVERIFIED**
+until tested. No skill data or generated catalog was committed.

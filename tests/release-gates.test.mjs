@@ -7,13 +7,14 @@
  *   1. the release workflow keeps every publishing gate (manual-only trigger,
  *      confirm inputs, approval variable, protected environment, OIDC
  *      trusted-publishing configuration, publish-authorization env, provenance)
- *      and carries no npm token outside the dedicated first-publication stage
- *      job — which may use only the stage-only NPM_STAGE_TOKEN secret, as the
- *      staging step's NODE_AUTH_TOKEN env, never anywhere else;
+ *      and contains NO npm token reference anywhere — verify, stage and
+ *      publish all authenticate without a stored npm credential (stage and
+ *      publish via npm Trusted Publishing / OIDC);
  *   1b. the `verify` job never publishes, the approval variable is never
  *      hardcoded in the workflow, and the `stage` job is manual-only with its
  *      own explicit confirmation, depends on `verify`, runs inside the
- *      protected environment, invokes `npm stage publish` (never `npm publish`,
+ *      protected environment with exactly `contents: read` +
+ *      `id-token: write`, invokes `npm stage publish` (never `npm publish`,
  *      never `npm stage approve`/`reject`), and reports staged-NOT-published
  *      with the 0.0.0-stage placeholder;
  *   2. packages/assistant-sdk/scripts/validate-package.mjs FAILS when any gate
@@ -132,7 +133,7 @@ test('validator refuses a workflow that reintroduces a long-lived npm token', ()
   );
   const res = runValidator(validatorSandbox);
   assert.equal(res.status, 1, 'validation must fail when a long-lived npm token is reintroduced');
-  assert.match(res.stdout, /release workflow gate missing: OIDC publish path stays token-free/);
+  assert.match(res.stdout, /release workflow gate missing: no npm token references anywhere/);
 });
 
 test('validator refuses a workflow whose verify job publishes', () => {
@@ -236,20 +237,19 @@ test('check.mjs standing contracts reject a verify job that publishes', () => {
 test('workflow wires OIDC trusted publishing, explicit authorization and provenance', () => {
   const stageRaw = jobBlock(pristineWorkflow, 'stage');
   const publishRaw = jobBlock(pristineWorkflow, 'publish');
-  // OIDC authentication: id-token: write, npm public registry, Node 24 toolchain.
+  const stripComments = (text) =>
+    text.split('\n').filter((line) => !/^\s*#/.test(line)).join('\n');
+  // OIDC authentication on BOTH jobs: id-token: write, npm public registry,
+  // Node 24 toolchain.
   assert.match(publishRaw, /id-token:\s*write/);
   assert.match(publishRaw, /registry-url:\s*https:\/\/registry\.npmjs\.org/);
   assert.match(publishRaw, /node-version:\s*24/);
-  // No npm token anywhere except the dedicated stage job: the OIDC publish
-  // path is token-free, and NODE_AUTH_TOKEN exists only inside the stage job
-  // (whole-line comments are excluded — the header documents the mechanism).
-  assert.doesNotMatch(publishRaw, /NODE_AUTH_TOKEN/);
-  assert.doesNotMatch(jobBlock(pristineWorkflow, 'verify'), /NODE_AUTH_TOKEN/);
-  const stripComments = (text) =>
-    text.split('\n').filter((line) => !/^\s*#/.test(line)).join('\n');
-  assert.doesNotMatch(stripComments(pristineWorkflow.replace(stageRaw, '')), /NODE_AUTH_TOKEN|secrets\.NPM_TOKEN/);
+  assert.match(stageRaw, /id-token:\s*write/);
+  assert.match(stageRaw, /registry-url:\s*https:\/\/registry\.npmjs\.org/);
+  // NO npm token reference anywhere: verify, stage and publish all
+  // authenticate without a stored npm credential (OIDC).
+  assert.doesNotMatch(stripComments(pristineWorkflow), /NODE_AUTH_TOKEN|secrets\.NPM_/);
   assert.doesNotMatch(pristineWorkflow, /secrets\.NPM_TOKEN/);
-  assert.doesNotMatch(stageRaw, /id-token:\s*write/);
   // Explicit authorization + provenance.
   assert.match(pristineWorkflow, /SDK_RELEASE_CONFIRM: publish/);
   assert.match(pristineWorkflow, /npm publish --access public --provenance/);
@@ -276,7 +276,7 @@ test('stage job is manual-only with its own explicit confirmation and main-branc
   assert.match(pristineStageBlock, /github\.event\.inputs\.confirm_stage == 'stage'/);
   assert.match(pristineStageBlock, /github\.ref == 'refs\/heads\/main'/);
   // The workflow itself has no push/pull_request trigger at all, so the
-  // stage-only token can never be exposed to PR or untrusted-branch runs.
+  // per-run OIDC credential is never exposed to PR or untrusted-branch runs.
   assert.doesNotMatch(pristineWorkflow, /^\s+(push|pull_request):/m);
   assert.match(pristineWorkflow, /confirm_stage:/);
   assert.match(pristineWorkflow, /options: \[verify, stage, publish\]/);
@@ -286,31 +286,24 @@ test('stage job depends on successful verification and the protected environment
   assert.match(pristineStageBlock, /needs:\s*verify\b/);
   assert.match(pristineStageBlock, /environment: sdk-npm-publish/);
   assert.match(pristineStageBlock, /runs-on:\s*ubuntu-latest/);
-  // Least privilege: contents read only, no OIDC permission on staging.
-  assert.match(pristineStageBlock, /contents:\s*read/);
-  assert.doesNotMatch(pristineStageBlock, /id-token:\s*write/);
+  // Exact least-privilege OIDC permissions: contents: read + id-token: write
+  // and nothing else (staging needs id-token: write for `npm stage publish`).
+  assert.match(
+    pristineStageBlock,
+    /permissions:\s*\n\s+contents: read[^\n]*\n\s+id-token: write[^\n]*\n\s+steps:/,
+  );
   assert.doesNotMatch(pristineStageBlock, /packages:\s*write/);
 });
 
-test('stage job uses only the dedicated NPM_STAGE_TOKEN secret and never exposes it', () => {
+test('stage job carries no npm token reference anywhere (token-free OIDC staging)', () => {
   const stripComments = (text) =>
     text.split('\n').filter((line) => !/^\s*#/.test(line)).join('\n');
-  // The only credential reference is the staging step's env declaration
-  // (whole-line comments are excluded — they document the mechanism).
-  const tokenLines = stripComments(pristineStageBlock)
-    .split('\n')
-    .filter((line) => line.includes('secrets.NPM_STAGE_TOKEN') || line.includes('NODE_AUTH_TOKEN'));
-  assert.ok(tokenLines.length > 0, 'stage job must reference NPM_STAGE_TOKEN');
-  for (const line of tokenLines) {
-    assert.match(line, /NODE_AUTH_TOKEN:\s*\$\{\{\s*secrets\.NPM_STAGE_TOKEN\s*\}\}\s*$/, `token must only be a step env declaration, got: ${line}`);
-  }
-  // NODE_AUTH_TOKEN / NPM_STAGE_TOKEN appear nowhere outside the stage job,
-  // and no generic NPM_TOKEN secret exists anywhere.
-  const withoutStage = pristineWorkflow.replace(jobBlock(pristineWorkflow, 'stage'), '');
-  assert.doesNotMatch(stripComments(withoutStage), /NODE_AUTH_TOKEN|secrets\.NPM_STAGE_TOKEN/);
-  assert.doesNotMatch(pristineWorkflow, /secrets\.NPM_TOKEN/);
+  // Neither the stage job nor the rest of the workflow references
+  // NODE_AUTH_TOKEN or any npm secret — OIDC is the only auth path.
+  assert.doesNotMatch(stripComments(pristineStageBlock), /NODE_AUTH_TOKEN|secrets\.NPM_/);
+  assert.doesNotMatch(stripComments(pristineWorkflow), /NODE_AUTH_TOKEN|secrets\.NPM_/);
   // No persistence/exposure vectors in the stage job: no artifact upload, no
-  // GITHUB_ENV export, no committed .npmrc, no echo of the token.
+  // GITHUB_ENV export, no committed .npmrc, no echo of any token.
   assert.doesNotMatch(stripComments(pristineStageBlock), /upload-artifact|GITHUB_ENV|\.npmrc/);
   assert.doesNotMatch(stripComments(pristineStageBlock), /echo.*NPM_TOKEN|echo.*NODE_AUTH_TOKEN/);
 });
@@ -343,7 +336,8 @@ test('stage job reports staged-NOT-published with the placeholder and owner appr
   assert.match(pristineStageBlock, /Staged Packages/);
   assert.match(pristineStageBlock, /Approve/);
   assert.match(pristineStageBlock, /2FA/);
-  assert.match(pristineStageBlock, /NPM_STAGE_TOKEN/);
+  // The run summary must state that OIDC authentication was used — no token.
+  assert.match(pristineStageBlock, /no npm token was used or stored/);
   // It must never claim the version was published by the staging run.
   assert.doesNotMatch(pristineStageBlock, /has been published|is now published|published successfully/i);
 });
@@ -375,8 +369,8 @@ test('validator refuses a stage job that does not depend on verify', () => {
   writeFileSync(
     join(validatorSandbox, workflowRel),
     pristineWorkflow.replace(
-      '    needs: verify\n    # FIRST-PUBLICATION',
-      '    needs: []\n    # FIRST-PUBLICATION',
+      '    needs: verify\n    # Staging job',
+      '    needs: []\n    # Staging job',
     ),
   );
   const res = runValidator(validatorSandbox);
@@ -399,18 +393,32 @@ test('validator refuses a stage job outside the protected environment', () => {
   assert.match(res.stdout, /release workflow gate missing: stage job uses the protected sdk-npm-publish environment/);
 });
 
-test('validator refuses a stage job granted id-token: write', () => {
+test('validator refuses a stage job missing OIDC permissions', () => {
   resetSandboxFiles();
   writeFileSync(
     join(validatorSandbox, workflowRel),
     pristineWorkflow.replace(
-      '      contents: read   # least privilege',
-      '      contents: read   # least privilege\n      id-token: write',
+      '      id-token: write          # npm Trusted Publishing (OIDC) — required for `npm stage publish`\n',
+      '',
     ),
   );
   const res = runValidator(validatorSandbox);
-  assert.equal(res.status, 1);
-  assert.match(res.stdout, /release workflow gate missing: stage job least-privilege permissions/);
+  assert.equal(res.status, 1, 'validation must fail when the stage job loses id-token: write');
+  assert.match(res.stdout, /release workflow gate missing: stage job OIDC permissions/);
+});
+
+test('validator refuses a stage job granted an extra permission beyond contents: read + id-token: write', () => {
+  resetSandboxFiles();
+  writeFileSync(
+    join(validatorSandbox, workflowRel),
+    pristineWorkflow.replace(
+      '      contents: read           # checkout only',
+      '      contents: read           # checkout only\n      packages: write',
+    ),
+  );
+  const res = runValidator(validatorSandbox);
+  assert.equal(res.status, 1, 'validation must fail when the stage job permissions widen');
+  assert.match(res.stdout, /release workflow gate missing: stage job OIDC permissions/);
 });
 
 test('validator refuses a stage job that runs npm publish instead of npm stage publish', () => {
@@ -441,18 +449,21 @@ test('validator refuses a workflow that tries to approve or reject a stage', () 
   assert.match(res.stdout, /release workflow gate missing: workflow never approves, rejects or promotes a stage/);
 });
 
-test('validator refuses a stage job using any secret other than NPM_STAGE_TOKEN', () => {
+test('validator refuses a stage job that references any npm secret', () => {
   resetSandboxFiles();
   writeFileSync(
     join(validatorSandbox, workflowRel),
-    pristineWorkflow.replaceAll('secrets.NPM_STAGE_TOKEN', 'secrets.NPM_TOKEN'),
+    pristineWorkflow.replace(
+      '        env:\n          # Authentication: npm Trusted Publishing (OIDC)',
+      '        env:\n          NODE_AUTH_TOKEN: ${{ secrets.NPM_STAGE_TOKEN }}\n          # Authentication: npm Trusted Publishing (OIDC)',
+    ),
   );
   const res = runValidator(validatorSandbox);
-  assert.equal(res.status, 1);
-  assert.match(res.stdout, /release workflow gate missing: stage job authenticates only with the dedicated NPM_STAGE_TOKEN secret/);
+  assert.equal(res.status, 1, 'validation must fail when any npm secret reference reappears');
+  assert.match(res.stdout, /release workflow gate missing: no npm token references anywhere/);
 });
 
-test('validator refuses a workflow that interpolates the stage token into command text', () => {
+test('validator refuses a workflow that interpolates a secret into the staging command text', () => {
   resetSandboxFiles();
   writeFileSync(
     join(validatorSandbox, workflowRel),
@@ -463,7 +474,7 @@ test('validator refuses a workflow that interpolates the stage token into comman
   );
   const res = runValidator(validatorSandbox);
   assert.equal(res.status, 1);
-  assert.match(res.stdout, /release workflow gate missing: stage token only as NODE_AUTH_TOKEN env of the staging step/);
+  assert.match(res.stdout, /release workflow gate missing: no npm token references anywhere/);
 });
 
 test('validator refuses a workflow that leaks NODE_AUTH_TOKEN into the OIDC publish job', () => {
@@ -477,7 +488,7 @@ test('validator refuses a workflow that leaks NODE_AUTH_TOKEN into the OIDC publ
   );
   const res = runValidator(validatorSandbox);
   assert.equal(res.status, 1);
-  assert.match(res.stdout, /release workflow gate missing: OIDC publish path stays token-free/);
+  assert.match(res.stdout, /release workflow gate missing: no npm token references anywhere/);
 });
 
 test('validator refuses a stage job that runs from an untrusted branch', () => {
@@ -534,22 +545,12 @@ test('no npm token material or extra secrets exist anywhere in the repository', 
   };
   walk(repoRoot);
   assert.deepEqual(offenders, [], `no token material may be committed: ${offenders.join(', ')}`);
-  // The only Actions secret any workflow may reference is NPM_STAGE_TOKEN,
-  // and only from the release workflow.
+  // NO workflow may reference any secret at all except the built-in
+  // GITHUB_TOKEN — both the stage and the publish job authenticate via OIDC.
   for (const ref of secretRefs) {
     const [file, name] = ref.split(':');
-    if (name === 'GITHUB_TOKEN') continue;
-    assert.equal(name, 'NPM_STAGE_TOKEN', `unexpected secret reference in ${file}: ${name}`);
-    assert.equal(
-      file,
-      'sdk-release-prep.yml',
-      `NPM_STAGE_TOKEN may only be referenced from the release workflow, found in ${file}`,
-    );
+    assert.equal(name, 'GITHUB_TOKEN', `unexpected secret reference in ${file}: ${name} — the workflows must stay token-free`);
   }
-  assert.ok(
-    [...secretRefs].some((ref) => ref.endsWith(':NPM_STAGE_TOKEN')),
-    'the release workflow must reference the dedicated stage secret',
-  );
 });
 
 test('release-gate sandbox teardown', () => {

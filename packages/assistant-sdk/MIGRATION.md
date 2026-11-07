@@ -4,12 +4,11 @@
 > SDK under `packages/assistant-sdk/` with a `VENDORING.md` pin, as done in
 > `staff.you.ge` PR #249).
 >
-> **Status:** `@youge/assistant-sdk@0.1.0` is **release-ready but not yet
-> published** (publication is the owner's runbook, [`RELEASE.md`](RELEASE.md)
-> §4: staged via the GitHub Actions `stage` job, then published only when the
-> owner approves the stage on npmjs.com with 2FA). This is the migration plan;
-> execute it only after the first version appears on npm. Nothing in this
-> document modifies `staff.you.ge`.
+> **Status:** `@youge/assistant-sdk@0.1.0` is **published** (2026-11-06 —
+> staged via the GitHub Actions `stage` job, then approved by the owner on
+> npmjs.com with 2FA; see [`RELEASE.md`](RELEASE.md) §4). The first version is
+> now on npm, so this migration plan is executable. Nothing in this document
+> modifies `staff.you.ge`.
 
 Compatibility references: **SDK `0.1.0`** (public API per [`README.md`](README.md)),
 **kit compatibility `1.0.5`** (`KIT_COMPAT_VERSION`), **config schema `1`**.
