@@ -876,7 +876,11 @@ publish performs; running it alone changes nothing on the registry.
    `action: **oidc-check**` (only field needed; branch `main`; leave
    `confirm_publish`/`confirm_stage` unset).
 2. The `oidc-check` job runs alone (the `verify` checklist is skipped for
-   this action), inside the protected `sdk-npm-publish` environment (an
+   this action) and **only from the `main` branch** — its condition requires
+   BOTH `action == 'oidc-check'` AND `github.ref == 'refs/heads/main'` (the
+   same main-only gate as the `stage` job): the job holds `id-token: write`,
+   so modified code dispatched from any other branch must never receive that
+   permission. It runs inside the protected `sdk-npm-publish` environment (an
    environment approval may be requested if required reviewers are
    configured), on `ubuntu-latest`, Node 24, npm ≥ 11.5.1, with
    `permissions: contents: read` + `id-token: write` **only** — no

@@ -999,8 +999,28 @@ contract(
 contract(
   /environment:\s*sdk-npm-publish/.test(releaseOidcCheckBlock) &&
     /id-token:\s*write/.test(releaseOidcCheckBlock) &&
-    /node-version:\s*24/.test(releaseOidcCheckBlock),
-  'oidc-check runs in the protected environment with OIDC id-token and Node 24',
+    /node-version:\s*24/.test(releaseOidcCheckBlock) &&
+    /github\.event\.inputs\.action == 'oidc-check'/.test(releaseOidcCheckBlock) &&
+    /github\.ref == 'refs\/heads\/main'/.test(releaseOidcCheckBlock),
+  'oidc-check requires action=oidc-check AND github.ref=refs/heads/main, in the protected environment with OIDC id-token and Node 24',
+);
+contract(
+  (() => {
+    const lines = releaseOidcCheckBlock.split('\n');
+    const start = lines.findIndex((line) => line.trim() === 'permissions:');
+    if (start === -1) return false;
+    const end = lines.findIndex((line, i) => i > start && /^\s{4}\S/.test(line));
+    const perm = lines.slice(start + 1, end === -1 ? undefined : end).join('\n');
+    const keys = [...perm.matchAll(/^\s+([a-z][a-z0-9-]*):/gm)].map((m) => m[1]);
+    return (
+      keys.length === 2 &&
+      keys.includes('contents') &&
+      keys.includes('id-token') &&
+      /contents:\s*read/.test(perm) &&
+      /id-token:\s*write/.test(perm)
+    );
+  })(),
+  'oidc-check permissions stay exactly contents: read + id-token: write',
 );
 contract(
   !/npm\s+(publish|stage|dist-tag|login|token|access|audit|config)\b/.test(releaseOidcCheckBlock) &&

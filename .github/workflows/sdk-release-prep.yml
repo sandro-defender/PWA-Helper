@@ -291,14 +291,19 @@ jobs:
   oidc-check:
     name: Verify npm Trusted Publishing (OIDC) without any registry change
     # Non-mutating verification (RELEASE.md §6.6). Runs only on an explicit
-    # manual dispatch (action=oidc-check) inside the protected
-    # `sdk-npm-publish` environment so the OIDC subject matches the Trusted
-    # Publisher's environment field. The job performs exactly two HTTP calls:
+    # manual dispatch (action=oidc-check) FROM THE MAIN BRANCH — the same
+    # main-only protection as the stage job: this job holds id-token: write,
+    # so modified code dispatched from any other branch must never receive
+    # that permission. It runs inside the protected `sdk-npm-publish`
+    # environment so the OIDC subject matches the Trusted Publisher's
+    # environment field. The job performs exactly two HTTP calls:
     # GET GitHub's id_token endpoint (id-token: write) and POST the documented
     # npm Registry API token-exchange operation. It never runs a staging,
     # approval, dist-tag or release publish command, never reads a secret,
     # and writes no credential to disk or to the log output.
-    if: github.event.inputs.action == 'oidc-check'
+    if: >-
+      github.event.inputs.action == 'oidc-check' &&
+      github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: sdk-npm-publish
     permissions:
