@@ -95,7 +95,7 @@ test('integrates with window.PWA installation flow and supports lazy pwa:ready b
   const pwaState = { installed: false, standalone: false, canInstall: true, ios: false, safari: false };
   root.PWA = {
     __pwaKit: true,
-    version: '1.0.5',
+    version: '1.1.0',
     config: { features: { installation: true, diagnostics: true } },
     getState: () => ({ ...pwaState }),
     canInstall: () => pwaState.canInstall,
@@ -126,14 +126,14 @@ test('integrates with window.PWA installation flow and supports lazy pwa:ready b
 
   const summary = readToolkitSummary(root);
   assert.equal(summary.hasPwaToolkit, true);
-  assert.equal(summary.pwaVersion, '1.0.5');
+  assert.equal(summary.pwaVersion, '1.1.0');
 
   assistant.destroy();
   assert.equal(onChangeCallback, null, 'destroy unsubscribes from PWA.onChange');
 });
 
 test('bridgePwaGlobals connects domain resolver and singleton state without overwriting existing window.PWA', () => {
-  const existingPwa = { __pwaKit: true, version: '1.0.5', getState: () => ({}) };
+  const existingPwa = { __pwaKit: true, version: '1.1.0', getState: () => ({}) };
   const root = {
     PWA: existingPwa,
     location: { hostname: 'bridge.example.com', origin: 'https://bridge.example.com', protocol: 'https:', pathname: '/' },

@@ -152,7 +152,7 @@ test('the example adds no dependency and changes no package version', () => {
     'theming adds no dependency to the example',
   );
   assert.match(deps['@youge/assistant-sdk'], /^file:/, 'the example consumes the local SDK');
-  assert.equal(rootPkg.version, '1.0.5', 'the root package version is untouched');
+  assert.equal(rootPkg.version, '1.1.0', 'the kit version is bumped once, deliberately, by the release PR');
   assert.deepEqual(
     Object.keys(rootPkg.dependencies || {}),
     [],
@@ -161,7 +161,7 @@ test('the example adds no dependency and changes no package version', () => {
   const sdkPkg = JSON.parse(
     readFileSync(new URL('../packages/assistant-sdk/package.json', import.meta.url), 'utf8'),
   );
-  assert.equal(sdkPkg.version, '0.1.1', 'the SDK version is untouched');
+  assert.equal(sdkPkg.version, '0.2.0', 'the SDK version is bumped only by the release PR');
   assert.deepEqual(Object.keys(sdkPkg.dependencies || {}), [], 'the embedded SDK stays dependency-free');
 });
 

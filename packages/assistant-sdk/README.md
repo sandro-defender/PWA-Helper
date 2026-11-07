@@ -5,12 +5,13 @@ multi-domain resolution, data-only configuration validation with Last-Known-Good
 fallback, explicit on-demand DNS diagnostics integration, and existing PWA
 installation integration.
 
-> **Package status (0.1.1 — prepared 2026-11-07, not yet staged):**
-> `@youge/assistant-sdk@0.1.0` is on the public npm registry (org `youge`,
-> scope `@youge`); `0.1.1` adds Android in-app browser detection + Chrome
-> handoff and ships with the floating-icon auto-scale/manual-adjustment
-> release — prepared in-repo, **not staged and not published**; the owner
-> dispatches the release workflow manually (see below). The first
+> **Package status (0.2.0 — prepared 2026-11-07, not yet staged):**
+> `@youge/assistant-sdk@0.1.1` is on the public npm registry (org `youge`,
+> scope `@youge`); `0.2.0` adds adaptive theming — four modes, validated
+> custom tokens, optional host adaptation, the `./theme` subpath and the
+> notification level taxonomy — prepared in-repo, **not staged and not
+> published**; the owner dispatches the release workflow manually (see
+> below). The first
 > publication was staged by the manual-only `sdk-release-prep` workflow's
 > `stage` job and became public only when the owner approved the staged
 > version on npmjs.com with 2FA — the approved runbook is
@@ -37,7 +38,7 @@ installation integration.
 ### From npm (after publication)
 
 ```bash
-npm install @youge/assistant-sdk@0.1.1
+npm install @youge/assistant-sdk@0.2.0
 ```
 
 Pin the **exact version** (no `^`/`~`) if you want vendor-pin semantics — the
@@ -423,8 +424,9 @@ document.querySelector('#install-app-btn')?.addEventListener('click', () => {
 - **Version sources are synchronized and machine-checked:** `package.json` ↔
   `SDK_VERSION` ↔ `KIT_COMPAT_VERSION` (the compatible You.Ge Assistant
   runtime line) ↔ the runtime version.
-- **Publishing is gated, never automatic.** `0.1.1` is prepared in-repo
-  (2026-11-07) and **not staged or published**; `0.1.0` was published (2026-11-06)
+- **Publishing is gated, never automatic.** `0.2.0` is prepared in-repo
+  (2026-11-07) and **not staged or published**; `0.1.1` was published
+  (2026-11-07) and `0.1.0` (2026-11-06)
   only through the manual `sdk-release-prep` workflow's staged-approval flow;
   every publication still requires explicit authorization (`confirm_publish`,
   `SDK_RELEASE_ENABLED`, the protected `sdk-npm-publish` environment, npm

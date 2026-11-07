@@ -1,6 +1,9 @@
 # Changelog
 
-## Unreleased — adaptive theming
+## 1.1.0 (kit) / SDK 0.2.0 — 2026-11-07 · adaptive theming
+
+Kit `1.0.5 → 1.1.0`, SDK `0.1.1 → 0.2.0` (additive, minor for both). The SDK
+release is **prepared in-repo, not staged and not published**.
 
 - **Four theme modes with a validated public config.** `theme` now also accepts
   `{ mode: 'auto' | 'light' | 'dark' | 'custom', inheritHost, tokens, host,

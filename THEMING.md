@@ -225,8 +225,8 @@ unit suites).
 
 Unchanged on purpose:
 
-* package versions (`1.0.5` root, `0.1.1` SDK), no publish, no release, no
-  dist-tags;
+* package versions are bumped only by the release commit (`1.1.0` kit,
+  `0.2.0` SDK); nothing is published, released or dist-tagged by this work;
 * zero runtime dependencies in the SDK and the embedded bundle;
 * existing public API, `data-*` hooks, events, service worker, install/detection
   flow and the Android in-app-browser → Chrome handoff;
