@@ -10,6 +10,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  ASSISTANT_FONT_STACK,
   ASSISTANT_PALETTES,
   BUNDLED_DEFAULTS,
   COLOR_TOKEN_KEYS,
@@ -143,7 +144,11 @@ test('auto mode follows the host scheme but adopts nothing else without inheritH
   const resolved = resolveTheme({ mode: 'auto' }, context);
   assert.equal(resolved.scheme, 'dark', 'the host’s own scheme is detected in auto mode');
   assert.equal(resolved.inheritHost, false);
-  assert.equal(resolved.variables['--youge-font'], undefined, 'no host typography without inheritHost');
+  assert.equal(
+    resolved.variables['--youge-font'],
+    ASSISTANT_FONT_STACK,
+    'no host typography without inheritHost — only the Assistant stack'
+  );
 
   const adopting = resolveTheme({ mode: 'auto', inheritHost: true }, context);
   assert.equal(adopting.variables['--youge-font'], 'Host Sans, sans-serif', 'inheritHost opts into host typography');
@@ -372,7 +377,7 @@ test('host typography is inherited only when inheritHost is on and no token is s
   assert.equal(explicit.variables['--youge-font'], 'Inter, sans-serif', 'an explicit token wins over the host');
 
   const off = resolveTheme({ mode: 'auto' }, context);
-  assert.equal(off.variables['--youge-font'], undefined, 'nothing is inherited without inheritHost');
+  assert.equal(off.variables['--youge-font'], ASSISTANT_FONT_STACK, 'nothing is inherited without inheritHost');
 });
 
 test('host color values apply only through explicit host tokens and stay validated', () => {

@@ -790,6 +790,9 @@ test('Escape stays with an open toolkit dialog and still closes the panel on its
 });
 
 test('hand-built appearance values are re-validated before they reach the DOM', () => {
+  // This host replaces window.YouGeAssistant with its own state object, so the
+  // widget's SDK theme resolver is unreachable. Nothing may be trusted: not the
+  // position, not the theme mode, not the offsets, not the brand colour.
   const ctx = createContext({ richDocument: true });
   const state = {
     enabled: true,
@@ -814,7 +817,45 @@ test('hand-built appearance values are re-validated before they reach the DOM', 
   assert.equal(root.getAttribute('data-theme'), 'auto', 'unsupported themes fall back');
   assert.equal(root.style['--youge-offset-x'], '20px', 'a non-numeric offset never becomes "undefinedpx"');
   assert.equal(root.style['--youge-offset-y'], '20px');
-  assert.equal(root.style['--youge-brand'], undefined, 'only a plain hex color may set the brand token');
+  // The SDK theme resolver validates the appearance payload: the injected
+  // colour never reaches a style property, and the Assistant's own identity is
+  // applied instead (auto mode, light scheme fallback).
+  assert.equal(root.style['--youge-brand'], '#155eef', 'the injected colour is replaced by the validated default');
+  assert.ok(!String(root.style['--youge-brand']).includes('url('), 'never a declaration payload');
+  assert.equal(root.getAttribute('data-scheme'), 'light', 'the resolved scheme is published for CSS');
+  assert.equal(root.getAttribute('data-theme-inherit'), null, 'nothing is inherited without inheritHost');
+  widget.destroy();
+});
+
+test('a hand-built state with a valid hex brand colour still applies it', () => {
+  // Positive control for the guard above: the same path accepts a real colour.
+  const ctx = createContext({ richDocument: true });
+  const state = {
+    enabled: true,
+    project: { name: 'Odd Host', hostname: 'host.test' },
+    network: { online: true, endpoints: {}, dns: {} },
+    installation: { status: 'unavailable', support: 'none' },
+    notifications: [],
+    availableActions: [],
+    badge: { count: 0, tone: 'none', label: 'No alerts' },
+    appearance: {
+      position: 'bottom-left', theme: 'dark', offsets: { x: 24, y: 24 }, themeColor: '#123456',
+      // The SDK resolver falls back to the Assistant's dark-adapted brand for a
+      // project colour that is not legible on the dark surface (see the
+      // seedPrimary contrast guard), so this fixture exercises the fallback
+      // writer explicitly: no theme record means no resolver-owned brand token.
+      themeConfig: null,
+    },
+  };
+  ctx.win.YouGeAssistant = { getState: () => state, subscribe(fn) { fn(state); return () => {}; } };
+  const widget = loadWidget(ctx);
+  const root = widget.getRoot();
+  assert.equal(root.getAttribute('data-theme'), 'dark');
+  // A validated hex is accepted, but the theme system still protects contrast:
+  // #123456 on the dark surface would fail AA, so the dark-adapted Assistant
+  // brand is used instead of an unreadable project colour.
+  assert.equal(root.style['--youge-brand'], '#84adff', 'an unreadable project colour is contrast-guarded');
+  assert.equal(root.style['--youge-offset-x'], '24px');
   widget.destroy();
 });
 

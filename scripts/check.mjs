@@ -764,6 +764,9 @@ section('Intelligent Floating Assistant contracts');
 const assistantState = readFileSync(at('assistant-state.js'), 'utf8');
 const assistantWidget = readFileSync(at('assistant-widget.js'), 'utf8');
 const assistantStyles = readFileSync(at('assistant-widget.css'), 'utf8');
+const themeSource = readFileSync(at('packages/assistant-sdk/src/theme/index.js'), 'utf8');
+const sdkConfigSource = readFileSync(at('packages/assistant-sdk/src/config/index.js'), 'utf8');
+const sdkAssistantSource = readFileSync(at('packages/assistant-sdk/src/assistant/index.js'), 'utf8');
 const demoHtmlSource = readFileSync(at('demo/index.html'), 'utf8');
 const exampleHtmlSource2 = readFileSync(at('example/index.html'), 'utf8');
 const offlineHtmlSource = readFileSync(at('offline.html'), 'utf8');
@@ -828,6 +831,8 @@ const sdkRequired = [
   'packages/assistant-sdk/src/installation/index.js',
   'packages/assistant-sdk/src/installation/index.d.ts',
   'packages/assistant-sdk/src/assistant/index.js',
+  'packages/assistant-sdk/src/theme/index.js',
+  'packages/assistant-sdk/src/theme/index.d.ts',
   'packages/assistant-sdk/src/adapters/pwa-kit.js',
   'packages/assistant-sdk/src/adapters/react.js',
   'packages/assistant-sdk/src/adapters/react.d.ts',
@@ -862,6 +867,59 @@ contract(
 contract(
   /youge-chrome-offer/.test(assistantWidget) && /data-chrome-open/.test(assistantWidget) && /data-chrome-fallback/.test(assistantWidget),
   'the widget renders the Open in Chrome offer with a manual fallback'
+);
+// Adaptive theming (2026-11-07): shared tokens, isolation and the four modes.
+contract(
+  Boolean(sdkPkg.exports['./theme'] && sdkPkg.exports['./theme'].types),
+  'the theme subpath export ships with paired TypeScript types'
+);
+contract(
+  /THEME_MODES = \['auto', 'light', 'dark', 'custom'\]/.test(themeSource),
+  'the four documented theme modes are the public set'
+);
+contract(
+  /export function resolveTheme[\s\S]*export function themeToCssVariables/.test(themeSource)
+    && /export function detectHostScheme/.test(themeSource),
+  'the theme module resolves modes, detects the host scheme and emits CSS variables'
+);
+contract(
+  /PROTECTED_VARIABLES = \[[\s\S]*--youge-offset-x[\s\S]*--youge-fab-size/.test(themeSource),
+  'layout geometry (offsets, launcher size) is protected from theme overrides'
+);
+contract(
+  /theme: \{[\s\S]*mode: 'auto',[\s\S]*inheritHost: false/.test(sdkConfigSource)
+    && /themeMode: 'auto'/.test(sdkConfigSource),
+  'bundled defaults carry the validated theme record and the flat legacy mode'
+);
+contract(
+  /notification\.level = notificationLevel\(notification\.id, notification\.priority\)/.test(sdkAssistantSource),
+  'every emitted notification carries a presentation level derived from the unchanged priority ladder'
+);
+contract(
+  /\.youge-notice\[data-level="critical"\]/.test(assistantStyles) && /\.youge-notice\[data-level="success"\]/.test(assistantStyles),
+  'notification levels are themed in the shipped stylesheet'
+);
+contract(
+  /#youge-assistant-root \{[\s\S]*position: fixed !important/.test(assistantStyles)
+    && /#youge-assistant-root\[hidden\][\s\S]*display: none !important/.test(assistantStyles),
+  'the widget guards its layout without defeating its own hidden switch'
+);
+contract(
+  /--youge-reset-letter-spacing: normal/.test(assistantStyles)
+    && /box-sizing: var\(--youge-reset-box\)/.test(assistantStyles),
+  'an inherited reset keeps host text styling out of the widget subtree'
+);
+contract(
+  !/(^|\n)\s*\*\s*\{/.test(assistantStyles) && !/(^|\n):root\s*\{/.test(assistantStyles),
+  'the widget stylesheet contains no global universal or :root rule'
+);
+contract(
+  /data-scheme/.test(assistantWidget) && /resolveTheme\(/.test(assistantWidget) && /resolveTheme/.test(assistantState),
+  'the DOM widget renders the resolved theme and classic pages expose the resolver'
+);
+contract(
+  /theme\??: AssistantThemeConfig/.test(readFileSync(at('packages/assistant-sdk/src/config/index.d.ts'), 'utf8')),
+  'the public theme configuration type is declared for integrators'
 );
 contract(
   /youge-assistant:chrome-offer-dismissed/.test(assistantWidget) && /youge-assistant:chrome-offer-dismissed/.test(mainJsxSource),

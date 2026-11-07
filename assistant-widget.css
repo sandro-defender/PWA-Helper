@@ -2,15 +2,150 @@
  * assistant-widget.css — You.Ge Assistant floating widget
  * Dependency-free, token-based, responsive and reduced-motion aware.
  * No continuous animation, no WebGL, no external font or image requests.
+ *
+ * ------------------------------------------------------------------
+ * Isolation strategy (see ADAPTIVE_THEME_AUDIT.md §4)
+ * ------------------------------------------------------------------
+ * No Shadow DOM: the widget must stay in the light DOM so pwa.js can reach
+ * `[data-pwa-install]` / `[data-pwa-diagnostics]` through its document-level
+ * delegation, so `#youge-assistant-panel` stays addressable and so
+ * `YouGeAssistantWidget.getRoot()` keeps returning real nodes.
+ *
+ * Isolation is therefore built from four layers:
+ *
+ *   1. ID-scoped selectors — every component rule starts with
+ *      `#youge-assistant-root`, raising specificity to (1,1,0). Host element
+ *      selectors (`button`), class utilities (`.btn`) and even `#app *` resets
+ *      no longer win.
+ *   2. An inheritance boundary — the root declares font, spacing, casing,
+ *      shadow, direction and `color-scheme` explicitly, and every descendant
+ *      re-declares the inherited text properties.
+ *   3. A subtree reset — box-sizing, margins, padding, native control
+ *      appearance and inherited text properties are normalized for the widget
+ *      only. Nothing here targets a selector outside `#youge-assistant-root`.
+ *   4. A narrow `!important` guard — only on layout-critical properties
+ *      (position, display, z-index, pointer-events, visibility) so a host
+ *      `* { position: static !important }` cannot detach or hide the Assistant.
+ *      Geometry that users and integrators legitimately control (size, offsets,
+ *      radius, colours) is deliberately *not* guarded.
+ *
+ * Theming adds a fifth layer: every visual value is a `--youge-*` custom
+ * property. `assistant-widget.js` resolves the configured theme through the
+ * SDK and writes those properties inline, so `auto` / `light` / `dark` /
+ * `custom` and host adaptation share one mechanism. The dark blocks below stay
+ * as the CSS fallback for pages where JS has not applied tokens yet.
  */
 
+/* ------------------------------------------------------------------ *
+ * 0. Isolation: layout guard, reset and inheritance boundary.
+ *    Scoped to the widget subtree only — no global selectors.
+ * ------------------------------------------------------------------ */
+
+#youge-assistant-root {
+  /* A host stylesheet must never be able to detach, hide or re-layer us. */
+  position: fixed !important;
+  z-index: 2147483000 !important;
+  display: block !important;
+  visibility: visible !important;
+  /* The container is a zero-size anchor; children are fixed themselves. */
+  inset: auto;
+  width: 0 !important;
+  height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: none !important;
+  box-shadow: none !important;
+  transform: none !important;
+  filter: none !important;
+  opacity: 1 !important;
+  isolation: isolate;
+}
+
+/* `hidden` is the widget's own disable switch (`state.enabled === false`).
+ * It needs the same weight as the guard above, otherwise the layout guard
+ * would keep a disabled Assistant on screen. */
+#youge-assistant-root[hidden],
+.youge-assistant-widget[hidden] {
+  display: none !important;
+}
+
+/* Descendant reset + inheritance boundary.
+ *
+ * Rather than a `#youge-assistant-root *` rule, the reset is delivered through
+ * inherited custom properties declared in the root token block below. Every
+ * widget element picks them up, so component selectors stay bare classes
+ * (`.youge-fab`, `.youge-panel`, …) and keep the specificity behaviour existing
+ * integrations and tests rely on, while host `*`, element and utility rules
+ * still lose to these values.
+ *
+ * `--youge-reset-*` is internal: it is not a public token and cannot be set
+ * through `theme.variables`.
+ */
+/* The one scoped descendant rule. It re-asserts values a host may already have
+ * forced on a child and is limited to box-sizing plus the inherited text
+ * reset. Nothing here paints, sizes or positions a component, so each
+ * component rule keeps owning its own look. */
+.youge-assistant-widget,
+.youge-assistant-widget *,
+.youge-assistant-widget *::before,
+.youge-assistant-widget *::after {
+  box-sizing: var(--youge-reset-box);
+  font-family: inherit;
+  letter-spacing: var(--youge-reset-letter-spacing);
+  word-spacing: var(--youge-reset-word-spacing);
+  text-transform: var(--youge-reset-transform);
+  text-shadow: var(--youge-reset-text-shadow);
+  text-indent: var(--youge-reset-indent);
+  font-style: var(--youge-reset-style);
+  font-variant: var(--youge-reset-flags);
+  white-space: var(--youge-reset-white-space);
+  max-height: var(--youge-reset-max-size);
+  min-width: 0;
+  float: var(--youge-reset-float);
+  -webkit-text-size-adjust: 100%;
+}
+
+/* A host reset like `img { max-width: 100% }` would shrink the brand mark, and
+ * `svg { display: block }` would change icon alignment: the widget sizes its own
+ * media and icons instead of relying on host defaults. */
+.youge-assistant-widget img,
+.youge-assistant-widget svg {
+  max-width: none;
+  max-height: none;
+}
+
+/* Native controls: the widget declares its own margin, border, background and
+ * font, and only needs the stray UA/ reset margin removed here. */
+.youge-assistant-widget button,
+.youge-assistant-widget summary,
+.youge-assistant-widget input {
+  margin: 0;
+}
+
+
+/* The Assistant's own identity and its stable token defaults. */
 .youge-assistant-widget {
+  /* Isolation privates: the inherited reset that keeps host text styling out. */
+  --youge-reset-box: border-box;
+  --youge-reset-letter-spacing: normal;
+  --youge-reset-word-spacing: normal;
+  --youge-reset-transform: none;
+  --youge-reset-text-shadow: none;
+  --youge-reset-indent: 0;
+  --youge-reset-style: normal;
+  --youge-reset-flags: normal;
+  --youge-reset-white-space: normal;
+  --youge-reset-max-size: none;
+  --youge-reset-float: none;
   --youge-brand: #155eef;
+  --youge-on-brand: #ffffff;
   /* Single source of truth for the launcher's diameter. The responsive tiers
      below restate it at their breakpoint; the panel gap, the Chrome offer and
      the manual size override all follow it. */
   --youge-fab-size: 56px;
   --youge-surface: #ffffff;
+  --youge-background: #f8fafc;
   --youge-surface-soft: #f8fafc;
   --youge-ink: #0f172a;
   --youge-muted: #475569;
@@ -24,6 +159,25 @@
   --youge-shadow: 0 18px 40px rgba(15, 23, 42, 0.18), 0 2px 8px rgba(15, 23, 42, 0.08);
   --youge-offset-x: 20px;
   --youge-offset-y: 20px;
+  /* Semantic severity aliases. A theme can move `warning`/`error`/`success`
+     without touching the legacy tone names, and vice versa. */
+  --youge-success: var(--youge-install);
+  --youge-warning: var(--youge-auth);
+  --youge-error: var(--youge-critical);
+  /* Label ink for each tinted fill. The SDK derives these from the fill's
+     relative luminance; these are the light-theme defaults. */
+  --youge-primary-ink: #ffffff;
+  --youge-success-ink: #ffffff;
+  --youge-info-ink: #ffffff;
+  --youge-warning-ink: #ffffff;
+  --youge-error-ink: #ffffff;
+  --youge-critical-ink: #ffffff;
+  /* Structural tokens. `custom` themes can move each one. */
+  --youge-font: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --youge-font-size: 13px;
+  --youge-radius: 20px;
+  --youge-radius-small: 12px;
+  --youge-border-width: 1px;
   /* Floating entry point: a deep, low-saturation disc with one hairline ring and
      a short elevation shadow (no glow, no bloom). `#f8fafc` on `#2f4368` measures
      9.45:1, so the glyph stays crisp without brightening the button. */
@@ -40,9 +194,24 @@
      feedback stays quick, a state change is allowed to read as a change. */
   --youge-motion-fast: 160ms;
   --youge-motion-state: 240ms;
+  /* Inheritance boundary: everything below is declared, never inherited. */
   position: fixed;
-  z-index: 2147483000;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-family: var(--youge-font);
+  font-size: var(--youge-font-size);
+  font-style: normal;
+  font-weight: 400;
+  font-variant: normal;
+  line-height: 1.5;
+  letter-spacing: normal;
+  word-spacing: normal;
+  text-transform: none;
+  text-align: start;
+  text-indent: 0;
+  text-shadow: none;
+  white-space: normal;
+  direction: ltr;
+  writing-mode: horizontal-tb;
+  visibility: visible;
   color: var(--youge-ink);
   color-scheme: light;
   -webkit-font-smoothing: antialiased;
@@ -52,6 +221,7 @@
 
 .youge-assistant-widget[data-theme="dark"] {
   --youge-surface: #0b1220;
+  --youge-background: #070c16;
   --youge-surface-soft: #111c2f;
   --youge-ink: #f8fafc;
   --youge-muted: #cbd5e1;
@@ -64,6 +234,13 @@
   --youge-focus: #84adff;
   --youge-shadow: 0 18px 40px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.35);
   --youge-brand: #84adff;
+  --youge-on-brand: #0b1220;
+  --youge-success-ink: #0b1220;
+  --youge-info-ink: #0b1220;
+  --youge-warning-ink: #0b1220;
+  --youge-error-ink: #0b1220;
+  --youge-critical-ink: #0b1220;
+  --youge-primary-ink: #0b1220;
   /* Dark themes swap the fill for a dimmer disc and the light-salmon text tones
      for a deep red background, because #fda29b is a foreground color: white on
      #7a1f16 measures 10.32:1 and its ring clears 4.66:1 against the page. */
@@ -77,9 +254,24 @@
   color-scheme: dark;
 }
 
+/* `data-scheme` is written by the widget from the resolved theme, so a custom
+ * dark palette (surface which is darker than 25% luminance) gets the same
+ * scheme-dependent defaults without pretending to be the built-in dark theme. */
+.youge-assistant-widget[data-scheme="dark"] {
+  color-scheme: dark;
+  --youge-primary-ink: #0b1220;
+  --youge-success-ink: #0b1220;
+  --youge-info-ink: #0b1220;
+  --youge-warning-ink: #0b1220;
+  --youge-error-ink: #0b1220;
+  --youge-critical-ink: #0b1220;
+}
+.youge-assistant-widget[data-scheme="light"] { color-scheme: light; }
+
 @media (prefers-color-scheme: dark) {
   .youge-assistant-widget[data-theme="auto"] {
     --youge-surface: #0b1220;
+    --youge-background: #070c16;
     --youge-surface-soft: #111c2f;
     --youge-ink: #f8fafc;
     --youge-muted: #cbd5e1;
@@ -92,6 +284,13 @@
     --youge-focus: #84adff;
     --youge-shadow: 0 18px 40px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.35);
     --youge-brand: #84adff;
+    --youge-on-brand: #0b1220;
+    --youge-success-ink: #0b1220;
+    --youge-info-ink: #0b1220;
+    --youge-warning-ink: #0b1220;
+    --youge-error-ink: #0b1220;
+    --youge-critical-ink: #0b1220;
+    --youge-primary-ink: #0b1220;
     /* Dark themes swap the fill for a dimmer disc and the light-salmon text tones
        for a deep red background, because #fda29b is a foreground color: white on
        #7a1f16 measures 10.32:1 and its ring clears 4.66:1 against the page. */
@@ -111,8 +310,8 @@
  * ------------------------------------------------------------------ */
 
 .youge-fab {
-  position: fixed;
-  display: inline-flex;
+  position: fixed !important;
+  display: inline-flex !important;
   align-items: center;
   justify-content: center;
   width: var(--youge-fab-size);
@@ -126,6 +325,7 @@
   color: var(--youge-fab-ink);
   box-shadow: var(--youge-fab-shadow);
   cursor: pointer;
+  pointer-events: auto !important;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
   /* The color transition is longer than the interaction feedback on purpose: a
@@ -241,7 +441,12 @@
 .youge-assistant-widget[data-theme="dark"] .youge-badge[data-tone="auth"],
 .youge-assistant-widget[data-theme="dark"] .youge-badge[data-tone="backup"],
 .youge-assistant-widget[data-theme="dark"] .youge-badge[data-tone="install"],
-.youge-assistant-widget[data-theme="dark"] .youge-badge[data-tone="info"] { color: #0b1220; }
+.youge-assistant-widget[data-theme="dark"] .youge-badge[data-tone="info"],
+.youge-assistant-widget[data-scheme="dark"] .youge-badge[data-tone="critical"],
+.youge-assistant-widget[data-scheme="dark"] .youge-badge[data-tone="auth"],
+.youge-assistant-widget[data-scheme="dark"] .youge-badge[data-tone="backup"],
+.youge-assistant-widget[data-scheme="dark"] .youge-badge[data-tone="install"],
+.youge-assistant-widget[data-scheme="dark"] .youge-badge[data-tone="info"] { color: #0b1220; }
 @media (prefers-color-scheme: dark) {
   .youge-assistant-widget[data-theme="auto"] .youge-badge[data-tone="critical"],
   .youge-assistant-widget[data-theme="auto"] .youge-badge[data-tone="auth"],
@@ -255,20 +460,21 @@
  * ------------------------------------------------------------------ */
 
 .youge-panel {
-  position: fixed;
+  position: fixed !important;
   width: min(380px, calc(100vw - var(--youge-offset-x) - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px) - 16px));
   max-height: min(72vh, 640px);
   overflow: hidden;
-  border: 1px solid var(--youge-line);
-  border-radius: 20px;
+  border: var(--youge-border-width) solid var(--youge-line);
+  border-radius: var(--youge-radius);
   background: var(--youge-surface);
   box-shadow: var(--youge-shadow);
   opacity: 0;
   transform: translateY(8px) scale(0.985);
   transform-origin: bottom right;
   transition: opacity 180ms ease, transform 180ms ease;
-  display: flex;
+  display: flex !important;
   flex-direction: column;
+  pointer-events: auto !important;
 }
 .youge-panel[hidden] { display: none !important; }
 .youge-panel.is-open { opacity: 1; transform: translateY(0) scale(1); }
@@ -305,7 +511,7 @@
   justify-content: space-between;
   gap: 12px;
   padding: 14px 16px;
-  border-bottom: 1px solid var(--youge-line);
+  border-bottom: var(--youge-border-width) solid var(--youge-line);
   background: var(--youge-surface);
 }
 .youge-panel-title { margin: 0; font-size: 15px; font-weight: 700; letter-spacing: -0.01em; }
@@ -316,13 +522,15 @@
   width: 44px;
   height: 44px;
   padding: 0;
-  border: 1px solid var(--youge-line);
-  border-radius: 12px;
+  border: var(--youge-border-width) solid var(--youge-line);
+  border-radius: var(--youge-radius-small);
   background: var(--youge-surface-soft);
   color: var(--youge-ink);
   cursor: pointer;
   touch-action: manipulation;
+  transition: background-color var(--youge-motion-fast) ease, border-color var(--youge-motion-fast) ease;
 }
+.youge-close:hover { border-color: var(--youge-muted); }
 .youge-close .youge-icon svg { width: 20px; height: 20px; display: block; }
 .youge-close:focus-visible { outline: 3px solid var(--youge-focus); outline-offset: 2px; }
 
@@ -341,7 +549,7 @@
   height: 36px;
   border-radius: 10px;
   object-fit: cover;
-  border: 1px solid var(--youge-line);
+  border: var(--youge-border-width) solid var(--youge-line);
   background: var(--youge-surface-soft);
 }
 .youge-identity-text { display: grid; gap: 2px; min-width: 0; }
@@ -349,15 +557,15 @@
 .youge-identity-text span { color: var(--youge-muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .youge-section { display: grid; gap: 10px; }
-.youge-section-title { margin: 0; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--youge-muted); }
+.youge-section-title { margin: 0; font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--youge-muted); }
 .youge-section-desc { margin: 0; font-size: 12.5px; line-height: 1.45; color: var(--youge-muted); }
 
 .youge-status-grid {
   display: grid;
   gap: 2px;
   padding: 8px;
-  border: 1px solid var(--youge-line);
-  border-radius: 14px;
+  border: var(--youge-border-width) solid var(--youge-line);
+  border-radius: calc(var(--youge-radius-small) + 2px);
   background: var(--youge-surface-soft);
 }
 .youge-status-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 32px; font-size: 12.5px; }
@@ -365,32 +573,77 @@
 .youge-status-value { display: inline-flex; align-items: center; gap: 8px; font-weight: 650; text-transform: capitalize; }
 .youge-status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--youge-muted); flex: none; }
 .youge-status-dot[data-tone="critical"] { background: var(--youge-critical); }
-.youge-status-dot[data-tone="ok"] { background: var(--youge-install); }
+.youge-status-dot[data-tone="ok"] { background: var(--youge-success); }
 .youge-status-dot[data-tone="backup"] { background: var(--youge-backup); }
+
+/* ------------------------------------------------------------------ *
+ * Notifications. One card per condition, five presentation levels.
+ * The level is derived by the SDK from the existing priority ladder;
+ * structure and behaviour (critical persistence, dismissal,
+ * acknowledgement, suppression) are unchanged.
+ * ------------------------------------------------------------------ */
 
 .youge-notice-list { display: grid; gap: 8px; }
 .youge-notice {
-  display: flex;
+  --youge-notice-accent: var(--youge-info);
+  --youge-notice-tint: var(--youge-surface-soft);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
   gap: 10px;
   padding: 12px;
-  border: 1px solid var(--youge-line);
-  border-left: 4px solid var(--youge-info);
-  border-radius: 12px;
+  border: var(--youge-border-width) solid var(--youge-line);
+  border-left: 3px solid var(--youge-notice-accent);
+  border-radius: var(--youge-radius-small);
   background: var(--youge-surface-soft);
 }
+.youge-notice[data-level="critical"] { --youge-notice-accent: var(--youge-critical); }
+.youge-notice[data-level="error"] { --youge-notice-accent: var(--youge-error); }
+.youge-notice[data-level="warning"] { --youge-notice-accent: var(--youge-warning); }
+.youge-notice[data-level="info"] { --youge-notice-accent: var(--youge-info); }
+.youge-notice[data-level="success"] { --youge-notice-accent: var(--youge-success); }
+
+/* Priority keeps its own accent so a host that builds its own state — or an
+   older widget build — still reads the same ladder. */
 .youge-notice[data-priority="1"] { border-left-color: var(--youge-critical); }
 .youge-notice[data-priority="2"] { border-left-color: var(--youge-auth); }
 .youge-notice[data-priority="3"] { border-left-color: var(--youge-backup); }
 .youge-notice[data-priority="4"] { border-left-color: var(--youge-install); }
+
+.youge-notice-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin-top: 1px;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--youge-notice-accent);
+  flex: none;
+}
+.youge-notice-icon svg { width: 17px; height: 17px; display: block; }
 .youge-notice > .youge-icon { flex: none; margin-top: 2px; color: var(--youge-muted); }
 .youge-notice[data-priority="1"] > .youge-icon { color: var(--youge-critical); }
 .youge-notice > .youge-icon svg { width: 20px; height: 20px; display: block; }
 .youge-notice-content { min-width: 0; display: grid; gap: 6px; }
-.youge-notice-title { margin: 0; font-size: 13.5px; font-weight: 700; }
+.youge-notice-title { margin: 0; font-size: 13.5px; font-weight: 700; line-height: 1.3; }
 .youge-notice-message { margin: 0; font-size: 12.5px; line-height: 1.45; color: var(--youge-muted); }
 .youge-notice-controls { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 2px; }
 
-.youge-empty { margin: 0; padding: 12px; border: 1px dashed var(--youge-line); border-radius: 12px; color: var(--youge-muted); font-size: 12.5px; line-height: 1.45; }
+/* Tier hierarchy without `color-mix()`: the accent stripe and the icon tile
+   carry the severity, and the two urgent tiers add a hairline ring in their own
+   tone plus a heavier title. Deliberately no full-saturation blocks — a notice
+   list must stay readable when four conditions fire at once. */
+.youge-notice[data-level="critical"] {
+  border-color: var(--youge-critical);
+  border-left-width: 4px;
+}
+.youge-notice[data-level="critical"] .youge-notice-title { font-weight: 750; }
+.youge-notice[data-level="error"] { border-left-width: 4px; }
+.youge-notice[data-level="warning"] { border-left-width: 3px; }
+.youge-notice[data-level="success"] { border-left-width: 3px; }
+
+.youge-empty { margin: 0; padding: 12px; border: 1px dashed var(--youge-line); border-radius: var(--youge-radius-small); color: var(--youge-muted); font-size: 12.5px; line-height: 1.45; }
 
 .youge-action-row, .youge-action-list { display: grid; gap: 8px; }
 .youge-btn {
@@ -401,9 +654,9 @@
   min-height: 44px;
   padding: 10px 14px;
   border: 1px solid transparent;
-  border-radius: 12px;
+  border-radius: var(--youge-radius-small);
   background: var(--youge-brand);
-  color: #ffffff;
+  color: var(--youge-primary-ink);
   font: inherit;
   font-size: 13px;
   font-weight: 650;
@@ -420,14 +673,18 @@
    touch input — they are the most-tapped buttons in the panel. */
 .youge-btn-small { min-height: 44px; min-width: 44px; padding: 8px 10px; font-size: 12px; }
 .youge-btn-quiet { background: var(--youge-surface-soft); color: var(--youge-ink); border-color: var(--youge-line); }
+.youge-btn-quiet:hover { border-color: var(--youge-muted); }
 .youge-assistant-widget[data-theme="dark"] .youge-btn { color: #0b1220; }
+/* A `custom` theme keeps the integrator's primary fill, so the label follows
+   the ink the SDK derived for it. */
+.youge-assistant-widget[data-scheme="dark"] .youge-btn { color: var(--youge-primary-ink); }
 @media (prefers-color-scheme: dark) {
   .youge-assistant-widget[data-theme="auto"] .youge-btn { color: #0b1220; }
 }
 
-.youge-recovery { border: 1px solid var(--youge-line); border-radius: 12px; background: var(--youge-surface-soft); }
+.youge-recovery { border: var(--youge-border-width) solid var(--youge-line); border-radius: var(--youge-radius-small); background: var(--youge-surface-soft); }
 .youge-recovery summary { min-height: 44px; display: flex; align-items: center; padding: 10px 12px; cursor: pointer; font-size: 12.5px; font-weight: 650; }
-.youge-recovery summary:focus-visible { outline: 3px solid var(--youge-focus); outline-offset: -3px; border-radius: 12px; }
+.youge-recovery summary:focus-visible { outline: 3px solid var(--youge-focus); outline-offset: -3px; border-radius: var(--youge-radius-small); }
 .youge-steps { margin: 0; padding: 0 12px 12px 32px; display: grid; gap: 6px; font-size: 12.5px; line-height: 1.45; color: var(--youge-muted); }
 
 .youge-sr-only {
@@ -446,7 +703,7 @@
   .youge-panel {
     width: min(380px, calc(100vw - var(--youge-offset-x) - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px) - 16px));
     max-height: min(68vh, calc(100dvh - 130px));
-    border-radius: 18px;
+    border-radius: calc(var(--youge-radius) - 2px);
   }
   .youge-panel-body { padding: 14px; gap: 14px; }
   .youge-fab { width: 54px; height: 54px; }
@@ -483,18 +740,19 @@
  * (the widget hides it while the panel is open) and respects safe areas.    *
  * -------------------------------------------------------------------------- */
 .youge-chrome-offer {
-  position: fixed;
+  position: fixed !important;
   z-index: 2147483000;
   display: grid;
   gap: 8px;
   width: min(300px, calc(100vw - 32px));
   padding: 12px;
-  border: 1px solid var(--youge-line);
-  border-radius: 14px;
+  border: var(--youge-border-width) solid var(--youge-line);
+  border-radius: calc(var(--youge-radius-small) + 2px);
   background: var(--youge-surface);
   color: var(--youge-ink);
   box-shadow: var(--youge-shadow);
-  font-size: 14px;
+  font-size: 13.5px;
+  pointer-events: auto !important;
 }
 .youge-chrome-offer[hidden] { display: none !important; }
 .youge-assistant-widget[data-position="bottom-right"] .youge-chrome-offer,
@@ -527,7 +785,7 @@
 .youge-chrome-offer-url {
   display: block;
   padding: 6px 8px;
-  border: 1px solid var(--youge-line);
+  border: var(--youge-border-width) solid var(--youge-line);
   border-radius: 8px;
   background: var(--youge-surface-soft);
   color: var(--youge-ink);

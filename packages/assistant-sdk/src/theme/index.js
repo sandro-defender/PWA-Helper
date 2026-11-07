@@ -541,7 +541,12 @@ const INKABLE_TONES = ['primary', 'success', 'info', 'warning', 'error', 'critic
  * Resolve a theme into the values a renderer needs.
  *
  * @param {unknown} themeInput         raw `theme` value or a normalized record
- * @param {object}  [context]          { document, matchMedia, getComputedStyle, root, hostScheme }
+ * @param {object}  [context]          { document, matchMedia, getComputedStyle, root, hostScheme, seedPrimary }
+ *
+ * `context.seedPrimary` is a validated colour that acts as the lowest-priority
+ * primary — it keeps the long-standing `branding.themeColor` behaviour working
+ * without letting it override an explicit `theme.tokens.primary`. It is only
+ * accepted as a plain colour value.
  * @returns {{
  *   mode: 'auto'|'light'|'dark'|'custom',
  *   scheme: 'light'|'dark',
@@ -583,6 +588,20 @@ export function resolveTheme(themeInput, context) {
   }
 
   const merged = Object.assign({}, base, hostLayer, theme.tokens || {});
+  // `branding.themeColor` remains a supported way to set the project's primary
+  // colour. It ranks below any explicit theme token and below host adaptation.
+  if (!hostLayer.primary && !(theme.tokens && theme.tokens.primary)) {
+    const seed = ctx.seedPrimary === undefined ? null : normalizeColor(ctx.seedPrimary);
+    if (seed) {
+      // A project brand colour is a *light-scheme* identity value. On a dark
+      // surface it is only kept when it is still legible there; otherwise the
+      // Assistant's dark-adapted brand is used, which is what keeps a deep
+      // brand blue from becoming unreadable on a dark panel.
+      const legible = scheme !== 'dark' || (contrastRatio(seed, base.surface) || 0) >= 4.5;
+      if (legible) merged.primary = seed;
+      else warnings.push('theme:contrast_guard:seedPrimary');
+    }
+  }
 
   // --- Contrast guard: never let a host or integrator value reduce
   // readability below the AA floor for body text. The Assistant's own value is
@@ -609,6 +628,10 @@ export function resolveTheme(themeInput, context) {
     merged.border = base.border;
   }
 
+  // The font stack always resolves to something concrete, so the renderer can
+  // publish it as a variable instead of leaving the CSS default implicit.
+  if (!merged.fontFamily) merged.fontFamily = ASSISTANT_FONT_STACK;
+
   // Tone inks are derived, never trusted: a fill only keeps a white label when
   // white actually clears 4.5:1 against it.
   const variables = {};
@@ -634,7 +657,6 @@ export function resolveTheme(themeInput, context) {
   Object.keys(merged).forEach(function (key) {
     if (merged[key] !== undefined && merged[key] !== null) tokens[key] = merged[key];
   });
-  tokens.fontFamily = merged.fontFamily || ASSISTANT_FONT_STACK;
 
   return {
     mode: mode,
