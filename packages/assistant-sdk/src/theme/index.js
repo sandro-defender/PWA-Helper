@@ -132,6 +132,108 @@ export const ASSISTANT_PALETTES = Object.freeze({
   }),
 });
 
+/**
+ * Notification level metadata: the single source of truth shared by the DOM
+ * widget and the React example, so both render the same glyph and the same
+ * accessible wording for each tier. `glyph` is inner SVG markup only — no
+ * scripts, no external references, no `on*` handlers — and `icon` names the
+ * legacy icon it replaces where one exists.
+ */
+export const NOTIFICATION_LEVELS = Object.freeze(['critical', 'error', 'warning', 'info', 'success']);
+
+const LEVEL_SHAPES = {
+  critical: [
+    { type: 'path', d: 'M8.6 3h6.8L21 8.6v6.8L15.4 21H8.6L3 15.4V8.6z' },
+    { type: 'path', d: 'M12 8v5' },
+    { type: 'dot', cx: 12, cy: 16.5 },
+  ],
+  error: [
+    { type: 'circle', cx: 12, cy: 12, r: 9 },
+    { type: 'path', d: 'M12 7.5v5.5' },
+    { type: 'dot', cx: 12, cy: 16.5 },
+  ],
+  warning: [
+    { type: 'path', d: 'M12 3.2 22 20.4H2z' },
+    { type: 'path', d: 'M12 9.5v4.6' },
+    { type: 'dot', cx: 12, cy: 17.4 },
+  ],
+  info: [
+    { type: 'circle', cx: 12, cy: 12, r: 9 },
+    { type: 'path', d: 'M12 11v5.5' },
+    { type: 'dot', cx: 12, cy: 7.6 },
+  ],
+  success: [
+    { type: 'circle', cx: 12, cy: 12, r: 9 },
+    { type: 'path', d: 'm7.8 12.3 2.9 2.9 5.6-6' },
+  ],
+};
+
+/**
+ * Declarative glyph primitives per level.
+ *
+ * A renderer that cannot use HTML strings (a React tree, for instance) maps
+ * these objects onto elements; a renderer that can (the embedded widget) calls
+ * `notificationLevelMarkup`. One definition, two renderers, no drift.
+ */
+export const NOTIFICATION_LEVEL_SHAPES = Object.freeze(
+  Object.keys(LEVEL_SHAPES).reduce((acc, level) => {
+    acc[level] = Object.freeze(LEVEL_SHAPES[level].map((shape) => Object.freeze(Object.assign({}, shape))));
+    return acc;
+  }, {})
+);
+
+/** SVG attributes shared by every level glyph. */
+export const NOTIFICATION_LEVEL_SVG_ATTRIBUTES = Object.freeze({
+  viewBox: '0 0 24 24',
+  fill: 'none',
+  stroke: 'currentColor',
+  'stroke-width': '1.9',
+  'stroke-linecap': 'round',
+  'stroke-linejoin': 'round',
+});
+
+function shapeToMarkup(shape) {
+  if (shape.type === 'circle') {
+    return `<circle cx="${shape.cx}" cy="${shape.cy}" r="${shape.r}"/>`;
+  }
+  if (shape.type === 'dot') {
+    return `<circle cx="${shape.cx}" cy="${shape.cy}" r=".9" fill="currentColor" stroke="none"/>`;
+  }
+  return `<path d="${shape.d}"/>`;
+}
+
+/**
+ * Inner SVG markup for a level. Static, script-free markup built from frozen
+ * literals above — never from user input.
+ */
+export function notificationLevelMarkup(level) {
+  const shapes = NOTIFICATION_LEVEL_SHAPES[level];
+  if (!shapes) return '';
+  return shapes.map(shapeToMarkup).join('');
+}
+
+/** Inner SVG markup per level. */
+export const NOTIFICATION_LEVEL_ICONS = Object.freeze(
+  Object.keys(NOTIFICATION_LEVEL_SHAPES).reduce((acc, level) => {
+    acc[level] = notificationLevelMarkup(level);
+    return acc;
+  }, {})
+);
+
+/** Clamp any value onto a known level (`'info'` when unknown). */
+export function normalizeNotificationLevel(level) {
+  return Object.prototype.hasOwnProperty.call(NOTIFICATION_LEVEL_SHAPES, level) ? level : 'info';
+}
+
+/** Accessible label for each level, reused by both renderers. */
+export const NOTIFICATION_LEVEL_LABELS = Object.freeze({
+  critical: 'Critical',
+  error: 'Error',
+  warning: 'Warning',
+  info: 'Information',
+  success: 'Success',
+});
+
 export const THEME_DEFAULTS = Object.freeze({
   mode: 'auto',
   inheritHost: false,

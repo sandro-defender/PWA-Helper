@@ -772,6 +772,9 @@ const exampleHtmlSource2 = readFileSync(at('example/index.html'), 'utf8');
 const offlineHtmlSource = readFileSync(at('offline.html'), 'utf8');
 const snippetHtmlSource = readFileSync(at('snippet.html'), 'utf8');
 const mainJsxSource = readFileSync(at('example/src/main.jsx'), 'utf8');
+const themeStudioSource = readFileSync(at('example/src/ThemeStudio.jsx'), 'utf8');
+const exampleCssSource = readFileSync(at('example/example.css'), 'utf8');
+const sdkReactSource = readFileSync(at('packages/assistant-sdk/src/adapters/react.js'), 'utf8');
 const pagesWorkflowSource = readFileSync(at('.github/workflows/pages.yml'), 'utf8');
 const viteConfigSource = readFileSync(at('example/vite.config.js'), 'utf8');
 const offlineJsSource = readFileSync(at('offline.js'), 'utf8');
@@ -932,6 +935,55 @@ contract(
 contract(
   !/location\.href\s*=[^=]/.test(mainJsxSource),
   'the React example never force-redirects the visitor'
+);
+
+// Phase 5 (2026-11-07): the React example demonstrates the theme system.
+contract(
+  /resolveTheme/.test(themeStudioSource) && /resolveAppearanceTheme/.test(mainJsxSource),
+  'the React example resolves themes through the shared SDK resolver'
+);
+contract(
+  /THEME_MODES\.map/.test(themeStudioSource) && /mode: 'custom', tokens: preset\.tokens/.test(themeStudioSource),
+  'the studio exposes every mode and sends validated tokens for custom mode'
+);
+contract(
+  /inheritHost: true/.test(themeStudioSource) && /resolved\.warnings/.test(themeStudioSource),
+  'host adaptation is demonstrated and validator warnings are surfaced'
+);
+contract(
+  /data-theme=\{resolvedTheme\.mode\}/.test(mainJsxSource)
+    && /data-scheme=\{resolvedTheme\.scheme\}/.test(mainJsxSource)
+    && /style=\{themeStyle\(resolvedTheme\)\}/.test(mainJsxSource),
+  'the sample widget publishes mode, scheme and token variables on its root'
+);
+contract(
+  /notificationLevelElement/.test(sdkReactSource) && /NOTIFICATION_LEVEL_SHAPES/.test(sdkReactSource),
+  'React renderers build the level glyphs from the shared SDK shapes'
+);
+contract(
+  !/dangerouslySetInnerHTML/.test(mainJsxSource) && !/dangerouslySetInnerHTML/.test(themeStudioSource),
+  'the React example injects no markup for themed glyphs'
+);
+contract(
+  /\.notice-demo\[data-level="critical"\][\s\S]*border-left-width: 4px/.test(exampleCssSource)
+    && /\.assistant-notice\[data-level="warning"\]/.test(exampleCssSource),
+  'the example renders all five notice levels in both the gallery and the live widget'
+);
+contract(
+  /btn-assistant-auto/.test(demoHtmlSource) && /btn-assistant-light/.test(demoHtmlSource)
+    && /btn-assistant-dark/.test(demoHtmlSource) && /btn-assistant-custom/.test(demoHtmlSource)
+    && /btn-assistant-host/.test(demoHtmlSource) && /btn-assistant-invalid/.test(demoHtmlSource),
+  'the playground drives all four theme modes plus host adaptation and invalid input'
+);
+contract(
+  /configure\(\{ theme: theme \}\)/.test(demoHtmlSource) && /getConfig\(\)\.meta\.warnings/.test(demoHtmlSource),
+  'the playground uses the public configure() surface and shows validation warnings'
+);
+contract(
+  /var\(--youge-font, inherit\)/.test(exampleCssSource)
+    && /var\(--youge-surface, #ffffff\)/.test(exampleCssSource)
+    && /var\(--youge-radius, 20px\)/.test(exampleCssSource),
+  'example surfaces paint from the shared tokens with the sample palette as fallback'
 );
 
 // 0.1.1 feature release: floating entry point auto-scaling + manual adjustment.

@@ -119,6 +119,8 @@ node scripts/verify-deployment.mjs https://you.example  # live deployment
 | [`INSTALLATION_EXPERIENCE.md`](INSTALLATION_EXPERIENCE.md) | you need the preserved install behavior and the future SDK install contract |
 | [`DESIGN_FOUNDATION.md`](DESIGN_FOUNDATION.md) | you need the ui-ux-pro-max-skill application record and React Bits adoption report |
 | [`WIDGET.md`](WIDGET.md) | you need the Intelligent Floating Assistant state model, SDK config, events, React Bits/skill record and test matrix |
+| [`THEMING.md`](THEMING.md) | you need the adaptive theme modes, host adaptation, token list, CSS isolation or notification level styling |
+| [`ADAPTIVE_THEME_AUDIT.md`](ADAPTIVE_THEME_AUDIT.md) | you want the audit, constraints and plan behind the theming work |
 | [`design-system/you-ge-assistant/MASTER.md`](design-system/you-ge-assistant/MASTER.md) | you are making UI decisions for the Assistant |
 | [`MULTI_DOMAIN.md`](MULTI_DOMAIN.md) | you need domain registry, manifest, scope and deployment examples |
 | [`DNS_RECOVERY.md`](DNS_RECOVERY.md) | you need DoH behavior, limitations or device recovery steps |

@@ -116,6 +116,29 @@ export interface ResolvedTheme {
   warnings: string[];
 }
 
+export type NotificationLevel = 'critical' | 'error' | 'warning' | 'info' | 'success';
+
+/** Notification tier metadata shared by the DOM widget and the React adapter. */
+export declare const NOTIFICATION_LEVELS: readonly NotificationLevel[];
+export type NotificationShape =
+  | { type: 'path'; d: string }
+  | { type: 'circle'; cx: number; cy: number; r: number }
+  | { type: 'dot'; cx: number; cy: number };
+
+/**
+ * Declarative glyph primitives per level. React-based renderers map these onto
+ * elements instead of injecting markup; the DOM widget uses the string form.
+ */
+export declare const NOTIFICATION_LEVEL_SHAPES: Readonly<Record<NotificationLevel, readonly NotificationShape[]>>;
+export declare const NOTIFICATION_LEVEL_SVG_ATTRIBUTES: Readonly<Record<string, string>>;
+/** Inner SVG markup for one level ('' for an unknown level). */
+export declare function notificationLevelMarkup(level: string): string;
+/** Clamp any value onto a known level (`'info'` when unknown). */
+export declare function normalizeNotificationLevel(level: unknown): NotificationLevel;
+/** Inner SVG markup per level (no scripts, no external references). */
+export declare const NOTIFICATION_LEVEL_ICONS: Readonly<Record<NotificationLevel, string>>;
+export declare const NOTIFICATION_LEVEL_LABELS: Readonly<Record<NotificationLevel, string>>;
+
 export declare const THEME_MODES: readonly ThemeMode[];
 export declare const COLOR_TOKEN_KEYS: readonly ThemeColorToken[];
 export declare const THEME_TOKEN_KEYS: readonly ThemeToken[];

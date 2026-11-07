@@ -54,6 +54,7 @@ import type {
 } from './browser/index.js';
 
 export type {
+  NotificationLevel as AssistantNotificationLevel,
   AssistantThemeConfig,
   AssistantThemeInput,
   AssistantThemeTokens,

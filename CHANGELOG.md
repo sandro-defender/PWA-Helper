@@ -1,5 +1,40 @@
 # Changelog
 
+## Unreleased — adaptive theming
+
+- **Four theme modes with a validated public config.** `theme` now also accepts
+  `{ mode: 'auto' | 'light' | 'dark' | 'custom', inheritHost, tokens, host,
+  variables }` next to the unchanged 0.x string form. Every value is validated
+  field by field with safe fallbacks and reported through the existing
+  `meta.warnings` channel; `getConfig().theme` still returns the mode string and
+  the validated record travels in `getConfig().themeConfig`. No new runtime
+  dependency, no version change, no new initialization API.
+- **Optional host adaptation.** `inheritHost: true` reads only accent,
+  background, surface, text, muted text, border, font family, radius and
+  integrator-supplied `--youge-*` variables — never layout, position, z-index,
+  offsets, launcher size or motion. Every inherited colour passes a contrast
+  guard; unusable host values are replaced with the Assistant's own and reported.
+- **CSS isolation without Shadow DOM.** A narrow layout guard with a matching
+  `[hidden]` rule, an inheritance boundary built from inherited private
+  properties, a subtree control reset and scoped selectors only (no universal
+  selector, no `:root`, no `!important` inside the reset).
+- **Five notification tiers** (`critical`, `error`, `warning`, `info`,
+  `success`) themed across fill, derived label ink, stripe width, glyph and title
+  weight, plus per-tier accessible labels. The level is a presentation field
+  derived from the unchanged priority ladder: ordering, suppression,
+  persistence, acknowledgement and events are untouched, and the notification
+  engine was not rewritten.
+- **One definition, two renderers.** `NOTIFICATION_LEVEL_SHAPES`,
+  `NOTIFICATION_LEVEL_ICONS`, `NOTIFICATION_LEVEL_LABELS`,
+  `normalizeNotificationLevel()`, `notificationLevelMarkup()` and the
+  `notificationLevelElement(level, createElement)` React helper are exported from
+  the SDK, so the DOM widget and the React example share glyphs and wording.
+- **React example studio** demonstrating all four modes, host adaptation
+  (including a low-contrast trap), two custom palettes, a contrast audit and all
+  five notification levels from the same tokens; the playground gains an
+  Assistant theme section that drives the public `configure()` API, including an
+  invalid palette that surfaces the warnings.
+
 ## 0.1.1 — 2026-11-07
 
 - **Android in-app browser detection + Chrome handoff (reusable SDK

@@ -459,11 +459,23 @@
     return mapped || 'info';
   }
 
-  function noticeIcon(level, notice) {
+  // The SDK publishes the exact glyph markup per level so the DOM widget and the
+  // React example cannot drift. The local map is the fallback for a page that
+  // loads the widget without the SDK metadata (and keeps the markup static).
+  function levelGlyph(level) {
+    var sdk = root.YouGeAssistantSDK;
+    var map = sdk && sdk.NOTIFICATION_LEVEL_ICONS;
+    if (map && typeof map[level] === 'string') return map[level];
+    var local = ICONS['level-' + level] || ICONS['level-info'];
+    var inner = /^<svg[^>]*>([\s\S]*)<\/svg>$/.exec(local);
+    return inner ? inner[1] : '';
+  }
+
+  function noticeIcon(level) {
     var span = el('span', 'youge-notice-icon');
     span.setAttribute('aria-hidden', 'true');
-    span.innerHTML = ICONS['level-' + level] || ICONS['level-info'];
-    if (notice && notice.kind) span.setAttribute('data-kind', notice.kind);
+    span.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" ' +
+      'stroke-linecap="round" stroke-linejoin="round">' + levelGlyph(level) + '</svg>';
     return span;
   }
 
@@ -473,7 +485,7 @@
     article.setAttribute('data-priority', String(notice.priority));
     article.setAttribute('data-tone', notice.tone || 'info');
     article.setAttribute('data-level', level);
-    article.appendChild(noticeIcon(level, notice));
+    article.appendChild(noticeIcon(level));
     var content = el('div', 'youge-notice-content');
     content.appendChild(el('h4', 'youge-notice-title', notice.title));
     content.appendChild(el('p', 'youge-notice-message', notice.message));

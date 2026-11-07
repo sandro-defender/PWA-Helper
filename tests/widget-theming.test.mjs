@@ -573,7 +573,9 @@ test('success and info tiers come from the restored connection and the backup en
 test('every level has a CSS treatment and an icon in the shipped stylesheet', () => {
   for (const level of ['critical', 'error', 'warning', 'info', 'success']) {
     assert.match(widgetCss, new RegExp(`\\.youge-notice\\[data-level="${level}"\\]`), `${level} tier is styled`);
-    assert.match(widgetSource, new RegExp(`'level-${level}'`), `${level} icon is defined`);
+    // The glyph markup comes from the SDK metadata both renderers share, with a
+    // local fallback for pages that load the widget without it.
+    assert.match(widgetSource, new RegExp(`level-\$\{level\}|'level-${level}'`), `${level} icon is defined`);
   }
   // Colour is never the only signal: the accent stripe plus a distinct glyph.
   assert.match(widgetCss, /\.youge-notice-icon \{/);

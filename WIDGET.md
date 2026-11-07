@@ -159,7 +159,10 @@ window.YOU_GE_ASSISTANT_CONFIG = {
   position: 'bottom-right',          // bottom-right | bottom-left | top-right | top-left
   offsets: { x: 20, y: 20 },         // CSS px, combined with safe-area insets
   branding: { name, shortName, icon, themeColor }, // icon must be same-origin
-  theme: 'auto',                     // auto | light | dark
+  theme: 'auto',                     // auto | light | dark (legacy string form)
+  // …or the object form (see THEMING.md):
+  // theme: { mode: 'auto' | 'light' | 'dark' | 'custom', inheritHost: false,
+  //          tokens: { primary, radius, … }, host: { … }, variables: { … } },
   modules: { installation, diagnostics, recovery, failover, help, updates, chromeHandoff },
   notifications: { dismissible, suppressRepeats, criticalPersistent },
   actions: [{ id, label, icon, priority, kind, message }],
@@ -183,6 +186,12 @@ Public API:
 | `requestInstall()` | Delegate to `PWA.promptInstall()` when available. |
 | `dismiss(id)` / `acknowledge(id)` | Suppression controls. |
 | `destroy()` | Cleanup. |
+
+`getConfig().theme` returns the mode string (unchanged 0.x contract);
+`getConfig().themeConfig` returns the validated theme record and
+`getConfig().meta.warnings` reports rejected values. See
+[`THEMING.md`](THEMING.md) for the four modes, host adaptation, tokens,
+isolation layers and notification tiers.
 
 Project-specific actions are rendered from `availableActions` and publish a
 `youge:action` CustomEvent on `document` with `{ id, kind, source }`. The host

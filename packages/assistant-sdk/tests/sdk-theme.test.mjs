@@ -16,7 +16,13 @@ import {
   COLOR_TOKEN_KEYS,
   PROTECTED_VARIABLES,
   THEME_MODES,
+  NOTIFICATION_LEVEL_LABELS,
+  NOTIFICATION_LEVEL_SHAPES,
+  NOTIFICATION_LEVEL_SVG_ATTRIBUTES,
+  NOTIFICATION_LEVELS,
   THEME_TOKEN_KEYS,
+  normalizeNotificationLevel,
+  notificationLevelMarkup,
   YouGeAssistant,
   bestInk,
   contrastRatio,
@@ -532,4 +538,76 @@ test('the level addition does not change dismissal, acknowledgement or persisten
     'acknowledgement still suppresses a critical notice'
   );
   assistant.destroy();
+});
+
+/* ------------------------------------------------------------------ *
+ * Notification level metadata: one definition, both renderers.        *
+ * ------------------------------------------------------------------ */
+
+test('the level metadata is frozen, ordered and complete', () => {
+  assert.deepEqual([...NOTIFICATION_LEVELS], ['critical', 'error', 'warning', 'info', 'success']);
+  assert.ok(Object.isFrozen(NOTIFICATION_LEVELS) && Object.isFrozen(NOTIFICATION_LEVEL_SHAPES));
+  assert.ok(Object.isFrozen(NOTIFICATION_LEVEL_SVG_ATTRIBUTES) && Object.isFrozen(NOTIFICATION_LEVEL_LABELS));
+  for (const level of NOTIFICATION_LEVELS) {
+    assert.ok(Array.isArray(NOTIFICATION_LEVEL_SHAPES[level]) && NOTIFICATION_LEVEL_SHAPES[level].length > 0, `${level} has shapes`);
+    assert.equal(typeof NOTIFICATION_LEVEL_LABELS[level], 'string');
+    assert.ok(Object.isFrozen(NOTIFICATION_LEVEL_SHAPES[level]), `${level} shapes are frozen`);
+  }
+});
+
+test('level shapes stay inside the 24-unit viewBox and never escape it', () => {
+  assert.deepEqual({ ...NOTIFICATION_LEVEL_SVG_ATTRIBUTES }, {
+    viewBox: '0 0 24 24',
+    fill: 'none',
+    stroke: 'currentColor',
+    'stroke-width': '1.9',
+    'stroke-linecap': 'round',
+    'stroke-linejoin': 'round',
+  });
+  for (const level of NOTIFICATION_LEVELS) {
+    for (const shape of NOTIFICATION_LEVEL_SHAPES[level]) {
+      if (shape.type === 'circle' || shape.type === 'dot') {
+        const radius = shape.type === 'dot' ? 0.9 : shape.r;
+        assert.ok(shape.cx - radius >= 0 && shape.cx + radius <= 24, `${level} circle fits horizontally`);
+        assert.ok(shape.cy - radius >= 0 && shape.cy + radius <= 24, `${level} circle fits vertically`);
+      }
+      if (shape.type === 'path') {
+        // Only the absolute start point is asserted: the rest of each outline is
+        // written with relative commands, which cannot be range-checked literally.
+        const start = /^[Mm]\s*(-?[\d.]+)[\s,]+(-?[\d.]+)/.exec(shape.d);
+        assert.ok(start, `${level} path starts with an absolute move`);
+        const [x, y] = [Number(start[1]), Number(start[2])];
+        assert.ok(x >= 0 && x <= 24 && y >= 0 && y <= 24, `${level} path starts inside the viewBox`);
+      }
+    }
+  }
+});
+
+test('level markup is deterministic, script-free and generated from the shapes', () => {
+  for (const level of NOTIFICATION_LEVELS) {
+    const markup = notificationLevelMarkup(level);
+    assert.ok(markup.length > 0, `${level} produces markup`);
+    assert.doesNotMatch(markup, /<script|on\w+=|href=|xlink/i, `${level} markup carries no script or external reference`);
+    assert.equal(markup, notificationLevelMarkup(level), 'repeated calls are identical');
+    assert.equal(
+      markup,
+      NOTIFICATION_LEVEL_SHAPES[level]
+        .map((shape) => {
+          if (shape.type === 'circle') return `<circle cx="${shape.cx}" cy="${shape.cy}" r="${shape.r}"/>`;
+          if (shape.type === 'dot') return `<circle cx="${shape.cx}" cy="${shape.cy}" r=".9" fill="currentColor" stroke="none"/>`;
+          return `<path d="${shape.d}"/>`;
+        })
+        .join(''),
+      `${level} markup is exactly the declarative shapes`,
+    );
+  }
+  assert.equal(notificationLevelMarkup('nope'), '', 'unknown levels produce nothing');
+});
+
+test('an unknown notification level degrades to info', () => {
+  assert.equal(normalizeNotificationLevel('critical'), 'critical');
+  assert.equal(normalizeNotificationLevel('nope'), 'info');
+  assert.equal(normalizeNotificationLevel(undefined), 'info');
+  assert.equal(normalizeNotificationLevel({ level: 'error' }), 'info');
+  assert.equal(normalizeNotificationLevel('toString'), 'info', 'prototype keys are not levels');
 });

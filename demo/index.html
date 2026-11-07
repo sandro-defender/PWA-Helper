@@ -293,6 +293,23 @@
         <button type="button" id="btn-toast">Toast</button>
       </div>
 
+      <h2>Assistant theme</h2>
+      <div class="actions" role="group" aria-labelledby="theme-modes-label">
+        <span class="label" id="theme-modes-label">Mode</span>
+        <button type="button" id="btn-assistant-auto" aria-pressed="true">Auto</button>
+        <button type="button" id="btn-assistant-light" aria-pressed="false">Light</button>
+        <button type="button" id="btn-assistant-dark" aria-pressed="false">Dark</button>
+        <button type="button" id="btn-assistant-custom" aria-pressed="false">Custom</button>
+        <button type="button" id="btn-assistant-host">Follow this page</button>
+        <button type="button" id="btn-assistant-invalid">Send an invalid palette</button>
+      </div>
+      <p class="note">
+        The same <code>theme</code> configuration for the floating Assistant:
+        <code>auto</code> follows this page and the OS, <code>light</code> / <code>dark</code> pin a
+        scheme, and <code>custom</code> accepts validated tokens. Invalid values are dropped field by
+        field and reported as warnings — the Assistant never breaks.
+      </p>
+
       <h2>More API tests</h2>
       <div class="actions">
         <button type="button" id="btn-history">Read push history</button>
@@ -514,6 +531,85 @@
         });
 
         var alternateTheme = false;
+        /* Assistant theming: the playground drives the public `configure()`
+           API, exactly what an integrator would call. The DOM widget resolves
+           mode + host adaptation through the shared SDK theme module. */
+        var assistantThemeButtons = ['auto', 'light', 'dark', 'custom'].map(function (mode) {
+          return { mode: mode, button: document.getElementById('btn-assistant-' + mode) };
+        });
+
+        function markAssistantMode(mode) {
+          assistantThemeButtons.forEach(function (entry) {
+            entry.button.setAttribute('aria-pressed', entry.mode === mode ? 'true' : 'false');
+          });
+        }
+
+        function configureAssistantTheme(theme, label) {
+          if (!window.YouGeAssistant) {
+            write('assistant state is not loaded');
+            return;
+          }
+          window.YouGeAssistant.attach().configure({ theme: theme });
+          var config = window.YouGeAssistant.getState().appearance.themeConfig;
+          // Validation feedback travels through the existing `meta.warnings`
+          // channel, so a rejected value is visible and never silent.
+          var warnings = (window.YouGeAssistant.getConfig().meta.warnings || []).filter(function (code) {
+            return code.indexOf('theme') === 0;
+          });
+          markAssistantMode(config.mode);
+          write(label + ' → mode ' + config.mode +
+            (warnings.length ? ', warnings: ' + warnings.join(', ') : ', no warnings'));
+        }
+
+        assistantThemeButtons.forEach(function (entry) {
+          // `custom` needs tokens, so it has its own handler below.
+          if (entry.mode === 'custom') return;
+          entry.button.addEventListener('click', function () {
+            configureAssistantTheme(entry.mode, 'assistant theme ' + entry.mode);
+          });
+        });
+
+        document.getElementById('btn-assistant-custom').addEventListener('click', function () {
+          configureAssistantTheme({
+            mode: 'custom',
+            tokens: {
+              primary: '#7c3aed',
+              surface: '#ffffff',
+              surfaceSoft: '#faf7ff',
+              text: '#1f1235',
+              mutedText: '#5b5370',
+              border: '#e9e3f5',
+              radius: 16,
+              fontFamily: 'Inter, system-ui, sans-serif',
+            },
+          }, 'assistant theme custom');
+        });
+
+        document.getElementById('btn-assistant-host').addEventListener('click', function () {
+          // `inheritHost` reads only the allowlisted tokens from this page and
+          // contrast-guards every one of them.
+          configureAssistantTheme({
+            mode: 'auto',
+            inheritHost: true,
+            host: {
+              primary: '#17634f',
+              surface: '#ffffff',
+              surfaceSoft: '#f8faf8',
+              text: '#1d2c26',
+              mutedText: '#68786f',
+              border: '#e3eae4',
+              fontFamily: 'Georgia, "Times New Roman", serif',
+            },
+          }, 'assistant theme follows this page');
+        });
+
+        document.getElementById('btn-assistant-invalid').addEventListener('click', function () {
+          configureAssistantTheme({
+            mode: 'custom',
+            tokens: { primary: 'url(javascript:alert(1))', radius: 999, borderWidth: -4, shadow: '<script>' },
+          }, 'assistant theme invalid');
+        });
+
         document.getElementById('btn-theme').addEventListener('click', function () {
           alternateTheme = !alternateTheme;
           PWA.applyTheme(alternateTheme ? {

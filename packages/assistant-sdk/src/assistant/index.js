@@ -50,7 +50,7 @@ import { normalizeTheme } from '../theme/index.js';
  *   success  — good news (service restored, the app can be installed)
  *   info     — context only (failover active, available update, features)
  */
-export const NOTIFICATION_LEVELS = Object.freeze({
+export const NOTIFICATION_LEVEL_MAP = Object.freeze({
   'network:offline': 'critical',
   'dns:failure': 'critical',
   'network:unreachable': 'critical',
@@ -64,7 +64,7 @@ export const NOTIFICATION_LEVELS = Object.freeze({
 
 export function notificationLevel(id, priority) {
   const key = String(id || '');
-  if (NOTIFICATION_LEVELS[key]) return NOTIFICATION_LEVELS[key];
+  if (NOTIFICATION_LEVEL_MAP[key]) return NOTIFICATION_LEVEL_MAP[key];
   if (key.indexOf('feature:') === 0) return 'info';
   switch (priority) {
     case PRIORITY.critical: return 'critical';

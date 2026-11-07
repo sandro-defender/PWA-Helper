@@ -103,6 +103,12 @@ ${sections.join('\n\n')}
     // Adaptive theming — same validation/resolution in classic and ESM pages.
     THEME_MODES: THEME_MODES,
     THEME_TOKEN_KEYS: THEME_TOKEN_KEYS,
+    NOTIFICATION_LEVELS: NOTIFICATION_LEVELS,
+    NOTIFICATION_LEVEL_ICONS: NOTIFICATION_LEVEL_ICONS,
+    NOTIFICATION_LEVEL_SHAPES: NOTIFICATION_LEVEL_SHAPES,
+    NOTIFICATION_LEVEL_SVG_ATTRIBUTES: NOTIFICATION_LEVEL_SVG_ATTRIBUTES,
+    notificationLevelMarkup: notificationLevelMarkup,
+    NOTIFICATION_LEVEL_LABELS: NOTIFICATION_LEVEL_LABELS,
     normalizeTheme: normalizeTheme,
     resolveTheme: resolveTheme,
     detectHostScheme: detectHostScheme,
