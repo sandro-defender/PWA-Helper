@@ -30,12 +30,20 @@
     info: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>',
     update: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8.5 11.5L12 15l3.5-3.5"/><path d="M5 19h14"/></svg>',
     custom: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
+    // Notification levels. One icon per level, so severity is never carried by
+    // colour alone: shape differs too.
+    'level-critical': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M8.6 3h6.8L21 8.6v6.8L15.4 21H8.6L3 15.4V8.6z"/><path d="M12 8v5"/><circle cx="12" cy="16.5" r=".9" fill="currentColor" stroke="none"/></svg>',
+    'level-error': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5"/><circle cx="12" cy="16.5" r=".9" fill="currentColor" stroke="none"/></svg>',
+    'level-warning': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.2 22 20.4H2z"/><path d="M12 9.5v4.6"/><circle cx="12" cy="17.4" r=".9" fill="currentColor" stroke="none"/></svg>',
+    'level-info': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5"/><circle cx="12" cy="7.6" r=".9" fill="currentColor" stroke="none"/></svg>',
+    'level-success': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m7.8 12.3 2.9 2.9 5.6-6"/></svg>',
   };
 
   // Mirrors the SDK's accepted appearance values so a hand-built state object
   // cannot push an unsupported value into the widget's attributes.
   var POSITIONS = ['bottom-right', 'bottom-left', 'top-right', 'top-left'];
-  var THEMES = ['auto', 'light', 'dark'];
+  // Mirrors the SDK (0.x string modes plus the adaptive `custom` mode).
+  var THEMES = ['auto', 'light', 'dark', 'custom'];
 
   // Fallback wording for notice actions that no project action list provides.
   var NOTICE_ACTION_LABELS = {
@@ -75,6 +83,11 @@
   var chromeStatusEl = null;
   var chromeInstructions = null;
   var chromeSuppressed = false;
+  // Resolved theme state, so a re-render on every state emission does not
+  // re-read host styles or re-write identical custom properties.
+  var themeApplied = null;
+  var themeSignature = '';
+  var themeMedia = null;
 
   // Manual icon adjustments (size / horizontal / vertical) persist per
   // origin so they survive page reloads and PWA restarts. `{}` means fully
@@ -248,21 +261,134 @@
     return Math.min(160, Math.max(0, Math.round(number))) + 'px';
   }
 
+  /* ---------------------------------------------------------------- *
+   * Adaptive theming.                                               *
+   *                                                                 *
+   * The SDK owns validation (`YouGeAssistantSDK.normalizeTheme`) and *
+   * resolution (`resolveTheme`): the widget only applies the result. *
+   * That keeps classic <script> pages, the ESM SDK and the React     *
+   * example on one implementation, and keeps this file a renderer.  *
+   * ---------------------------------------------------------------- */
+
+  function themeApi() {
+    var sdk = root.YouGeAssistantSDK;
+    return sdk && typeof sdk.resolveTheme === 'function' ? sdk : null;
+  }
+
+  // Fallback for a host that replaced window.YouGeAssistant with its own
+  // hand-built state object: the SDK helpers may not be reachable, but the
+  // documented subset of the theme record still has to render.
+  function themeFromAppearance(appearance) {
+    var config = appearance.themeConfig;
+    var mode = THEMES.indexOf(appearance.theme) !== -1 ? appearance.theme : 'auto';
+    if (config && typeof config === 'object' && !Array.isArray(config)) {
+      return {
+        mode: THEMES.indexOf(config.mode) !== -1 ? config.mode : mode,
+        inheritHost: config.inheritHost === true,
+        tokens: config.tokens && typeof config.tokens === 'object' ? config.tokens : {},
+        host: config.host && typeof config.host === 'object' ? config.host : {},
+        variables: config.variables && typeof config.variables === 'object' ? config.variables : {},
+      };
+    }
+    return { mode: mode, inheritHost: false, tokens: {}, host: {}, variables: {} };
+  }
+
   var HEX_COLOR = /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
+
+  function resolveThemeFor(appearance) {
+    var theme = themeFromAppearance(appearance);
+    var sdk = themeApi();
+    if (!sdk) return null;
+    try {
+      return sdk.resolveTheme(theme, {
+        document: doc,
+        root: root,
+        matchMedia: root.matchMedia || null,
+        // `branding.themeColor` stays supported as the project's primary colour;
+        // an explicit theme token or host value still wins inside resolveTheme.
+        seedPrimary: HEX_COLOR.test(String(appearance.themeColor || '')) ? appearance.themeColor : null,
+      });
+    } catch (error) {
+      return null;
+    }
+  }
+
+  // Writes resolved variables to the root. Inline custom properties outrank
+  // every stylesheet rule, which is why custom mode and host adaptation work
+  // without a second cascade. Only `--youge-*` names are ever written.
+  function applyThemeVariables(resolved) {
+    if (!mount || !mount.style || !resolved) return;
+    var next = resolved.variables || {};
+    var previous = themeApplied || {};
+    Object.keys(previous).forEach(function (name) {
+      if (!Object.prototype.hasOwnProperty.call(next, name)) clearStyleProp(mount, name);
+    });
+    Object.keys(next).forEach(function (name) {
+      if (!/^--youge-[a-z0-9-]+$/.test(name)) return;
+      mount.style.setProperty(name, String(next[name]));
+    });
+    themeApplied = next;
+  }
+
+  // `auto` must follow the host when it flips its own scheme (theme switcher,
+  // OS appearance change). A single media listener covers the OS case; the
+  // host attribute/class case is re-checked on every state emission.
+  function watchScheme() {
+    if (themeMedia || !themeApi() || typeof root.matchMedia !== 'function') return;
+    try {
+      themeMedia = root.matchMedia('(prefers-color-scheme: dark)');
+      if (!themeMedia) return;
+      var onChange = function () { applyAppearance(api.getState()); };
+      if (typeof themeMedia.addEventListener === 'function') themeMedia.addEventListener('change', onChange);
+      else if (typeof themeMedia.addListener === 'function') themeMedia.addListener(onChange);
+    } catch (error) {
+      themeMedia = null;
+    }
+  }
+
+  function applyTheme(appearance) {
+    var resolved = resolveThemeFor(appearance);
+    var mode = resolved ? resolved.mode : (THEMES.indexOf(appearance.theme) !== -1 ? appearance.theme : 'auto');
+    mount.setAttribute('data-theme', mode);
+    if (!resolved) {
+      // No SDK resolver (hand-built host state): clear anything a previous
+      // theme wrote so the stylesheet defaults apply again.
+      applyThemeVariables({ variables: {} });
+      mount.removeAttribute('data-scheme');
+      mount.removeAttribute('data-theme-inherit');
+      themeSignature = '';
+      return;
+    }
+    mount.setAttribute('data-scheme', resolved.scheme === 'dark' ? 'dark' : 'light');
+    if (resolved.inheritHost) mount.setAttribute('data-theme-inherit', '');
+    else mount.removeAttribute('data-theme-inherit');
+    var signature = JSON.stringify([resolved.mode, resolved.scheme, resolved.variables]);
+    if (signature === themeSignature) return;
+    themeSignature = signature;
+    applyThemeVariables(resolved);
+    watchScheme();
+  }
 
   function applyAppearance(state) {
     if (!mount || !state) return;
     var appearance = state.appearance || {};
     var offsets = appearance.offsets || {};
     mount.setAttribute('data-position', POSITIONS.indexOf(appearance.position) !== -1 ? appearance.position : 'bottom-right');
-    mount.setAttribute('data-theme', THEMES.indexOf(appearance.theme) !== -1 ? appearance.theme : 'auto');
+    applyTheme(appearance);
     // A manual horizontal/vertical adjustment (set by the user in the panel)
     // wins over the configured offsets until it is reset to automatic.
     var manualX = manualAdjust && manualAdjust.x != null;
     var manualY = manualAdjust && manualAdjust.y != null;
     mount.style.setProperty('--youge-offset-x', manualX ? manualAdjust.x + 'px' : offsetPx(offsets.x, 20));
     mount.style.setProperty('--youge-offset-y', manualY ? manualAdjust.y + 'px' : offsetPx(offsets.y, 20));
-    if (HEX_COLOR.test(String(appearance.themeColor || ''))) mount.style.setProperty('--youge-brand', appearance.themeColor);
+    // Only a plain hex color may set the brand token, and only when the SDK
+    // resolver is unavailable (a hand-built host state). With a resolver the
+    // colour travels through `seedPrimary` and is validated and contrast-checked
+    // there, so an arbitrary string can never reach the style property.
+    var themed = themeApplied && Object.prototype.hasOwnProperty.call(themeApplied, '--youge-brand');
+    if (!themed && HEX_COLOR.test(String(appearance.themeColor || ''))) {
+      mount.style.setProperty('--youge-brand', appearance.themeColor);
+    }
     mount.hidden = state.enabled === false;
   }
 
@@ -321,11 +447,45 @@
     return null;
   }
 
+  // Presentation-only severity. The SDK publishes `level`; older or
+  // hand-built state objects fall back to the priority ladder here so the same
+  // five tiers always render.
+  var LEVELS = ['critical', 'error', 'warning', 'info', 'success'];
+  var PRIORITY_LEVEL = { 1: 'critical', 2: 'warning', 3: 'info', 4: 'success', 5: 'info' };
+
+  function noticeLevel(notice) {
+    if (LEVELS.indexOf(notice.level) !== -1) return notice.level;
+    var mapped = PRIORITY_LEVEL[notice.priority];
+    return mapped || 'info';
+  }
+
+  // The SDK publishes the exact glyph markup per level so the DOM widget and the
+  // React example cannot drift. The local map is the fallback for a page that
+  // loads the widget without the SDK metadata (and keeps the markup static).
+  function levelGlyph(level) {
+    var sdk = root.YouGeAssistantSDK;
+    var map = sdk && sdk.NOTIFICATION_LEVEL_ICONS;
+    if (map && typeof map[level] === 'string') return map[level];
+    var local = ICONS['level-' + level] || ICONS['level-info'];
+    var inner = /^<svg[^>]*>([\s\S]*)<\/svg>$/.exec(local);
+    return inner ? inner[1] : '';
+  }
+
+  function noticeIcon(level) {
+    var span = el('span', 'youge-notice-icon');
+    span.setAttribute('aria-hidden', 'true');
+    span.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" ' +
+      'stroke-linecap="round" stroke-linejoin="round">' + levelGlyph(level) + '</svg>';
+    return span;
+  }
+
   function renderNotice(notice, actions) {
     var article = el('article', 'youge-notice');
+    var level = noticeLevel(notice);
     article.setAttribute('data-priority', String(notice.priority));
     article.setAttribute('data-tone', notice.tone || 'info');
-    article.appendChild(icon(notice.priority === 1 ? 'recovery' : notice.priority === 4 ? 'install' : 'info'));
+    article.setAttribute('data-level', level);
+    article.appendChild(noticeIcon(level));
     var content = el('div', 'youge-notice-content');
     content.appendChild(el('h4', 'youge-notice-title', notice.title));
     content.appendChild(el('p', 'youge-notice-message', notice.message));

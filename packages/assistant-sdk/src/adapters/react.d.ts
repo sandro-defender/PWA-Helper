@@ -1,5 +1,11 @@
 import type { AssistantConfigInput } from '../config/index.js';
 import type { AssistantEnvironment, AssistantInstance, AssistantState } from '../index.js';
+import type { AssistantNotificationLevel } from '../index.js';
+import type {
+  ResolvedColorScheme,
+  ResolvedTheme,
+  ThemeResolutionContext,
+} from '../theme/index.js';
 
 export type UseSyncExternalStoreFn = <Snapshot>(
   subscribe: (onStoreChange: () => void) => () => void,
@@ -30,6 +36,24 @@ export interface ReactAdapterOptions {
 export interface ReactAssistantAdapter {
   getAssistant(): AssistantInstance;
   useAssistant: UseAssistantHook;
+  /**
+   * Resolve the current appearance into theme variables using the same SDK
+   * resolver the DOM widget uses — a React renderer never re-implements theming.
+   */
+  resolveTheme(
+    appearance?: AssistantState['appearance'],
+    options?: { document?: Document | null; hostScheme?: ResolvedColorScheme }
+  ): ResolvedTheme;
+  /** Accessible tier name for a notification level. */
+  notificationLevelLabel(level: unknown): string;
+  /**
+   * Build the level glyph with the host's own `createElement`, so applications
+   * never inject markup. Falls back to `createElement` from the adapter options.
+   */
+  notificationLevelElement(
+    level: unknown,
+    createElement?: (type: string, props: Record<string, unknown>) => unknown
+  ): unknown;
   dispatchAction(id: string, kind?: string): void;
 }
 
@@ -57,6 +81,18 @@ export declare function createUseAssistant(
   assistantOrGetter?: AssistantInstance | (() => AssistantInstance),
   fallbackState?: AssistantState
 ): UseAssistantHook;
+
+export declare function resolveAppearanceTheme(
+  appearance?: AssistantState['appearance'] | null,
+  options?: ThemeResolutionContext & { hostScheme?: ResolvedColorScheme }
+): ResolvedTheme;
+
+export declare function notificationLevelLabel(level: unknown): string;
+
+export declare function notificationLevelElement(
+  level: unknown,
+  createElement: (type: string, props: Record<string, unknown>, children?: unknown) => unknown
+): unknown;
 
 export declare function dispatchAssistantAction(
   id: string,

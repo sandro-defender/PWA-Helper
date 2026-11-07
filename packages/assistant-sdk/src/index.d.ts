@@ -54,6 +54,21 @@ import type {
 } from './browser/index.js';
 
 export type {
+  NotificationLevel as AssistantNotificationLevel,
+  AssistantThemeConfig,
+  AssistantThemeInput,
+  AssistantThemeTokens,
+  AssistantThemeVariables,
+  NormalizedTheme,
+  ResolvedColorScheme,
+  ResolvedTheme,
+  ThemeColorToken,
+  ThemeMode,
+  ThemeResolutionContext,
+  ThemeStructureToken,
+  ThemeToken,
+} from './theme/index.js';
+export type {
   AssistantAction,
   AssistantActionIcon,
   AssistantActionInput,
@@ -101,6 +116,12 @@ export type {
 };
 
 export type NotificationTone = 'critical' | 'auth' | 'backup' | 'install' | 'info';
+/**
+ * Presentation severity of a notification. Derived from the existing priority
+ * ladder and notification id by a pure function: priorities, ids, persistence,
+ * suppression and acknowledgement rules are unchanged.
+ */
+export type NotificationLevel = 'critical' | 'error' | 'warning' | 'info' | 'success';
 export type PrimaryEndpointState = 'unknown' | 'healthy' | 'failed' | 'unavailable' | 'degraded';
 export type BackupEndpointState = 'unknown' | 'active' | 'inactive' | 'failed';
 export type ActiveEndpointTarget = 'primary' | 'backup' | 'unknown';
@@ -143,6 +164,8 @@ export interface AssistantNotification {
   id: string;
   priority: number;
   tone: NotificationTone;
+  /** Presentation severity used by the theme system. */
+  level: NotificationLevel;
   critical: boolean;
   dismissible: boolean;
   title: string;
@@ -160,7 +183,10 @@ export interface AssistantBadgeState {
 export interface AssistantAppearanceState {
   position: AssistantPosition;
   offsets: AssistantOffsets;
+  /** Backward-compatible theme mode string. */
   theme: AssistantTheme;
+  /** Validated theme record (mode, inheritHost, tokens, host, variables). */
+  themeConfig: import('./theme/index.js').NormalizedTheme;
   themeColor: string;
 }
 
@@ -289,6 +315,7 @@ export declare const PRIORITY: Readonly<{ critical: 1; auth: 2; backup: 3; insta
 export declare const TONE: Readonly<{ 1: 'critical'; 2: 'auth'; 3: 'backup'; 4: 'install'; 5: 'info' }>;
 export declare const POSITIONS: readonly AssistantPosition[];
 export declare const THEMES: readonly AssistantTheme[];
+export declare const THEME_MODES: readonly import('./theme/index.js').ThemeMode[];
 export declare const ICONS: readonly AssistantActionIcon[];
 export declare const EVENT_NAMES: Readonly<Record<string, string>>;
 export declare const STORAGE_PREFIXES: Readonly<{ notices: string; lastKnownGood: string }>;
@@ -331,6 +358,27 @@ export {
   readPwaSnapshot,
   requestPwaInstall,
 } from './installation/index.js';
+
+export {
+  ASSISTANT_FONT_STACK,
+  ASSISTANT_PALETTES,
+  COLOR_TOKEN_KEYS,
+  PROTECTED_VARIABLES,
+  THEME_DEFAULTS,
+  THEME_MODES,
+  THEME_TOKEN_KEYS,
+  TOKEN_CSS_VARIABLES,
+  bestInk,
+  contrastRatio,
+  detectHostScheme,
+  detectHostTypography,
+  isSafeCssValue,
+  normalizeToken,
+  normalizeTheme,
+  relativeLuminance,
+  resolveTheme,
+  themeToCssVariables,
+} from './theme/index.js';
 
 export {
   CHROME_OFFER_STORAGE_KEY,

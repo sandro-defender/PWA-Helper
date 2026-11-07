@@ -1,13 +1,17 @@
-import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { createRoot } from 'react-dom/client';
 import { YouGeAssistant, createChromeHandoff } from '@youge/assistant-sdk';
 import {
   FALLBACK_ASSISTANT_STATE,
   dispatchAssistantAction,
   getExternalStoreBindings,
+  notificationLevelElement,
+  notificationLevelLabel,
+  resolveAppearanceTheme,
 } from '@youge/assistant-sdk/react';
 import ElectricLogo from './ElectricLogo.jsx';
 import FoundationPreview from './FoundationPreview.tsx';
+import ThemeStudio from './ThemeStudio.jsx';
 import GlareHover from './react-bits/GlareHover';
 import LatticeLoader from './react-bits/LatticeLoader';
 import SpotlightCard from './react-bits/SpotlightCard';
@@ -50,6 +54,7 @@ const fallbackState = {
     ...FALLBACK_ASSISTANT_STATE.appearance,
     offsets: { x: 16, y: 16 },
     theme: 'light',
+    themeConfig: { mode: 'light', inheritHost: false, tokens: {}, host: {}, variables: {} },
     themeColor: '#17634f',
   },
 };
@@ -59,6 +64,39 @@ const assistantStore = getExternalStoreBindings(
   null,
   fallbackState
 );
+
+/* The theme bridge. `resolveAppearanceTheme` is the SDK resolver the DOM widget
+ * also calls, so the sample cannot drift from the shipped widget. The returned
+ * variables are applied as inline custom properties on the widget root. */
+function useResolvedTheme(appearance) {
+  return React.useMemo(
+    () => resolveAppearanceTheme(appearance, { root: window, document }),
+    [appearance]
+  );
+}
+
+function themeStyle(resolved) {
+  const style = {};
+  Object.keys(resolved.variables).forEach((name) => {
+    style[name] = resolved.variables[name];
+  });
+  style.colorScheme = resolved.scheme;
+  return style;
+}
+
+/* The example wraps the SDK's React helpers once so JSX stays readable. Both
+ * are thin: the glyph shapes, labels and theme tokens all come from the SDK. */
+function NotificationLevelGlyph({ level }) {
+  return notificationLevelElement(level, React.createElement);
+}
+
+function NotificationIcon({ level }) {
+  return (
+    <span className="assistant-notice-icon" aria-hidden="true">
+      <NotificationLevelGlyph level={level} />
+    </span>
+  );
+}
 
 function dispatchWidgetAction(id, kind) {
   dispatchAssistantAction(id, kind, {
@@ -187,6 +225,8 @@ function AssistantFloatingWidget() {
     assistantStore.getServerSnapshot
   );
   const [open, setOpen] = useState(false);
+  const appearance = state.appearance || fallbackState.appearance;
+  const resolvedTheme = useResolvedTheme(appearance);
   // The electric accent is interaction feedback, so it only exists while the
   // button is hovered or focused, or the panel is open. Nothing animates while
   // the assistant is idle.
@@ -227,7 +267,15 @@ function AssistantFloatingWidget() {
   }
 
   return (
-    <div className="assistant-widget" ref={widgetRef} data-position={state.appearance?.position || 'bottom-right'}>
+    <div
+      className="assistant-widget"
+      ref={widgetRef}
+      data-position={appearance.position || 'bottom-right'}
+      data-theme={resolvedTheme.mode}
+      data-scheme={resolvedTheme.scheme}
+      data-theme-inherit={resolvedTheme.inheritHost ? '' : undefined}
+      style={themeStyle(resolvedTheme)}
+    >
       <section
         className={`assistant-panel${open ? ' is-open' : ''}`}
         id="assistant-panel"
@@ -290,7 +338,14 @@ function AssistantFloatingWidget() {
           {notifications.length ? (
             <ul className="assistant-notice-list">
               {notifications.map((notice) => (
-                <li className={`assistant-notice priority-${notice.priority}`} key={notice.id} data-tone={notice.tone}>
+                <li
+                  className={`assistant-notice priority-${notice.priority}`}
+                  key={notice.id}
+                  data-tone={notice.tone}
+                  data-level={notice.level}
+                  aria-label={`${notificationLevelLabel(notice.level)} notice`}
+                >
+                  <NotificationIcon level={notice.level} />
                   <div className="assistant-notice-copy">
                     <strong>{notice.title}</strong>
                     <p>{notice.message}</p>
@@ -440,8 +495,42 @@ function AssistantFloatingWidget() {
   );
 }
 
+/* Theme ownership lives here, once. The studio writes configuration into the
+ * shared assistant singleton; the floating widget reads it back through the same
+ * `useSyncExternalStore` subscription the rest of the sample uses. Nothing in the
+ * example keeps a parallel theme model. */
+function ThemeStudioHost() {
+  const state = useSyncExternalStore(
+    assistantStore.subscribe,
+    assistantStore.getSnapshot,
+    assistantStore.getServerSnapshot
+  );
+  const appearance = state.appearance || fallbackState.appearance;
+  const badge = state.badge || fallbackState.badge;
+  const hostScheme = useMemo(() => {
+    const probe = resolveAppearanceTheme({ ...appearance, theme: 'auto', themeConfig: { mode: 'auto' } }, { root: window, document });
+    return probe.scheme;
+  }, [appearance]);
+
+  function changeTheme(theme) {
+    YouGeAssistant.attach().configure({ theme });
+  }
+
+  return (
+    <ThemeStudio
+      currentTheme={appearance.themeConfig || appearance.theme}
+      onChange={changeTheme}
+      hostScheme={hostScheme}
+      badgeCount={badge.count || 0}
+    />
+  );
+}
+
 const mount = document.getElementById('assistant-floating-root');
 if (mount) createRoot(mount).render(<AssistantFloatingWidget />);
+
+const themeMount = document.getElementById('assistant-theme-studio');
+if (themeMount) createRoot(themeMount).render(<ThemeStudioHost />);
 
 const foundationMount = document.getElementById('assistant-foundation-root');
 if (foundationMount) createRoot(foundationMount).render(<FoundationPreview />);

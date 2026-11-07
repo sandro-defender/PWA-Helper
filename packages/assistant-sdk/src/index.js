@@ -52,14 +52,43 @@ import {
   requestPwaInstall,
 } from './installation/index.js';
 import {
+  NOTIFICATION_LEVEL_MAP,
   attachAssistant,
   createAssistant,
   getGlobalAssistant,
+  notificationLevel,
 } from './assistant/index.js';
 import {
   bridgePwaGlobals,
   readToolkitSummary,
 } from './adapters/pwa-kit.js';
+import {
+  ASSISTANT_FONT_STACK,
+  ASSISTANT_PALETTES,
+  COLOR_TOKEN_KEYS,
+  PROTECTED_VARIABLES,
+  NOTIFICATION_LEVEL_ICONS,
+  NOTIFICATION_LEVEL_LABELS,
+  NOTIFICATION_LEVEL_SHAPES,
+  NOTIFICATION_LEVEL_SVG_ATTRIBUTES,
+  NOTIFICATION_LEVELS,
+  notificationLevelMarkup,
+  normalizeNotificationLevel,
+  THEME_DEFAULTS,
+  THEME_MODES,
+  THEME_TOKEN_KEYS,
+  TOKEN_CSS_VARIABLES,
+  bestInk,
+  contrastRatio,
+  detectHostScheme,
+  detectHostTypography,
+  isSafeCssValue,
+  normalizeTheme,
+  normalizeToken,
+  relativeLuminance,
+  resolveTheme,
+  themeToCssVariables,
+} from './theme/index.js';
 import {
   CHROME_OFFER_STORAGE_KEY,
   CHROME_PACKAGE,
@@ -85,6 +114,11 @@ export const YouGeAssistant = Object.freeze({
   detectInAppBrowser: detectInAppBrowser,
   buildChromeIntentUrl: buildChromeIntentUrl,
   createChromeHandoff: createChromeHandoff,
+  // Adaptive theming: validate / resolve a theme without instantiating state.
+  normalizeTheme: normalizeTheme,
+  resolveTheme: resolveTheme,
+  THEME_MODES: THEME_MODES,
+  THEME_TOKEN_KEYS: THEME_TOKEN_KEYS,
 });
 
 export {
@@ -128,6 +162,8 @@ export {
   createAssistant,
   attachAssistant,
   getGlobalAssistant,
+  notificationLevel,
+  NOTIFICATION_LEVEL_MAP,
   bridgePwaGlobals,
   readToolkitSummary,
   CHROME_PACKAGE,
@@ -137,6 +173,31 @@ export {
   buildChromeIntentUrl,
   chromeHandoffInstructions,
   createChromeHandoff,
+  THEME_MODES,
+  THEME_TOKEN_KEYS,
+  NOTIFICATION_LEVELS,
+  NOTIFICATION_LEVEL_ICONS,
+  NOTIFICATION_LEVEL_LABELS,
+  NOTIFICATION_LEVEL_SHAPES,
+  NOTIFICATION_LEVEL_SVG_ATTRIBUTES,
+  normalizeNotificationLevel,
+  notificationLevelMarkup,
+  COLOR_TOKEN_KEYS,
+  TOKEN_CSS_VARIABLES,
+  PROTECTED_VARIABLES,
+  ASSISTANT_PALETTES,
+  ASSISTANT_FONT_STACK,
+  THEME_DEFAULTS,
+  normalizeTheme,
+  normalizeToken,
+  resolveTheme,
+  themeToCssVariables,
+  detectHostScheme,
+  detectHostTypography,
+  contrastRatio,
+  relativeLuminance,
+  bestInk,
+  isSafeCssValue,
 };
 
 export default YouGeAssistant;

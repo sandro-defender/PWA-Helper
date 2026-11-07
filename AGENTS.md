@@ -10,7 +10,7 @@ CSS, a manifest, a service worker, static icons, central domain configuration,
 and an on-demand DNS diagnostics module. There is no build step or runtime
 package install.
 
-Current runtime version: **1.0.5** (`PWA.version` and `VERSION` in
+Current runtime version: **1.1.0** (`PWA.version` and `VERSION` in
 `progressier.js`). For architecture findings and risks, see
 [`ARCHITECTURE_AUDIT.md`](ARCHITECTURE_AUDIT.md) and
 [`FOUNDATION_AUDIT.md`](FOUNDATION_AUDIT.md).

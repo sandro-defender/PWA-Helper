@@ -764,11 +764,17 @@ section('Intelligent Floating Assistant contracts');
 const assistantState = readFileSync(at('assistant-state.js'), 'utf8');
 const assistantWidget = readFileSync(at('assistant-widget.js'), 'utf8');
 const assistantStyles = readFileSync(at('assistant-widget.css'), 'utf8');
+const themeSource = readFileSync(at('packages/assistant-sdk/src/theme/index.js'), 'utf8');
+const sdkConfigSource = readFileSync(at('packages/assistant-sdk/src/config/index.js'), 'utf8');
+const sdkAssistantSource = readFileSync(at('packages/assistant-sdk/src/assistant/index.js'), 'utf8');
 const demoHtmlSource = readFileSync(at('demo/index.html'), 'utf8');
 const exampleHtmlSource2 = readFileSync(at('example/index.html'), 'utf8');
 const offlineHtmlSource = readFileSync(at('offline.html'), 'utf8');
 const snippetHtmlSource = readFileSync(at('snippet.html'), 'utf8');
 const mainJsxSource = readFileSync(at('example/src/main.jsx'), 'utf8');
+const themeStudioSource = readFileSync(at('example/src/ThemeStudio.jsx'), 'utf8');
+const exampleCssSource = readFileSync(at('example/example.css'), 'utf8');
+const sdkReactSource = readFileSync(at('packages/assistant-sdk/src/adapters/react.js'), 'utf8');
 const pagesWorkflowSource = readFileSync(at('.github/workflows/pages.yml'), 'utf8');
 const viteConfigSource = readFileSync(at('example/vite.config.js'), 'utf8');
 const offlineJsSource = readFileSync(at('offline.js'), 'utf8');
@@ -828,6 +834,8 @@ const sdkRequired = [
   'packages/assistant-sdk/src/installation/index.js',
   'packages/assistant-sdk/src/installation/index.d.ts',
   'packages/assistant-sdk/src/assistant/index.js',
+  'packages/assistant-sdk/src/theme/index.js',
+  'packages/assistant-sdk/src/theme/index.d.ts',
   'packages/assistant-sdk/src/adapters/pwa-kit.js',
   'packages/assistant-sdk/src/adapters/react.js',
   'packages/assistant-sdk/src/adapters/react.d.ts',
@@ -838,7 +846,7 @@ for (const rel of sdkRequired) {
 
 const sdkPkg = JSON.parse(readFileSync(at('packages/assistant-sdk/package.json'), 'utf8'));
 contract(sdkPkg.name === '@youge/assistant-sdk', 'SDK package name is @youge/assistant-sdk');
-contract(sdkPkg.version === '0.1.1' && sdkPkg.private !== true, 'SDK package is release-ready at 0.1.1 (0.1.1 feature release; publishing still gated by sdk-release-prep)');
+contract(sdkPkg.version === '0.2.0' && sdkPkg.private !== true, 'SDK package is release-ready at 0.2.0 (adaptive-theming minor release; publishing still gated by sdk-release-prep)');
 contract(!sdkPkg.dependencies, 'SDK package has zero mandatory runtime dependencies');
 contract(Boolean(sdkPkg.exports && sdkPkg.exports['.'] && sdkPkg.exports['./react']), 'SDK package declares explicit subpath exports');
 contract(assistantState === buildBrowserStateScript(), 'assistant-state.js is deterministically synchronized with packages/assistant-sdk/src/');
@@ -863,6 +871,64 @@ contract(
   /youge-chrome-offer/.test(assistantWidget) && /data-chrome-open/.test(assistantWidget) && /data-chrome-fallback/.test(assistantWidget),
   'the widget renders the Open in Chrome offer with a manual fallback'
 );
+// Adaptive theming (2026-11-07): shared tokens, isolation and the four modes.
+contract(
+  Boolean(sdkPkg.exports['./theme'] && sdkPkg.exports['./theme'].types),
+  'the theme subpath export ships with paired TypeScript types'
+);
+contract(
+  /THEME_MODES = \['auto', 'light', 'dark', 'custom'\]/.test(themeSource),
+  'the four documented theme modes are the public set'
+);
+contract(
+  /export function resolveTheme[\s\S]*export function themeToCssVariables/.test(themeSource)
+    && /export function detectHostScheme/.test(themeSource),
+  'the theme module resolves modes, detects the host scheme and emits CSS variables'
+);
+contract(
+  /PROTECTED_VARIABLES = \[[\s\S]*--youge-offset-x[\s\S]*--youge-fab-size/.test(themeSource),
+  'layout geometry (offsets, launcher size) is protected from theme overrides'
+);
+contract(
+  /theme: \{[\s\S]*mode: 'auto',[\s\S]*inheritHost: false/.test(sdkConfigSource)
+    && /themeMode: 'auto'/.test(sdkConfigSource),
+  'bundled defaults carry the validated theme record and the flat legacy mode'
+);
+contract(
+  /notification\.level = notificationLevel\(notification\.id, notification\.priority\)/.test(sdkAssistantSource),
+  'every emitted notification carries a presentation level derived from the unchanged priority ladder'
+);
+contract(
+  /\.youge-notice\[data-level="critical"\]/.test(assistantStyles) && /\.youge-notice\[data-level="success"\]/.test(assistantStyles),
+  'notification levels are themed in the shipped stylesheet'
+);
+contract(
+  /#youge-assistant-root \{[\s\S]*position: fixed !important/.test(assistantStyles)
+    && /#youge-assistant-root\[hidden\][\s\S]*display: none !important/.test(assistantStyles),
+  'the widget guards its layout without defeating its own hidden switch'
+);
+contract(
+  /--youge-reset-letter-spacing: normal/.test(assistantStyles)
+    && /box-sizing: var\(--youge-reset-box\)/.test(assistantStyles),
+  'an inherited reset keeps host text styling out of the widget subtree'
+);
+contract(
+  !/(^|\n)\s*\*\s*\{/.test(assistantStyles) && !/(^|\n):root\s*\{/.test(assistantStyles),
+  'the widget stylesheet contains no global universal or :root rule'
+);
+contract(
+  /normalizeNotificationLevel: normalizeNotificationLevel/.test(assistantState)
+    && /NOTIFICATION_LEVEL_SHAPES: NOTIFICATION_LEVEL_SHAPES/.test(assistantState),
+  'classic pages expose the same level metadata and glyph helpers as the ESM SDK'
+);
+contract(
+  /data-scheme/.test(assistantWidget) && /resolveTheme\(/.test(assistantWidget) && /resolveTheme/.test(assistantState),
+  'the DOM widget renders the resolved theme and classic pages expose the resolver'
+);
+contract(
+  /theme\??: AssistantThemeConfig/.test(readFileSync(at('packages/assistant-sdk/src/config/index.d.ts'), 'utf8')),
+  'the public theme configuration type is declared for integrators'
+);
 contract(
   /youge-assistant:chrome-offer-dismissed/.test(assistantWidget) && /youge-assistant:chrome-offer-dismissed/.test(mainJsxSource),
   'the Chrome offer dismissal persists per origin in both renderers'
@@ -874,6 +940,55 @@ contract(
 contract(
   !/location\.href\s*=[^=]/.test(mainJsxSource),
   'the React example never force-redirects the visitor'
+);
+
+// Phase 5 (2026-11-07): the React example demonstrates the theme system.
+contract(
+  /resolveTheme/.test(themeStudioSource) && /resolveAppearanceTheme/.test(mainJsxSource),
+  'the React example resolves themes through the shared SDK resolver'
+);
+contract(
+  /THEME_MODES\.map/.test(themeStudioSource) && /mode: 'custom', tokens: preset\.tokens/.test(themeStudioSource),
+  'the studio exposes every mode and sends validated tokens for custom mode'
+);
+contract(
+  /inheritHost: true/.test(themeStudioSource) && /resolved\.warnings/.test(themeStudioSource),
+  'host adaptation is demonstrated and validator warnings are surfaced'
+);
+contract(
+  /data-theme=\{resolvedTheme\.mode\}/.test(mainJsxSource)
+    && /data-scheme=\{resolvedTheme\.scheme\}/.test(mainJsxSource)
+    && /style=\{themeStyle\(resolvedTheme\)\}/.test(mainJsxSource),
+  'the sample widget publishes mode, scheme and token variables on its root'
+);
+contract(
+  /notificationLevelElement/.test(sdkReactSource) && /NOTIFICATION_LEVEL_SHAPES/.test(sdkReactSource),
+  'React renderers build the level glyphs from the shared SDK shapes'
+);
+contract(
+  !/dangerouslySetInnerHTML/.test(mainJsxSource) && !/dangerouslySetInnerHTML/.test(themeStudioSource),
+  'the React example injects no markup for themed glyphs'
+);
+contract(
+  /\.notice-demo\[data-level="critical"\][\s\S]*border-left-width: 4px/.test(exampleCssSource)
+    && /\.assistant-notice\[data-level="warning"\]/.test(exampleCssSource),
+  'the example renders all five notice levels in both the gallery and the live widget'
+);
+contract(
+  /btn-assistant-auto/.test(demoHtmlSource) && /btn-assistant-light/.test(demoHtmlSource)
+    && /btn-assistant-dark/.test(demoHtmlSource) && /btn-assistant-custom/.test(demoHtmlSource)
+    && /btn-assistant-host/.test(demoHtmlSource) && /btn-assistant-invalid/.test(demoHtmlSource),
+  'the playground drives all four theme modes plus host adaptation and invalid input'
+);
+contract(
+  /configure\(\{ theme: theme \}\)/.test(demoHtmlSource) && /getConfig\(\)\.meta\.warnings/.test(demoHtmlSource),
+  'the playground uses the public configure() surface and shows validation warnings'
+);
+contract(
+  /var\(--youge-font, inherit\)/.test(exampleCssSource)
+    && /var\(--youge-surface, #ffffff\)/.test(exampleCssSource)
+    && /var\(--youge-radius, 20px\)/.test(exampleCssSource),
+  'example surfaces paint from the shared tokens with the sample palette as fallback'
 );
 
 // 0.1.1 feature release: floating entry point auto-scaling + manual adjustment.

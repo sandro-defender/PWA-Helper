@@ -31,16 +31,17 @@ toolkit remains dependency-free. See [`example/README.md`](example/README.md).
 **Platform direction:** You.Ge Assistant is structured as a reusable PWA
 management and infrastructure platform. Phase 2 extracts the framework-independent
 SDK core locally at [`packages/assistant-sdk/`](packages/assistant-sdk/)
-(`@youge/assistant-sdk` v`0.1.1` prepared 2026-11-07; v`0.1.0` is published
-to npm) while keeping this repository's dependency-free PWA
+(`@youge/assistant-sdk` v`0.2.0` prepared 2026-11-07; v`0.1.1` is the
+current published npm version) while keeping this repository's dependency-free PWA
 toolkit (`window.PWA`, `/progressier.js`, DNS diagnostics, manifest/offline
 support) intact. No standalone dashboard, remote configuration service,
 production failover engine or `staff.you.ge` modification is implemented here.
 The reusable **Intelligent Floating Assistant** widget shares the exact same
 SDK state model (`assistant-state.js` synchronized from `packages/assistant-sdk/src/`)
 with real-condition badges, a fixed priority ladder and an in-place panel —
-plus an auto-scaling launcher with per-origin manual size/position adjustment
-and the Android in-app browser → Chrome handoff offer (both new in 0.1.1); see
+plus an auto-scaling launcher with per-origin manual size/position adjustment,
+the Android in-app browser → Chrome handoff offer (both 0.1.1) and adaptive
+theming with four modes and five notification tiers (new in 0.2.0); see
 [`WIDGET.md`](WIDGET.md) and [`packages/assistant-sdk/README.md`](packages/assistant-sdk/README.md).
 Read the [foundation audit](FOUNDATION_AUDIT.md),
 [platform architecture and roadmap](ASSISTANT_ARCHITECTURE.md),
@@ -119,6 +120,8 @@ node scripts/verify-deployment.mjs https://you.example  # live deployment
 | [`INSTALLATION_EXPERIENCE.md`](INSTALLATION_EXPERIENCE.md) | you need the preserved install behavior and the future SDK install contract |
 | [`DESIGN_FOUNDATION.md`](DESIGN_FOUNDATION.md) | you need the ui-ux-pro-max-skill application record and React Bits adoption report |
 | [`WIDGET.md`](WIDGET.md) | you need the Intelligent Floating Assistant state model, SDK config, events, React Bits/skill record and test matrix |
+| [`THEMING.md`](THEMING.md) | you need the adaptive theme modes, host adaptation, token list, CSS isolation or notification level styling |
+| [`ADAPTIVE_THEME_AUDIT.md`](ADAPTIVE_THEME_AUDIT.md) | you want the audit, constraints and plan behind the theming work |
 | [`design-system/you-ge-assistant/MASTER.md`](design-system/you-ge-assistant/MASTER.md) | you are making UI decisions for the Assistant |
 | [`MULTI_DOMAIN.md`](MULTI_DOMAIN.md) | you need domain registry, manifest, scope and deployment examples |
 | [`DNS_RECOVERY.md`](DNS_RECOVERY.md) | you need DoH behavior, limitations or device recovery steps |

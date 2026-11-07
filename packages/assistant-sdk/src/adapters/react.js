@@ -9,6 +9,13 @@
 
 import { EVENT_NAMES } from '../core/constants.js';
 import { attachAssistant } from '../assistant/index.js';
+import {
+  NOTIFICATION_LEVEL_LABELS,
+  NOTIFICATION_LEVEL_SHAPES,
+  NOTIFICATION_LEVEL_SVG_ATTRIBUTES,
+  normalizeNotificationLevel,
+  resolveTheme,
+} from '../theme/index.js';
 
 export const FALLBACK_ASSISTANT_STATE = Object.freeze({
   enabled: true,
@@ -54,7 +61,13 @@ export const FALLBACK_ASSISTANT_STATE = Object.freeze({
   notifications: Object.freeze([]),
   availableActions: Object.freeze([]),
   badge: Object.freeze({ count: 0, tone: 'none', label: 'No alerts', priority: null }),
-  appearance: Object.freeze({ position: 'bottom-right', offsets: Object.freeze({ x: 20, y: 20 }), theme: 'auto', themeColor: '#155eef' }),
+  appearance: Object.freeze({
+    position: 'bottom-right',
+    offsets: Object.freeze({ x: 20, y: 20 }),
+    theme: 'auto',
+    themeConfig: Object.freeze({ mode: 'auto', inheritHost: false, tokens: Object.freeze({}), host: Object.freeze({}), variables: Object.freeze({}), warnings: Object.freeze([]) }),
+    themeColor: '#155eef',
+  }),
   dismissed: Object.freeze([]),
   acknowledged: Object.freeze([]),
 });
@@ -131,6 +144,86 @@ export function createUseAssistant(useSyncExternalStore, assistantOrGetter, fall
   };
 }
 
+/**
+ * Resolve the theme for a React renderer.
+ *
+ * A React example must not own a second theme implementation: it calls the same
+ * `resolveTheme` the DOM widget calls and maps the result onto inline
+ * custom properties. `hostScheme` lets a preview force a scheme without
+ * touching the host document.
+ *
+ * @param {import('../index.js').AssistantAppearanceState | null | undefined} appearance
+ * @param {{ document?: Document | null, root?: Record<string, unknown> | null, hostScheme?: 'light' | 'dark' }} [options]
+ */
+export function resolveAppearanceTheme(appearance, options) {
+  const opts = options || {};
+  const source = appearance || FALLBACK_ASSISTANT_STATE.appearance;
+  const root = opts.root || (typeof globalThis !== 'undefined' ? globalThis : {});
+  const context = {
+    document: opts.document !== undefined ? opts.document : (root.document || null),
+    root: root,
+    matchMedia: typeof root.matchMedia === 'function' ? root.matchMedia : null,
+    seedPrimary: /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(String(source.themeColor || ''))
+      ? source.themeColor
+      : null,
+  };
+  if (opts.hostScheme === 'light' || opts.hostScheme === 'dark') context.hostScheme = opts.hostScheme;
+  const resolved = resolveTheme(source.themeConfig || source.theme || 'auto', context);
+  return {
+    mode: resolved.mode,
+    scheme: resolved.scheme,
+    inheritHost: resolved.inheritHost,
+    variables: resolved.variables,
+    tokens: resolved.tokens,
+    warnings: resolved.warnings,
+  };
+}
+
+/**
+ * Translate the shared kebab-case SVG attributes into the camelCase prop names
+ * a React-class element factory expects (`stroke-width` -> `strokeWidth`).
+ * Without this, React drops the presentation attributes and the glyph renders
+ * as a filled blob instead of a stroked outline.
+ */
+function svgElementProps(attributes) {
+  const props = {};
+  Object.keys(attributes).forEach((name) => {
+    const camel = name.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
+    props[camel] = attributes[name];
+  });
+  return props;
+}
+
+/** Accessible tier name, e.g. `'Information'` for an `info` notice. */
+export function notificationLevelLabel(level) {
+  return NOTIFICATION_LEVEL_LABELS[normalizeNotificationLevel(level)];
+}
+
+/**
+ * Build a renderer-agnostic element tree for one notification level glyph.
+ *
+ * React renderers create real elements from this (`h('svg', props, children)`),
+ * so an application never injects markup with `dangerouslySetInnerHTML` and the
+ * glyph still comes from the single SDK definition the embedded widget uses.
+ *
+ * @param {string} level
+ * @param {(type: string, props: Record<string, unknown>) => unknown} createElement
+ */
+export function notificationLevelElement(level, createElement) {
+  if (typeof createElement !== 'function') return null;
+  const shapes = NOTIFICATION_LEVEL_SHAPES[normalizeNotificationLevel(level)];
+  const children = shapes.map((shape, index) => {
+    if (shape.type === 'circle') {
+      return createElement('circle', { key: `${shape.type}-${index}`, cx: shape.cx, cy: shape.cy, r: shape.r });
+    }
+    if (shape.type === 'dot') {
+      return createElement('circle', { key: `${shape.type}-${index}`, cx: shape.cx, cy: shape.cy, r: 0.9, fill: 'currentColor', stroke: 'none' });
+    }
+    return createElement('path', { key: `path-${index}`, d: shape.d });
+  });
+  return createElement('svg', { ...svgElementProps(NOTIFICATION_LEVEL_SVG_ATTRIBUTES), 'aria-hidden': 'true', focusable: 'false' }, children);
+}
+
 export function dispatchAssistantAction(id, kind, options) {
   const opts = options || {};
   const root = opts.root || (typeof globalThis !== 'undefined' ? globalThis : {});
@@ -172,6 +265,13 @@ export function createReactAdapter(options) {
   return {
     getAssistant: resolveAssistant,
     useAssistant: useAssistant,
+    resolveTheme: function (appearance, themeOptions) {
+      return resolveAppearanceTheme(appearance, Object.assign({ root: opts.env && opts.env.root }, themeOptions));
+    },
+    notificationLevelLabel: notificationLevelLabel,
+    notificationLevelElement: function (level, createElement) {
+      return notificationLevelElement(level, createElement || opts.createElement);
+    },
     dispatchAction: function (id, kind) {
       return dispatchAssistantAction(id, kind, {
         assistant: resolveAssistant(),

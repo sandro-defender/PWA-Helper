@@ -1,6 +1,9 @@
 # `@youge/assistant-sdk` — Release Preparation & Publishing Decision
 
-> **Status: 0.1.0 published (2026-11-06) — staged by the manual GitHub
+> **Status: 0.2.0 prepared in-repo (2026-11-07) — version bumped in
+> `package.json`, `SDK_VERSION` and `KIT_COMPAT_VERSION` (`1.1.0`); nothing is
+> staged or published, and every gate below stays closed until the owner
+> dispatches `verify` → `stage` → approve. · 0.1.0 published (2026-11-06) — staged by the manual GitHub
 > Actions `stage` job, then made public only when the owner approved the
 > staged version on npmjs.com with 2FA. · 0.1.1 published (2026-11-07,
 > 07:07 UTC) — staged at 07:04 by the `stage` job, whose OIDC token exchange
@@ -41,8 +44,8 @@ Related documents: [`README.md`](README.md) (public API and consumption) ·
 | Item | Value | Notes |
 | --- | --- | --- |
 | Package name | `@youge/assistant-sdk` | Scope `@youge` (npm org `youge`, npm user `you-ge`) — confirmed by the project owner, see [§2](#2-package-identity-decisions); published at `0.1.0` (2026-11-06) |
-| Version | `0.1.1` (published 2026-11-07, 07:07 UTC) | Synced with `SDK_VERSION` in `src/core/constants.js` and the `check.mjs` release-ready gate |
-| Visibility | published (`0.1.0`, 2026-11-06; `0.1.1`, 2026-11-07) | `"private": true` lock removed in the 0.1.0 release PR per [§4](#4-release-runbook-when-a-release-is-approved) step 1; every publish path stays gated ([§5](#5-publishing-remains-disabled)) |
+| Version | `0.2.0` (prepared 2026-11-07, not staged); `0.1.1` published 2026-11-07 07:07 UTC | Synced with `SDK_VERSION` in `src/core/constants.js` and the `check.mjs` release-ready gate |
+| Visibility | published (`0.1.0`, 2026-11-06; `0.1.1`, 2026-11-07); `0.2.0` prepared only | `"private": true` lock removed in the 0.1.0 release PR per [§4](#4-release-runbook-when-a-release-is-approved) step 1; every publish path stays gated ([§5](#5-publishing-remains-disabled)) |
 | Publish config | `publishConfig.access: "public"` | Ready for an approved first scoped publish |
 | Module system | ESM only (`"type": "module"`) | Buildless: `src/` **is** the published runtime |
 | TypeScript | Paired `.d.ts` per export entry | `.`, `./domain`, `./config`, `./diagnostics`, `./installation`, `./browser`, `./react` |
@@ -50,7 +53,7 @@ Related documents: [`README.md`](README.md) (public API and consumption) ·
 | Runtime dependencies | **Zero** | `react >= 18` is an optional peer only (for `./react`) |
 | License | MIT ([`LICENSE`](LICENSE)) | Matches the repository license |
 | Packed size | 21 files, 38.0 kB tarball / 147.4 kB unpacked | `npm pack --dry-run` (2026-11-07) |
-| Kit compatibility | `KIT_COMPAT_VERSION = 1.0.5` | Matches the You.Ge Assistant runtime version (`pwa.js` / `progressier.js`) |
+| Kit compatibility | `KIT_COMPAT_VERSION = 1.1.0` | Matches the You.Ge Assistant runtime version (`pwa.js` / `progressier.js`) |
 | Config schema | `SCHEMA_VERSION = 1` | Data-only `publishedConfig` pipeline, LKG fallback |
 | **Publishing auth** | **npm Trusted Publishing (OIDC) everywhere: the `stage` and `publish` jobs both carry `id-token: write`; no npm token reference exists anywhere in the workflows. First publication (0.1.0, 2026-11-06) used the temporary `NPM_STAGE_TOKEN` bootstrap — created, used and revoked** | Verify, stage and publish use no npm token at all; the bootstrap token was a temporary credential, not the future publishing method — [§4](#4-release-runbook-when-a-release-is-approved), [§6](#6-npm-trusted-publishing-oidc), [§6.4](#64-the-first-publish-of-a-new-package-cannot-use-oidc-important) |
 
@@ -101,7 +104,7 @@ destination ([§3](#3-publishing-destination-evaluation)).
 
 ### Version
 
-- Pre-1.0 semver (`0.1.1`; `0.1.0` published 2026-11-06) signals the API is
+- Pre-1.0 semver (`0.2.0` prepared; `0.1.0` published 2026-11-06) signals the API is
   extracted-and-tested but not yet frozen by a public release. Policy:
   - **patch** — bug fixes, no API or state-model change;
   - **minor** — additive API (new exports, new optional options);
@@ -1064,6 +1067,19 @@ GitHub documentation (not assumed):
 | Consumer build | `npm run typecheck && npm run build` (in `example/`) | ✅ `tsc --noEmit` clean, `vite build` OK; lockfile refreshed to `0.1.1` |
 | Workflows / tokens / OIDC gates | `git diff --stat .github/` + token grep | ✅ **untouched** — no workflow, secret, environment, permission or gate change; no token reference added |
 | Stage / approve / publish / dispatch / release | — | **none executed** — `0.1.1` is prepared only; the owner runs `verify` → `stage` → approve → publish manually after merge |
+
+### 0.2.0 adaptive-theming preparation pass (2026-11-07)
+
+| Check | Command | Result |
+| --- | --- | --- |
+| Version synchronization | `package.json`, `SDK_VERSION`, `KIT_COMPAT_VERSION` | ✅ `@youge/assistant-sdk@0.2.0`, `SDK_VERSION = 0.2.0`, `KIT_COMPAT_VERSION = 1.1.0` (kit `1.1.0`); `validate-package.mjs` passes |
+| Static contracts + full suite | `npm run check` (root) | ✅ All checks passed; **307/307** tests, 0 fail (was 215 at 0.1.1) |
+| New theming suites | `node --test packages/assistant-sdk/tests/sdk-theme.test.mjs tests/widget-theming.test.mjs tests/example-theme.test.mjs` | ✅ 35 + 27 + 11 |
+| Browser-bundle sync | `node scripts/sync-sdk-browser.mjs --check` | ✅ in sync (`theme/index.js` + level helpers) |
+| Pack contents | `npm pack --dry-run` | ✅ 23 files (54.9 kB tarball / 203.3 kB unpacked) — includes `src/theme/` |
+| Consumer build | `npm run typecheck && npm run build` (in `example/`) | ✅ clean; lockfile refreshed to `0.2.0` |
+| Workflows / tokens / OIDC gates | `git diff .github/` + token grep | ✅ only a comment refreshed; no gate, permission, secret or environment change; still no npm token anywhere |
+| Stage / approve / publish / dispatch / release | — | **none executed** — `0.2.0` is prepared in-repo only; the owner runs `verify` → `stage` → approve manually after merge |
 
 ### Non-mutating Trusted Publishing verification pass (2026-11-07)
 

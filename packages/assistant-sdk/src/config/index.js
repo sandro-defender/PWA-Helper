@@ -15,7 +15,6 @@ import {
   PRIORITY,
   SCHEMA_VERSION,
   STORAGE_PREFIXES,
-  THEMES,
 } from '../core/constants.js';
 import {
   clampNumber,
@@ -25,6 +24,7 @@ import {
   sanitizePlainData,
   safeText,
 } from '../core/sanitize.js';
+import { normalizeTheme } from '../theme/index.js';
 
 export const BUNDLED_DEFAULTS = {
   enabled: true,
@@ -54,7 +54,17 @@ export const BUNDLED_DEFAULTS = {
   },
   actions: [],
   features: [],
-  theme: 'auto',
+  // The documented public shape of `theme`. It is resolved into a stable record
+  // by `src/theme/index.js`; the flat `themeMode` string preserves the original
+  // 0.x `theme: 'auto' | 'light' | 'dark'` contract for `getConfig().theme`.
+  theme: {
+    mode: 'auto',
+    inheritHost: false,
+    tokens: {},
+    host: {},
+    variables: {},
+  },
+  themeMode: 'auto',
 };
 
 export function normalizeActions(raw) {
@@ -158,8 +168,24 @@ function extractLayerOverrides(raw) {
   }
   if (Array.isArray(source.actions)) out.actions = normalizeActions(source.actions);
   if (Array.isArray(source.features)) out.features = normalizeFeatures(source.features);
-  if (source.theme !== undefined && THEMES.indexOf(source.theme) !== -1) {
-    out.theme = source.theme;
+  // `theme` accepts both the original string form (`'auto' | 'light' | 'dark'`)
+  // and the object form (`{ mode, inheritHost, tokens, host, variables }`).
+  // Anything else — an unsupported mode, an array, a number — is ignored here
+  // and reported by `resolveAssistantConfig` as a warning, so a bad value can
+  // never reach the DOM.
+  if (source.theme !== undefined) {
+    const theme = normalizeTheme(source.theme);
+    // An unsupported string mode ('neon') normalizes back to `auto`, which is
+    // also the bundled default: the Assistant identity is kept and the mode is
+    // never forwarded to the DOM as-is.
+    out.theme = {
+      mode: theme.mode,
+      inheritHost: theme.inheritHost,
+      tokens: theme.tokens,
+      host: theme.host,
+      variables: theme.variables,
+    };
+    out.themeMode = theme.mode;
   }
   if (source.domainRegistry && typeof source.domainRegistry === 'object' && !Array.isArray(source.domainRegistry)) {
     out.domainRegistry = sanitizePlainData(source.domainRegistry);
@@ -194,7 +220,11 @@ function applyLayer(base, layer) {
   }
   if (layer.actions !== undefined) base.actions = clone(layer.actions);
   if (layer.features !== undefined) base.features = clone(layer.features);
-  if (layer.theme) base.theme = layer.theme;
+  if (layer.theme) {
+    base.theme = clone(layer.theme);
+    base.themeMode = layer.theme.mode || 'auto';
+  }
+  if (layer.themeMode) base.themeMode = layer.themeMode;
   if (layer.domainRegistry) base.domainRegistry = clone(layer.domainRegistry);
   return base;
 }
@@ -383,6 +413,14 @@ export function resolveAssistantConfig(rawInput, context) {
     dns: undefined,
     domainResolver: undefined,
   })) || {};
+
+  // Theme validation feedback is surfaced through the existing meta.warnings
+  // channel so a host can see exactly which value was rejected and why.
+  if (input.theme !== undefined) {
+    normalizeTheme(input.theme).warnings.forEach(function (code) {
+      if (warnings.indexOf(code) === -1) warnings.push(code);
+    });
+  }
 
   const overrideLayer = extractLayerOverrides(sanitizedOverrides);
   if (Object.keys(overrideLayer).length > 0 && source === 'defaults') {

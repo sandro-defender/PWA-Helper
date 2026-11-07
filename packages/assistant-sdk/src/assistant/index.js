@@ -34,6 +34,46 @@ import {
   readPwaSnapshot,
   requestPwaInstall,
 } from '../installation/index.js';
+import { normalizeTheme } from '../theme/index.js';
+
+/**
+ * Presentation severity for a notification.
+ *
+ * This is presentation only: it never changes a priority, an id, a
+ * dismissibility flag or any suppression/persistence rule. The mapping is
+ * derived from what the condition actually means, so the widget can render
+ * distinct, accessible tiers without the engine knowing about CSS.
+ *
+ *   critical — the app is unreachable (connectivity, DNS, host resolution)
+ *   error    — a required backend endpoint is down
+ *   warning  — something needs the user's attention but still works (session)
+ *   success  — good news (service restored, the app can be installed)
+ *   info     — context only (failover active, available update, features)
+ */
+export const NOTIFICATION_LEVEL_MAP = Object.freeze({
+  'network:offline': 'critical',
+  'dns:failure': 'critical',
+  'network:unreachable': 'critical',
+  'api:primary-failed': 'error',
+  'session:issue': 'warning',
+  'api:backup-active': 'info',
+  'api:primary-restored': 'success',
+  'install:available': 'success',
+  'app:update': 'info',
+});
+
+export function notificationLevel(id, priority) {
+  const key = String(id || '');
+  if (NOTIFICATION_LEVEL_MAP[key]) return NOTIFICATION_LEVEL_MAP[key];
+  if (key.indexOf('feature:') === 0) return 'info';
+  switch (priority) {
+    case PRIORITY.critical: return 'critical';
+    case PRIORITY.auth: return 'warning';
+    case PRIORITY.backup: return 'info';
+    case PRIORITY.install: return 'success';
+    default: return 'info';
+  }
+}
 
 export function createAssistant(initialOptions, envOverrides) {
   const rawInit = initialOptions && typeof initialOptions === 'object' ? initialOptions : {};
@@ -375,6 +415,9 @@ export function createAssistant(initialOptions, envOverrides) {
     saveNotices(project.id);
 
     out.sort(function (a, b) { return a.priority - b.priority; });
+    out.forEach(function (notification) {
+      notification.level = notificationLevel(notification.id, notification.priority);
+    });
     return out;
   }
 
@@ -478,7 +521,13 @@ export function createAssistant(initialOptions, envOverrides) {
       appearance: {
         position: config.position,
         offsets: { x: config.offsets.x, y: config.offsets.y },
-        theme: config.theme,
+        // `theme` keeps its original 0.x meaning: the mode string. The full
+        // validated record travels in `themeConfig` so renderers can apply
+        // custom tokens without a second configuration surface. No resolved
+        // colours are published here: the renderer resolves them against the
+        // live document so `auto` can follow the host.
+        theme: config.themeMode || (config.theme && config.theme.mode) || 'auto',
+        themeConfig: clone(config.theme || normalizeTheme('auto')),
         themeColor: project.themeColor,
       },
       dismissed: Object.keys(noticeStore.dismissed),
@@ -588,7 +637,9 @@ export function createAssistant(initialOptions, envOverrides) {
       branding: clone(config.branding),
       actions: clone(config.actions),
       features: clone(config.features),
-      theme: config.theme,
+      // Backward compatible string (0.x contract) plus the validated record.
+      theme: config.themeMode || (config.theme && config.theme.mode) || 'auto',
+      themeConfig: clone(config.theme || normalizeTheme('auto')),
       meta: clone(configMeta),
     };
   }

@@ -1,6 +1,6 @@
 {
   "name": "@youge/assistant-sdk",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Framework-independent SDK core for You.Ge Assistant: explicit project configuration, domain resolution, centralized assistant state, diagnostics and PWA installation integration.",
   "license": "MIT",
   "type": "module",
@@ -31,6 +31,10 @@
     "./browser": {
       "types": "./src/browser/index.d.ts",
       "default": "./src/browser/index.js"
+    },
+    "./theme": {
+      "types": "./src/theme/index.d.ts",
+      "default": "./src/theme/index.js"
     },
     "./react": {
       "types": "./src/adapters/react.d.ts",

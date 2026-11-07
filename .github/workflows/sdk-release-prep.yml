@@ -101,9 +101,11 @@ jobs:
     # Runs for action=verify/stage/publish exactly as before. Skipped only for
     # action=oidc-check: the standalone non-mutating OIDC check does not need
     # the release checklist — and its "Version has not been published yet"
-    # step (correctly) fails while 0.1.1 sits on the registry after the
-    # 2026-11-07 release (see RELEASE.md §7); gating keeps the check's run
-    # green-or-red for exactly what it measures.
+    # step (correctly) fails while a released version sits on the registry
+    # (0.1.1 after the 2026-11-07 release; see RELEASE.md §7); gating keeps the
+    # check's run green-or-red for exactly what it measures. The current
+    # in-repo version 0.2.0 is NOT on the registry, so this step passes until
+    # the owner stages and publishes it.
     if: github.event.inputs.action != 'oidc-check'
     steps:
       - uses: actions/checkout@v4

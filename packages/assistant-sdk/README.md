@@ -5,12 +5,13 @@ multi-domain resolution, data-only configuration validation with Last-Known-Good
 fallback, explicit on-demand DNS diagnostics integration, and existing PWA
 installation integration.
 
-> **Package status (0.1.1 — prepared 2026-11-07, not yet staged):**
-> `@youge/assistant-sdk@0.1.0` is on the public npm registry (org `youge`,
-> scope `@youge`); `0.1.1` adds Android in-app browser detection + Chrome
-> handoff and ships with the floating-icon auto-scale/manual-adjustment
-> release — prepared in-repo, **not staged and not published**; the owner
-> dispatches the release workflow manually (see below). The first
+> **Package status (0.2.0 — prepared 2026-11-07, not yet staged):**
+> `@youge/assistant-sdk@0.1.1` is on the public npm registry (org `youge`,
+> scope `@youge`); `0.2.0` adds adaptive theming — four modes, validated
+> custom tokens, optional host adaptation, the `./theme` subpath and the
+> notification level taxonomy — prepared in-repo, **not staged and not
+> published**; the owner dispatches the release workflow manually (see
+> below). The first
 > publication was staged by the manual-only `sdk-release-prep` workflow's
 > `stage` job and became public only when the owner approved the staged
 > version on npmjs.com with 2FA — the approved runbook is
@@ -37,7 +38,7 @@ installation integration.
 ### From npm (after publication)
 
 ```bash
-npm install @youge/assistant-sdk@0.1.1
+npm install @youge/assistant-sdk@0.2.0
 ```
 
 Pin the **exact version** (no `^`/`~`) if you want vendor-pin semantics — the
@@ -260,6 +261,51 @@ handoff.destroy(); // clears the pending fallback timer
 
 ---
 
+## Adaptive theming (unreleased)
+
+`theme` accepts the original string form and a validated object form:
+
+```js
+const assistant = YouGeAssistant.create({
+  theme: {
+    mode: 'auto',        // auto | light | dark | custom
+    inheritHost: false,  // opt in to reading the host page's allowlisted values
+    tokens: { primary: '#7c3aed', radius: 16, fontFamily: 'Inter, system-ui, sans-serif' },
+  },
+});
+
+assistant.configure({ theme: 'dark' });                 // runtime switch, same API
+assistant.getConfig().theme;                            // 'dark'  (mode string)
+assistant.getConfig().themeConfig;                      // validated record
+assistant.getConfig().meta.warnings;                    // e.g. ['theme.tokens:invalid_token:primary']
+```
+
+Fourteen colour tokens (`primary`, `onPrimary`, `background`, `surface`,
+`surfaceSoft`, `text`, `mutedText`, `border`, `focus`, `success`, `info`,
+`warning`, `error`, `critical`) plus six design tokens (`fontFamily`,
+`fontSize`, `radius`, `radiusSmall`, `borderWidth`, `shadow`). Invalid values are
+dropped field by field with a warning code; nothing throws and nothing invalid
+reaches the DOM. Host adaptation reads only accent/background/surface/text/muted/
+border/font/radius/`--youge-*` variables, contrast-guards every colour, and
+never inherits layout, position, z-index, offsets, launcher size or motion.
+
+Helpers exported from the root entry and `@youge/assistant-sdk/theme`:
+
+| Export | Purpose |
+| --- | --- |
+| `THEME_MODES`, `THEME_TOKEN_KEYS`, `COLOR_TOKEN_KEYS`, `TOKEN_CSS_VARIABLES`, `PROTECTED_VARIABLES` | Token vocabulary and the variables a theme may not override. |
+| `normalizeTheme(input)`, `normalizeToken(key, value)` | Idempotent validation with `warnings`. |
+| `resolveTheme(theme, context)` | Pure resolution to `{ mode, scheme, inheritHost, tokens, variables, warnings }`. |
+| `themeToCssVariables(resolved)` | Filtered `--youge-*` map. |
+| `detectHostScheme`, `detectHostTypography`, `contrastRatio`, `relativeLuminance`, `bestInk` | Host detection and WCAG maths. |
+| `NOTIFICATION_LEVELS`, `NOTIFICATION_LEVEL_SHAPES`, `NOTIFICATION_LEVEL_ICONS`, `NOTIFICATION_LEVEL_LABELS`, `normalizeNotificationLevel`, `notificationLevelMarkup` | Notification tier metadata shared by every renderer. |
+
+React renderers use `resolveAppearanceTheme(state.appearance)` and
+`notificationLevelElement(level, createElement)` from
+`@youge/assistant-sdk/react`, so an app never re-implements theming and never
+injects markup. The library ships no CSS of its own; the embedded widget's
+isolation layers are described in [`../../THEMING.md`](../../THEMING.md).
+
 ## Public API Reference
 
 ### `AssistantInstance` methods
@@ -378,8 +424,9 @@ document.querySelector('#install-app-btn')?.addEventListener('click', () => {
 - **Version sources are synchronized and machine-checked:** `package.json` ↔
   `SDK_VERSION` ↔ `KIT_COMPAT_VERSION` (the compatible You.Ge Assistant
   runtime line) ↔ the runtime version.
-- **Publishing is gated, never automatic.** `0.1.1` is prepared in-repo
-  (2026-11-07) and **not staged or published**; `0.1.0` was published (2026-11-06)
+- **Publishing is gated, never automatic.** `0.2.0` is prepared in-repo
+  (2026-11-07) and **not staged or published**; `0.1.1` was published
+  (2026-11-07) and `0.1.0` (2026-11-06)
   only through the manual `sdk-release-prep` workflow's staged-approval flow;
   every publication still requires explicit authorization (`confirm_publish`,
   `SDK_RELEASE_ENABLED`, the protected `sdk-npm-publish` environment, npm
