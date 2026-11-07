@@ -917,6 +917,11 @@ contract(
   'the widget stylesheet contains no global universal or :root rule'
 );
 contract(
+  /normalizeNotificationLevel: normalizeNotificationLevel/.test(assistantState)
+    && /NOTIFICATION_LEVEL_SHAPES: NOTIFICATION_LEVEL_SHAPES/.test(assistantState),
+  'classic pages expose the same level metadata and glyph helpers as the ESM SDK'
+);
+contract(
   /data-scheme/.test(assistantWidget) && /resolveTheme\(/.test(assistantWidget) && /resolveTheme/.test(assistantState),
   'the DOM widget renders the resolved theme and classic pages expose the resolver'
 );

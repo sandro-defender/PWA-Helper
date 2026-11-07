@@ -3073,6 +3073,7 @@
     NOTIFICATION_LEVEL_SHAPES: NOTIFICATION_LEVEL_SHAPES,
     NOTIFICATION_LEVEL_SVG_ATTRIBUTES: NOTIFICATION_LEVEL_SVG_ATTRIBUTES,
     notificationLevelMarkup: notificationLevelMarkup,
+    normalizeNotificationLevel: normalizeNotificationLevel,
     NOTIFICATION_LEVEL_LABELS: NOTIFICATION_LEVEL_LABELS,
     normalizeTheme: normalizeTheme,
     resolveTheme: resolveTheme,
