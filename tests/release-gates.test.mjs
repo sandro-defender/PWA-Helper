@@ -93,7 +93,7 @@ test('release-gate sandbox: pristine copy passes SDK package validation', () => 
 
 const GATES = [
   'SDK_RELEASE_ENABLED',
-  'confirm_publish',
+  "action == 'Publish release to npm'",
   'environment: sdk-npm-publish',
   'id-token: write',
   'registry-url: https://registry.npmjs.org',
@@ -271,15 +271,18 @@ const pristineStageBlock = jobBlock(pristineWorkflow, 'stage');
 const stripStageComments = (text) =>
   text.split('\n').filter((line) => !/^\s*#/.test(line)).join('\n');
 
-test('stage job is manual-only with its own explicit confirmation and main-branch guard', () => {
-  assert.match(pristineStageBlock, /github\.event\.inputs\.action == 'stage'/);
-  assert.match(pristineStageBlock, /github\.event\.inputs\.confirm_stage == 'stage'/);
+test('stage job is gated by the Stage release on npm selection and the main-branch guard', () => {
+  assert.match(pristineStageBlock, /github\.event\.inputs\.action == 'Stage release on npm'/);
   assert.match(pristineStageBlock, /github\.ref == 'refs\/heads\/main'/);
   // The workflow itself has no push/pull_request trigger at all, so the
   // per-run OIDC credential is never exposed to PR or untrusted-branch runs.
   assert.doesNotMatch(pristineWorkflow, /^\s+(push|pull_request):/m);
-  assert.match(pristineWorkflow, /confirm_stage:/);
-  assert.match(pristineWorkflow, /options: \[verify, stage, publish, oidc-check\]/);
+  // Single dropdown: no typed confirmation inputs anywhere in the workflow.
+  assert.doesNotMatch(pristineWorkflow, /confirm_(stage|publish)/);
+  assert.match(pristineWorkflow, /- 'Verify only'/);
+  assert.match(pristineWorkflow, /- 'Stage release on npm'/);
+  assert.match(pristineWorkflow, /- 'Publish release to npm'/);
+  assert.match(pristineWorkflow, /- 'Verify OIDC trusted publishing'/);
 });
 
 test('stage job depends on successful verification and the protected environment', () => {
@@ -350,18 +353,18 @@ test('validator refuses a workflow without the stage job', () => {
   );
   const res = runValidator(validatorSandbox);
   assert.equal(res.status, 1, 'validation must fail when the stage job is removed');
-  assert.match(res.stdout, /release workflow gate missing: stage job runs only on explicit action=stage/);
+  assert.match(res.stdout, /release workflow gate missing: stage job runs only when Stage release on npm is selected/);
 });
 
-test('validator refuses a stage job whose confirmation gate is weakened', () => {
+test('validator refuses a stage job whose action gate is weakened', () => {
   resetSandboxFiles();
   writeFileSync(
     join(validatorSandbox, workflowRel),
-    pristineWorkflow.replace("confirm_stage == 'stage'", "confirm_stage == 'yes'"),
+    pristineWorkflow.replace("action == 'Stage release on npm'", "action == 'Verify only'"),
   );
   const res = runValidator(validatorSandbox);
   assert.equal(res.status, 1);
-  assert.match(res.stdout, /release workflow gate missing: stage job runs only on explicit action=stage/);
+  assert.match(res.stdout, /release workflow gate missing: stage job runs only when Stage release on npm is selected/);
 });
 
 test('validator refuses a stage job that does not depend on verify', () => {
@@ -496,9 +499,17 @@ test('validator refuses a workflow that leaks NODE_AUTH_TOKEN into the OIDC publ
 
 test('validator refuses a stage job that runs from an untrusted branch', () => {
   resetSandboxFiles();
+  // Mutate the github.ref clause INSIDE the stage job only — publish and
+  // publish-authorization carry their own copies of the same clause.
+  const stageBlockRaw = jobBlock(pristineWorkflow, 'stage');
+  const mutatedStage = stageBlockRaw.replace(
+    "github.ref == 'refs/heads/main'",
+    "github.ref == 'refs/heads/feature'",
+  );
+  assert.notEqual(mutatedStage, stageBlockRaw, 'stage main-gate clause must exist');
   writeFileSync(
     join(validatorSandbox, workflowRel),
-    pristineWorkflow.replace("github.ref == 'refs/heads/main'", "github.ref == 'refs/heads/feature'"),
+    pristineWorkflow.replace(stageBlockRaw, mutatedStage),
   );
   const res = runValidator(validatorSandbox);
   assert.equal(res.status, 1);
@@ -564,7 +575,7 @@ const stripAllComments = (text) =>
 
 test('oidc-check job exists: manually gated, protected environment, OIDC-only', () => {
   assert.ok(oidcCheckBlock.length > 0, 'the workflow must define an oidc-check job');
-  assert.match(oidcCheckBlock, /github\.event\.inputs\.action == 'oidc-check'/);
+  assert.match(oidcCheckBlock, /github\.event\.inputs\.action == 'Verify OIDC trusted publishing'/);
   assert.match(oidcCheckBlock, /environment: sdk-npm-publish/);
   assert.match(oidcCheckBlock, /id-token:\s*write/);
   assert.match(oidcCheckBlock, /node-version:\s*24/);
@@ -573,7 +584,7 @@ test('oidc-check job exists: manually gated, protected environment, OIDC-only', 
   // The release checklist is skipped for the standalone check dispatch, and
   // for verify/stage/publish dispatches it runs exactly as before.
   const verifyBlock = jobBlock(pristineWorkflow, 'verify');
-  assert.match(stripAllComments(verifyBlock), /action != 'oidc-check'/);
+  assert.match(stripAllComments(verifyBlock), /action != 'Verify OIDC trusted publishing'/);
   assert.match(stripAllComments(verifyBlock), /run: npm run check/);
 });
 
@@ -596,7 +607,7 @@ test('oidc-check job cannot run from any branch other than main', () => {
     .filter(Boolean);
   assert.deepEqual(
     clauses,
-    ["github.event.inputs.action == 'oidc-check'", "github.ref == 'refs/heads/main'"],
+    ["github.event.inputs.action == 'Verify OIDC trusted publishing'", "github.ref == 'refs/heads/main'"],
     'oidc-check must require BOTH the manual action AND a main-branch ref — nothing else',
   );
   // Truth table over the parsed clauses: the job runs only for
@@ -610,10 +621,10 @@ test('oidc-check job cannot run from any branch other than main', () => {
       assert.ok(match[1] in paths, `unexpected condition path: ${match[1]}`);
       return paths[match[1]] === match[2];
     });
-  assert.equal(evaluate('oidc-check', 'refs/heads/main'), true);
+  assert.equal(evaluate('Verify OIDC trusted publishing', 'refs/heads/main'), true);
   for (const [action, ref] of [
-    ['oidc-check', 'refs/heads/feature'],
-    ['oidc-check', 'refs/heads/arena/96ca9641-you-ge-assistant'],
+    ['Verify OIDC trusted publishing', 'refs/heads/feature'],
+    ['Verify OIDC trusted publishing', 'refs/heads/arena/96ca9641-you-ge-assistant'],
     ['stage', 'refs/heads/main'],
     ['verify', 'refs/heads/main'],
     ['publish', 'refs/heads/main'],
@@ -636,23 +647,26 @@ test('oidc-check job permissions stay exactly contents: read + id-token: write',
   assert.match(oidcCheckBlock, /environment:\s*sdk-npm-publish/);
 });
 
-test('stage and publish protections remain intact alongside the oidc-check gate', () => {
+test('stage and publish protections remain intact alongside the OIDC check selection', () => {
   const stageBlock = jobBlock(pristineWorkflow, 'stage');
-  assert.match(stageBlock, /github\.event\.inputs\.action == 'stage'/);
-  assert.match(stageBlock, /github\.event\.inputs\.confirm_stage == 'stage'/);
+  assert.match(stageBlock, /github\.event\.inputs\.action == 'Stage release on npm'/);
   assert.match(stageBlock, /github\.ref == 'refs\/heads\/main'/);
   assert.match(stageBlock, /needs:\s*verify\b/);
   assert.match(stageBlock, /environment: sdk-npm-publish/);
   assert.match(stageBlock, /npm stage publish/);
+  assert.match(stageBlock, /SDK_RELEASE_CONFIRM: publish/);
   const publishBlock = jobBlock(pristineWorkflow, 'publish');
-  assert.match(publishBlock, /github\.event\.inputs\.action == 'publish'/);
-  assert.match(publishBlock, /github\.event\.inputs\.confirm_publish == 'publish'/);
+  assert.match(publishBlock, /github\.event\.inputs\.action == 'Publish release to npm'/);
+  assert.match(publishBlock, /github\.ref == 'refs\/heads\/main'/);
   assert.match(publishBlock, /vars\.SDK_RELEASE_ENABLED == 'true'/);
+  assert.match(publishBlock, /needs:\s*\[verify,\s*publish-authorization\]/);
   assert.match(publishBlock, /environment: sdk-npm-publish/);
   assert.match(publishBlock, /npm publish --access public --provenance/);
-  // The verify checklist still runs for every non-oidc-check dispatch.
+  assert.match(publishBlock, /SDK_RELEASE_CONFIRM: publish/);
+  // The verify checklist still runs for every release selection and is
+  // skipped only for the standalone OIDC check selection.
   const verifyBlock = stripAllComments(jobBlock(pristineWorkflow, 'verify'));
-  assert.match(verifyBlock, /action != 'oidc-check'/);
+  assert.match(verifyBlock, /action != 'Verify OIDC trusted publishing'/);
   assert.match(verifyBlock, /run: npm run check/);
 });
 
@@ -662,7 +676,7 @@ test('oidc-check job cannot publish, stage, approve, retag, or touch a credentia
   // approval/rejection, no release authorization variables, no secrets, no
   // .npmrc credential placeholder, no ad-hoc registry client.
   assert.doesNotMatch(code, /npm\s+(publish|stage|dist-tag|login|token|access|audit|config)\b/);
-  assert.doesNotMatch(code, /dist-tag/);
+  assert.doesNotMatch(code, /dist-tag\s+(add|ls|rm|set|remove)/);
   assert.doesNotMatch(code, /\bapprove\b|\breject\b/);
   assert.doesNotMatch(code, /secrets\./);
   assert.doesNotMatch(code, /NODE_AUTH_TOKEN/);
@@ -702,6 +716,165 @@ test('oidc-check script is non-mutating by construction (documented exchange onl
   assert.match(script, /Exchanged token not shown/);
 });
 const EXCHANGE_BASE_SENTINEL = 'https://registry.npmjs.org/-/npm/v1/oidc/token/exchange/package/';
+
+/* ---- Simplified one-dropdown release interface (spec: Run workflow UX) --- */
+
+test('workflow exposes exactly ONE action input with the four labeled options and no typed confirmations', () => {
+  const inputsSection = pristineWorkflow.match(/inputs:\n([\s\S]*?)\n\npermissions:/);
+  assert.ok(inputsSection, 'workflow_dispatch inputs block must exist');
+  const inputKeys = [...inputsSection[1].matchAll(/^      ([A-Za-z0-9_-]+):/gm)].map((m) => m[1]);
+  assert.deepEqual(inputKeys, ['action'], `exactly one input, named action — got: ${inputKeys}`);
+  assert.doesNotMatch(pristineWorkflow, /confirm_(stage|publish)/, 'no typed confirmation fields remain');
+  assert.doesNotMatch(inputsSection[1], /^\s+version:/m, 'no version input — the version is read from package.json');
+  assert.match(pristineWorkflow, /type: choice/);
+  assert.match(pristineWorkflow, /- 'Verify only'/);
+  assert.match(pristineWorkflow, /- 'Stage release on npm'/);
+  assert.match(pristineWorkflow, /- 'Publish release to npm'/);
+  assert.match(pristineWorkflow, /- 'Verify OIDC trusted publishing'/);
+  assert.match(pristineWorkflow, /default: 'Verify only'/);
+});
+
+/** Evaluate a job's multiline `if: >-` expression against a fixed env map. */
+const evalJobIf = (block, env) => {
+  const lines = block.split('\n');
+  const i = lines.findIndex((line) => line.trim() === 'if: >-');
+  assert.ok(i !== -1, 'job must use the multiline if: >- style');
+  const expr = [];
+  for (let j = i + 1; j < lines.length && /^\s{6}\S/.test(lines[j]); j += 1) {
+    expr.push(lines[j].trim());
+  }
+  assert.ok(expr.length > 0, 'job must have an if expression');
+  return expr.join(' ').split('&&').every((raw) => {
+    const m = raw.trim().match(/^([\w.]+) == '([^']*)'$/);
+    assert.ok(m, `unexpected condition clause: ${raw}`);
+    assert.ok(m[1] in env, `clause path not covered by test env: ${m[1]}`);
+    return env[m[1]] === m[2];
+  });
+};
+
+test('selection truth tables: only the matching job runs, only from main, only with authorization', () => {
+  const MAIN = 'refs/heads/main';
+  const SEL = {
+    verify: 'Verify only',
+    stage: 'Stage release on npm',
+    publish: 'Publish release to npm',
+    oidc: 'Verify OIDC trusted publishing',
+  };
+  const envFor = (action, ref = MAIN, enabled = 'true') => ({
+    'github.event.inputs.action': action,
+    'github.ref': ref,
+    'vars.SDK_RELEASE_ENABLED': enabled,
+  });
+  const stageBlock = jobBlock(pristineWorkflow, 'stage');
+  const publishBlock = jobBlock(pristineWorkflow, 'publish');
+  const authBlock = jobBlock(pristineWorkflow, 'publish-authorization');
+  const oidcBlock = jobBlock(pristineWorkflow, 'oidc-check');
+
+  // verify: runs for all THREE release selections, skipped only for the OIDC check.
+  const verifyIf = (jobBlock(pristineWorkflow, 'verify').match(/^\s*if: (.+)$/m) || [])[1];
+  assert.ok(verifyIf, 'verify keeps its skip-if for the OIDC selection');
+  assert.equal(verifyIf.trim(), "github.event.inputs.action != 'Verify OIDC trusted publishing'");
+  for (const key of ['verify', 'stage', 'publish']) {
+    assert.notEqual(SEL[key], 'Verify OIDC trusted publishing');
+  }
+
+  // stage: selection + main ONLY (no authorization variable — staging never publishes).
+  assert.equal(evalJobIf(stageBlock, envFor(SEL.stage)), true);
+  assert.equal(evalJobIf(stageBlock, envFor(SEL.stage, 'refs/heads/feature')), false, 'non-main cannot stage');
+  assert.equal(evalJobIf(stageBlock, envFor(SEL.publish)), false, 'publish selection must not stage');
+  assert.equal(evalJobIf(stageBlock, envFor(SEL.verify)), false);
+  assert.equal(evalJobIf(stageBlock, envFor(SEL.oidc)), false);
+
+  // publish: selection + main + SDK_RELEASE_ENABLED (owner gate).
+  assert.equal(evalJobIf(publishBlock, envFor(SEL.publish, MAIN, 'true')), true);
+  assert.equal(evalJobIf(publishBlock, envFor(SEL.publish, MAIN, '')), false, 'missing SDK_RELEASE_ENABLED blocks publish');
+  assert.equal(evalJobIf(publishBlock, envFor(SEL.publish, MAIN, 'false')), false);
+  assert.equal(evalJobIf(publishBlock, envFor(SEL.publish, 'refs/heads/feature', 'true')), false, 'non-main cannot publish');
+  assert.equal(evalJobIf(publishBlock, envFor(SEL.stage, MAIN, 'true')), false, 'stage selection must not publish');
+
+  // publish-authorization: selection + main; checked BEFORE the environment.
+  assert.equal(evalJobIf(authBlock, envFor(SEL.publish)), true);
+  assert.equal(evalJobIf(authBlock, envFor(SEL.publish, 'refs/heads/feature')), false, 'non-main cannot even request the authorization gate');
+  assert.equal(evalJobIf(authBlock, envFor(SEL.stage)), false);
+
+  // oidc-check: selection + main.
+  assert.equal(evalJobIf(oidcBlock, envFor(SEL.oidc)), true);
+  assert.equal(evalJobIf(oidcBlock, envFor(SEL.oidc, 'refs/heads/feature')), false);
+  assert.equal(evalJobIf(oidcBlock, envFor(SEL.publish)), false);
+});
+
+test('failed verification blocks staging and publishing (needs chains)', () => {
+  assert.match(jobBlock(pristineWorkflow, 'stage'), /needs:\s*verify\b/);
+  assert.match(jobBlock(pristineWorkflow, 'publish'), /needs:\s*\[verify,\s*publish-authorization\]/);
+  assert.match(jobBlock(pristineWorkflow, 'publish-authorization'), /needs:\s*verify\b/);
+  // The needs chains are real YAML keys, not prose: strip comments AND summary
+  // echoes, then require the key at line start.
+  for (const job of ['stage', 'publish-authorization']) {
+    const code = stripAllComments(jobBlock(pristineWorkflow, job))
+      .split('\n')
+      .filter((line) => !line.includes('echo '))
+      .join('\n');
+    assert.match(code, /^\s{4}needs: verify\s*$/m, `${job} must declare needs: verify as a YAML key`);
+  }
+});
+
+test('stage cannot publish and publish cannot stage (paths stay separate)', () => {
+  const stageCode = stripAllComments(jobBlock(pristineWorkflow, 'stage'));
+  assert.match(stageCode, /npm stage publish/);
+  assert.doesNotMatch(stageCode, /npm\s+publish\b/);
+  const publishCode = stripAllComments(jobBlock(pristineWorkflow, 'publish'));
+  assert.match(publishCode, /npm publish --access public --provenance/);
+  assert.doesNotMatch(publishCode, /npm\s+stage\b/);
+  // Both keep the workflow-supplied internal guard; neither reads a secret.
+  assert.equal((pristineWorkflow.match(/SDK_RELEASE_CONFIRM: publish/g) || []).length, 2);
+  assert.doesNotMatch(stripAllComments(pristineWorkflow), /secrets\./);
+});
+
+test('OIDC id-token: write stays limited to the jobs that need it', () => {
+  for (const job of ['verify', 'publish-authorization']) {
+    const code = stripAllComments(jobBlock(pristineWorkflow, job));
+    assert.ok(!/id-token:/.test(code), `${job} must not hold id-token: write`);
+    assert.ok(!/environment: sdk-npm-publish/.test(code), `${job} must not bind the protected environment`);
+  }
+  for (const job of ['stage', 'publish', 'oidc-check']) {
+    assert.match(stripAllComments(jobBlock(pristineWorkflow, job)), /id-token:\s*write/, `${job} needs id-token: write`);
+    assert.match(stripAllComments(jobBlock(pristineWorkflow, job)), /environment: sdk-npm-publish/, `${job} runs in the protected environment`);
+  }
+});
+
+test('publish-authorization fails loudly and never enables the release variable', () => {
+  const code = stripAllComments(jobBlock(pristineWorkflow, 'publish-authorization'));
+  assert.match(code, /SDK_RELEASE_ENABLED is not/, 'clear explanation when authorization is missing');
+  assert.match(code, /exit 1/);
+  assert.match(code, /Nothing was staged or published/);
+  assert.doesNotMatch(code, /SDK_RELEASE_ENABLED\s*:/, 'the gate never assigns SDK_RELEASE_ENABLED');
+  assert.doesNotMatch(code, /id-token:|environment:/, 'the gate holds no OIDC permission and no environment');
+  assert.doesNotMatch(code, /npm\s+(publish|stage|dist-tag|view|login|token)\b/, 'the gate runs no npm command');
+  // The publish job keeps its own owner gate as defence in depth.
+  assert.match(stripAllComments(jobBlock(pristineWorkflow, 'publish')), /vars\.SDK_RELEASE_ENABLED == 'true'/);
+  assert.match(stripAllComments(jobBlock(pristineWorkflow, 'publish')), /environment: sdk-npm-publish/);
+});
+
+test('every selection reports a step summary with operation, package, version and result', () => {
+  // verify / stage / publish / oidc-check each append to GITHUB_STEP_SUMMARY.
+  for (const job of ['verify', 'stage', 'publish', 'oidc-check']) {
+    assert.match(
+      stripAllComments(jobBlock(pristineWorkflow, job)),
+      /GITHUB_STEP_SUMMARY/,
+      `${job} must write a step summary`,
+    );
+  }
+  const verifyCode = stripAllComments(jobBlock(pristineWorkflow, 'verify'));
+  assert.match(verifyCode, /SELECTED_ACTION/);
+  assert.match(verifyCode, /Verification result: \*\*\$\{JOB_STATUS\}\*\*/);
+  const stageCode = stripAllComments(jobBlock(pristineWorkflow, 'stage'));
+  assert.match(stageCode, /Selected operation: Stage release on npm/);
+  assert.match(stageCode, /npm package: https:\/\/www\.npmjs\.com\/package\/@youge\/assistant-sdk/);
+  assert.match(stageCode, /Waiting for approval/);
+  const publishCode = stripAllComments(jobBlock(pristineWorkflow, 'publish'));
+  assert.match(publishCode, /now resolves in the npm registry/);
+  assert.match(publishCode, /npm view/);
+});
 
 test('release-gate sandbox teardown', () => {
   rmSync(sandboxRoot, { recursive: true, force: true });

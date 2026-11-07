@@ -1033,14 +1033,37 @@ const releaseNonComment = withoutCommentLines(releaseWorkflow);
 
 for (const gate of [
   'SDK_RELEASE_ENABLED',
-  'confirm_publish',
-  'confirm_stage',
+  "github.event.inputs.action == 'Stage release on npm'",
+  "github.event.inputs.action == 'Publish release to npm'",
   'id-token: write',
   'registry-url: https://registry.npmjs.org',
   'SDK_RELEASE_CONFIRM: publish',
 ]) {
   contract(releaseWorkflow.includes(gate), `sdk-release-prep publishing gate present: ${gate}`);
 }
+contract(
+  !/confirm_(stage|publish)/.test(releaseWorkflow) &&
+    ['Verify only', 'Stage release on npm', 'Publish release to npm', 'Verify OIDC trusted publishing'].every((label) => releaseWorkflow.includes(label)),
+  'sdk-release-prep exposes ONE action dropdown (four labeled options) with no typed confirmation inputs',
+);
+const releaseAuthBlock = withoutCommentLines(releaseJobBlock('publish-authorization'));
+contract(
+  releaseAuthBlock.includes("action == 'Publish release to npm'") &&
+    /refs\/heads\/main/.test(releaseAuthBlock) &&
+    /needs:\s*verify\b/.test(releaseAuthBlock) &&
+    releaseAuthBlock.includes('SDK_RELEASE_ENABLED is not') &&
+    releaseAuthBlock.includes('exit 1') &&
+    !releaseAuthBlock.includes('environment:') &&
+    !/id-token:/.test(releaseAuthBlock) &&
+    !/npm\s+(publish|stage|dist-tag)\b/.test(releaseAuthBlock),
+  'sdk-release-prep publish-authorization gate fails loudly when SDK_RELEASE_ENABLED is missing, without environment, OIDC or npm access',
+);
+contract(
+  releasePublishBlock.includes("action == 'Publish release to npm'") &&
+    /refs\/heads\/main/.test(withoutCommentLines(releasePublishBlock)) &&
+    /needs:\s*\[verify,\s*publish-authorization\]/.test(releasePublishBlock),
+  'sdk-release-prep publish job requires the Publish release to npm selection from main, after verify and the authorization gate',
+);
 contract(
   releasePublishBlock.includes('environment: sdk-npm-publish'),
   'sdk-release-prep publishing gate present: environment: sdk-npm-publish',
@@ -1062,9 +1085,9 @@ contract(
 // needs `id-token: write` for `npm stage publish`), staging only (never
 // publish / approve / reject).
 contract(
-  releaseStageBlock.includes("action == 'stage'") &&
-    releaseStageBlock.includes("confirm_stage == 'stage'"),
-  'sdk-release-prep stage job requires explicit action=stage + confirm_stage=stage dispatch',
+  releaseStageBlock.includes("action == 'Stage release on npm'") &&
+    !releaseStageBlock.includes('confirm_stage'),
+  'sdk-release-prep stage job requires the Stage release on npm selection (no typed confirmation)',
 );
 contract(/refs\/heads\/main/.test(releaseStageBlock), 'sdk-release-prep stage job runs from main only (never untrusted branches)');
 contract(/needs:\s*verify\b/.test(releaseStageBlock), 'sdk-release-prep stage job depends on the verify job');
@@ -1108,16 +1131,16 @@ contract(
 /* ---- Non-mutating OIDC verification (manual action=oidc-check) ---------- */
 const releaseOidcCheckBlock = withoutCommentLines(releaseJobBlock('oidc-check'));
 contract(
-  releaseOidcCheckBlock.includes("action == 'oidc-check'"),
-  'sdk-release-prep offers the manually dispatched oidc-check action',
+  releaseOidcCheckBlock.includes("action == 'Verify OIDC trusted publishing'"),
+  'sdk-release-prep offers the manually dispatched Verify OIDC trusted publishing action',
 );
 contract(
   /environment:\s*sdk-npm-publish/.test(releaseOidcCheckBlock) &&
     /id-token:\s*write/.test(releaseOidcCheckBlock) &&
     /node-version:\s*24/.test(releaseOidcCheckBlock) &&
-    /github\.event\.inputs\.action == 'oidc-check'/.test(releaseOidcCheckBlock) &&
+    /github\.event\.inputs\.action == 'Verify OIDC trusted publishing'/.test(releaseOidcCheckBlock) &&
     /github\.ref == 'refs\/heads\/main'/.test(releaseOidcCheckBlock),
-  'oidc-check requires action=oidc-check AND github.ref=refs/heads/main, in the protected environment with OIDC id-token and Node 24',
+  'oidc-check requires the Verify OIDC trusted publishing selection AND github.ref=refs/heads/main, in the protected environment with OIDC id-token and Node 24',
 );
 contract(
   (() => {
@@ -1179,7 +1202,7 @@ contract(
   'sdk-release-prep keeps SDK_RELEASE_ENABLED a repository variable (never hardcoded)',
 );
 // The in-repo gates must never be described as making direct publishing
-// impossible: SDK_RELEASE_CONFIRM / confirm_publish / SDK_RELEASE_ENABLED are
+// impossible: SDK_RELEASE_CONFIRM / SDK_RELEASE_ENABLED are
 // accidental-publish guards, not authorization boundaries (RELEASE.md §5).
 contract(
   !/can never release|cannot publish directly|impossible to publish|makes publishing impossible/i.test(

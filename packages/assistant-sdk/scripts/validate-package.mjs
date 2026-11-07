@@ -388,6 +388,8 @@ if (existsSync(workflowPath)) {
   const verifyBlock = withoutCommentLines(jobBlock('verify'));
   // The `stage` job (comment lines excluded).
   const stageBlock = withoutCommentLines(jobBlock('stage'));
+  // The publish-authorization gate job (comment lines excluded).
+  const authBlock = withoutCommentLines(jobBlock('publish-authorization'));
 
   // The whole workflow minus comment lines: BOTH the publish and the stage
   // job authenticate via npm Trusted Publishing (OIDC), so no npm token
@@ -414,8 +416,7 @@ if (existsSync(workflowPath)) {
 
   const gates = [
     ['workflow_dispatch-only trigger', /^on:\s*\n\s+workflow_dispatch:/m.test(workflow) && !/^\s+(push|pull_request):/m.test(workflow)],
-    ['confirm_publish explicit-authorization input', workflow.includes('confirm_publish')],
-    ['confirm_stage explicit-authorization input', workflow.includes('confirm_stage')],
+    ['single action dropdown with the four labeled options (no typed confirmation inputs)', !workflow.includes('confirm_stage') && !workflow.includes('confirm_publish') && ['Verify only', 'Stage release on npm', 'Publish release to npm', 'Verify OIDC trusted publishing'].every((label) => workflow.includes(label))],
     ['SDK_RELEASE_ENABLED approval variable', workflow.includes('SDK_RELEASE_ENABLED')],
     ['sdk-npm-publish protected environment', publishBlock.includes('environment: sdk-npm-publish')],
     ['SDK_RELEASE_CONFIRM publish authorization (set only by the gated publish and stage jobs)', workflow.includes('SDK_RELEASE_CONFIRM: publish')],
@@ -424,8 +425,13 @@ if (existsSync(workflowPath)) {
     ['OIDC: GitHub-hosted runner for the publish job', /runs-on:\s*ubuntu-latest/.test(publishBlock)],
     ['OIDC: Node >= 22.14 toolchain (publish job pins Node 24)', /node-version:\s*24/.test(publishBlock)],
     ['no npm token references anywhere (verify, stage and publish authenticate without a stored npm credential)', !/NODE_AUTH_TOKEN|secrets\.NPM_/.test(nonComment)],
-    ['stage job runs only on explicit action=stage + confirm_stage=stage dispatch', stageBlock.includes("action == 'stage'") && stageBlock.includes("confirm_stage == 'stage'")],
+    ['stage job runs only when Stage release on npm is selected (single dropdown, no typed confirmation)', stageBlock.includes("action == 'Stage release on npm'") && !stageBlock.includes('confirm_stage')],
     ['stage job runs from main only (never untrusted branches)', /refs\/heads\/main/.test(stageBlock)],
+    ['publish job runs only when Publish release to npm is selected', publishBlock.includes("action == 'Publish release to npm'")],
+    ['publish job runs from main only (never untrusted branches)', /refs\/heads\/main/.test(withoutCommentLines(publishBlock))],
+    ['publish job depends on verify AND the publish-authorization gate', /needs:\s*\[verify,\s*publish-authorization\]/.test(publishBlock)],
+    ['publish-authorization gate: main-only, needs verify, fails loudly when SDK_RELEASE_ENABLED is missing', authBlock.includes("action == 'Publish release to npm'") && /refs\/heads\/main/.test(authBlock) && /needs:\s*verify\b/.test(authBlock) && authBlock.includes('exit 1') && authBlock.includes('SDK_RELEASE_ENABLED is not')],
+    ['publish-authorization gate holds no environment, no OIDC permission and no npm command', !authBlock.includes('environment:') && !/id-token:/.test(authBlock) && !/npm\s+(publish|stage|dist-tag)\b/.test(authBlock)],
     ['stage job depends on the full verify job (needs: verify)', /needs:\s*verify\b/.test(stageBlock)],
     ['stage job uses the protected sdk-npm-publish environment', stageBlock.includes('environment: sdk-npm-publish')],
     ['stage job OIDC permissions (exactly contents: read + id-token: write)', stageOidcPerms],
