@@ -1,7 +1,13 @@
 import type { DomainRegistry } from '../domain/index.js';
+import type { AssistantThemeConfig, NormalizedTheme } from '../theme/index.js';
 
 export type AssistantPosition = 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left';
-export type AssistantTheme = 'auto' | 'light' | 'dark';
+/**
+ * The theme mode. Kept as the original string union for backward
+ * compatibility: `getConfig().theme` and `state.appearance.theme` still read as
+ * `'auto' | 'light' | 'dark' | 'custom'`.
+ */
+export type AssistantTheme = 'auto' | 'light' | 'dark' | 'custom';
 export type AssistantActionIcon = 'install' | 'diagnostics' | 'recovery' | 'backup' | 'help' | 'info' | 'update' | 'custom';
 
 export interface AssistantOffsets {
@@ -78,13 +84,18 @@ export interface PublishedAssistantConfig {
   branding?: Partial<AssistantBrandingConfig>;
   actions?: AssistantActionInput[];
   features?: AssistantFeatureInput[];
-  theme?: AssistantTheme;
+  /** A published (remote) revision may select a mode, but never carries custom
+   * tokens: published configuration stays data-only and identity-neutral. */
+  theme?: 'auto' | 'light' | 'dark';
   domainRegistry?: DomainRegistry;
   config?: Omit<PublishedAssistantConfig, 'schemaVersion' | 'revision' | 'publishedAt' | 'config'>;
 }
 
 export interface AssistantConfigInput {
   enabled?: boolean;
+  /** Adaptive theme: object form (`{ mode, inheritHost, tokens }`) or the
+   * original string form (`'auto' | 'light' | 'dark'`). */
+  theme?: AssistantThemeConfig;
   projectId?: string;
   domain?: string;
   position?: AssistantPosition;
@@ -94,7 +105,6 @@ export interface AssistantConfigInput {
   branding?: Partial<AssistantBrandingConfig>;
   actions?: AssistantActionInput[];
   features?: AssistantFeatureInput[];
-  theme?: AssistantTheme;
   domainRegistry?: DomainRegistry;
   publishedConfig?: PublishedAssistantConfig | string | null;
   useLastKnownGood?: boolean;
@@ -105,6 +115,10 @@ export interface AssistantConfigInput {
 
 export interface ResolvedAssistantConfig {
   enabled: boolean;
+  /** Normalized theme record (validated tokens only). */
+  theme: NormalizedTheme;
+  /** Backward-compatible flat mode, mirrors `theme.mode`. */
+  themeMode: AssistantTheme;
   projectId: string;
   domain: string;
   position: AssistantPosition;
@@ -114,7 +128,6 @@ export interface ResolvedAssistantConfig {
   branding: AssistantBrandingConfig;
   actions: AssistantAction[];
   features: AssistantFeature[];
-  theme: AssistantTheme;
   domainRegistry: DomainRegistry | null;
   services: {
     diagnostics: (() => Promise<Record<string, unknown>> | Record<string, unknown>) | null;

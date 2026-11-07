@@ -32,6 +32,10 @@
       "types": "./src/browser/index.d.ts",
       "default": "./src/browser/index.js"
     },
+    "./theme": {
+      "types": "./src/theme/index.d.ts",
+      "default": "./src/theme/index.js"
+    },
     "./react": {
       "types": "./src/adapters/react.d.ts",
       "default": "./src/adapters/react.js"

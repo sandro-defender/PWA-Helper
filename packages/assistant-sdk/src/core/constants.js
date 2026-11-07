@@ -15,8 +15,16 @@ Object.freeze(TONE);
 export const POSITIONS = ['bottom-right', 'bottom-left', 'top-right', 'top-left'];
 Object.freeze(POSITIONS);
 
-export const THEMES = ['auto', 'light', 'dark'];
+// `auto` | `light` | `dark` are the original string modes; `custom` is part of
+// the adaptive theming release and is only meaningful with explicit tokens
+// (see `src/theme/index.js`). The list stays here so config validation and the
+// generated classic bundle share one definition.
+export const THEMES = ['auto', 'light', 'dark', 'custom'];
 Object.freeze(THEMES);
+
+/** Legacy string modes that need no token payload. */
+export const LEGACY_THEME_MODES = ['auto', 'light', 'dark'];
+Object.freeze(LEGACY_THEME_MODES);
 
 export const ICONS = ['install', 'diagnostics', 'recovery', 'backup', 'help', 'info', 'update', 'custom'];
 Object.freeze(ICONS);

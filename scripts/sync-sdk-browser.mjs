@@ -27,6 +27,7 @@ const targetFile = join(rootDir, 'assistant-state.js');
 const SOURCE_MODULES = [
   'core/constants.js',
   'core/sanitize.js',
+  'theme/index.js',
   'domain/index.js',
   'config/index.js',
   'diagnostics/index.js',
@@ -99,6 +100,13 @@ ${sections.join('\n\n')}
     buildManifest: buildManifest,
     domain: createDomainResolver(root.YOU_GE_DOMAIN_REGISTRY || {}),
     validatePublishedConfig: validatePublishedConfig,
+    // Adaptive theming — same validation/resolution in classic and ESM pages.
+    THEME_MODES: THEME_MODES,
+    THEME_TOKEN_KEYS: THEME_TOKEN_KEYS,
+    normalizeTheme: normalizeTheme,
+    resolveTheme: resolveTheme,
+    detectHostScheme: detectHostScheme,
+    contrastRatio: contrastRatio,
     detectInAppBrowser: detectInAppBrowser,
     isChromeHandoffCandidate: isChromeHandoffCandidate,
     buildChromeIntentUrl: buildChromeIntentUrl,
