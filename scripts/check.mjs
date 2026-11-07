@@ -536,11 +536,11 @@ for (const page of examplePages) {
       const assistantMarkPath = at('example/src/assistant-mark.png');
       const assistantMarkSize = existsSync(assistantMarkPath) ? pngSize(assistantMarkPath) : null;
       const floatingStyles = readFileSync(at('example/example.css'), 'utf8');
-      if (floatingRoot && assistantModule && /<ElectricLogo\b/.test(assistantSource)
+      if (floatingRoot && assistantModule && !/ElectricLogo|electric-logo/.test(assistantSource)
         && /assistantMark/.test(assistantSource) && /<img className="assistant-mark-image"/.test(assistantSource)
         && assistantMarkSize?.width === 192 && assistantMarkSize?.height === 192
         && /\.assistant-widget\s*\{[^}]*position:\s*fixed/s.test(floatingStyles)) {
-        pass(`${page.label} mounts the visible React Bits logo in a fixed floating assistant`);
+        pass(`${page.label} mounts the visible static logo mark in a fixed floating assistant`);
       } else {
         fail(`${page.label} is missing its fixed floating assistant logo or mount`);
       }
@@ -734,7 +734,7 @@ contract(reactBitsStyles.every((text) => text.includes('prefers-reduced-motion')
 const examplePackage = JSON.parse(readFileSync(at('example/package.json'), 'utf8'));
 contract(Boolean(examplePackage.scripts && examplePackage.scripts.typecheck), 'React example exposes a typecheck script');
 const noticeSource = readFileSync(at('example/THIRD_PARTY_NOTICES.md'), 'utf8');
-for (const name of ['ElectricLogo', 'SpotlightCard', 'GlareHover', 'LatticeLoader']) {
+for (const name of ['SpotlightCard', 'GlareHover', 'LatticeLoader']) {
   contract(noticeSource.includes(name), `third-party notices list ${name}`);
 }
 

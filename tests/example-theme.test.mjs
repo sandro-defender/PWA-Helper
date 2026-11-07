@@ -144,11 +144,12 @@ test('the example keeps accessibility: focus, grouping, labels and motion', () =
 
 test('the example adds no dependency and changes no package version', () => {
   const deps = examplePkg.dependencies || {};
-  // `ogl` and the local SDK were already part of the example (logo + bindings);
-  // theming must not add anything.
+  // The local SDK and React were already part of the example (bindings);
+  // theming must not add anything. The animated logo (and its `ogl` runtime)
+  // was removed in favour of the static zoomed mark.
   assert.deepEqual(
     Object.keys(deps).sort(),
-    ['@youge/assistant-sdk', 'ogl', 'react', 'react-dom'],
+    ['@youge/assistant-sdk', 'react', 'react-dom'],
     'theming adds no dependency to the example',
   );
   assert.match(deps['@youge/assistant-sdk'], /^file:/, 'the example consumes the local SDK');

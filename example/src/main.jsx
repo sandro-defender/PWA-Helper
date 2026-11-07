@@ -9,29 +9,12 @@ import {
   notificationLevelLabel,
   resolveAppearanceTheme,
 } from '@youge/assistant-sdk/react';
-import ElectricLogo from './ElectricLogo.jsx';
 import FoundationPreview from './FoundationPreview.tsx';
 import ThemeStudio from './ThemeStudio.jsx';
 import GlareHover from './react-bits/GlareHover';
 import LatticeLoader from './react-bits/LatticeLoader';
 import SpotlightCard from './react-bits/SpotlightCard';
 import assistantMark from './assistant-mark.png';
-import './ElectricLogo.css';
-
-class LogoBoundary extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = { failed: false };
-  }
-
-  static getDerivedStateFromError() {
-    return { failed: true };
-  }
-
-  render() {
-    return this.state.failed ? null : this.props.children;
-  }
-}
 
 /* The React example consumes the extracted @youge/assistant-sdk and shares
  * the exact same singleton state as classic browser scripts (assistant-state.js)
@@ -227,10 +210,6 @@ function AssistantFloatingWidget() {
   const [open, setOpen] = useState(false);
   const appearance = state.appearance || fallbackState.appearance;
   const resolvedTheme = useResolvedTheme(appearance);
-  // The electric accent is interaction feedback, so it only exists while the
-  // button is hovered or focused, or the panel is open. Nothing animates while
-  // the assistant is idle.
-  const [engaged, setEngaged] = useState(false);
   const widgetRef = useRef(null);
   const toggleRef = useRef(null);
   const badge = state.badge || fallbackState.badge;
@@ -429,7 +408,7 @@ function AssistantFloatingWidget() {
         background="transparent"
         borderRadius="50%"
         borderColor="transparent"
-        glareColor="#ffffff"
+        glareColor={actionable ? '#f6ccc6' : '#ffffff'}
         glareOpacity={0.08}
         glareSize={18}
         mode="hover"
@@ -445,42 +424,9 @@ function AssistantFloatingWidget() {
           aria-haspopup="dialog"
           title="You.Ge Assistant"
           data-tone={badge.tone}
-          onPointerEnter={() => setEngaged(true)}
-          onPointerLeave={() => setEngaged(false)}
-          onFocus={() => setEngaged(true)}
-          onBlur={() => setEngaged(false)}
           onClick={() => setOpen((wasOpen) => !wasOpen)}
         >
           <span className="assistant-fab-stage" aria-hidden="true">
-            <LogoBoundary>
-              {engaged || open ? (
-                /* A faint edge of light around the mark, not lightning: no cursor
-                 * chasing (interactive off), no ambient arcs while the panel is
-                 * closed, and about a third of the old brightness and glow. It gets
-                 * slightly warmer in the actionable state so the red reads as lit
-                 * from inside the disc instead of a halo around it. ElectricLogo
-                 * damps its own motion under prefers-reduced-motion. */
-                <ElectricLogo
-                  src={assistantMark}
-                  color={actionable ? '#f6ccc6' : '#c9d4ea'}
-                  glowColor={actionable ? '#8f2a1f' : '#5d6b8c'}
-                  scale={0.62}
-                  intensity={actionable ? 0.42 : 0.16}
-                  glow={actionable ? 0.26 : 0.08}
-                  fill={0.05}
-                  strands={2}
-                  bend={0.2}
-                  crackle={actionable ? 0.5 : 0.12}
-                  flicker={0}
-                  arcs={open ? 0.4 : 0}
-                  speed={actionable ? 0.9 : 0.35}
-                  interactive={false}
-                  cursorIntensity={0}
-                  theme="dark"
-                  className="assistant-electric-logo"
-                />
-              ) : null}
-            </LogoBoundary>
             <img className="assistant-mark-image" src={assistantMark} alt="" />
           </span>
           {badge.count > 0 ? (
