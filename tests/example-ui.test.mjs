@@ -243,6 +243,15 @@ test('the sample floating button is a clipped circle, not a glowing square', () 
   assert.match(exampleCss, /\.assistant-fab:focus-visible \{ outline: 3px solid/, 'keyboard focus stays visible');
 });
 
+test('the sample panel brand is a true circle, zoomed and never cropped', () => {
+  const brand = ruleBody(exampleCss, 'assistant-panel-brand');
+  assert.match(brand, /border-radius: 50%/, 'a real circle, not a rounded square');
+  assert.doesNotMatch(brand, /border-radius:\s*(?!50%)\d/, 'no competing radius on the logo');
+  assert.match(brand, /width: 40px/, 'zoomed up from the old 32px');
+  assert.match(brand, /object-fit: contain/, 'the whole mark stays visible');
+  assert.match(brand, /flex: none/, 'the circle keeps its size in the header row');
+});
+
 test('the sample button shares the shipped widget’s actionable-tone rule', () => {
   assert.deepEqual(
     actionableTones(exampleCss, 'assistant-fab'),

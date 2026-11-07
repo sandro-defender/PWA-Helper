@@ -544,11 +544,18 @@
 }
 
 .youge-identity { display: flex; align-items: center; gap: 12px; }
+/* The identity logo the panel shows when the floating circle is pressed. The
+   artwork itself is a circle drawn on a square canvas, so the frame has to be
+   a true circle (border-radius: 50% on the square box) — the old 10px rounded
+   square made the logo read as cut and un-zoomed. Sized up from 36px with
+   object-fit: contain so the mark fills the header circle and is never
+   cropped; the circle clip removes only the canvas corners, never the mark. */
 .youge-brand-image {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  object-fit: cover;
+  width: 44px;
+  height: 44px;
+  flex: none;
+  border-radius: 50%;
+  object-fit: contain;
   border: var(--youge-border-width) solid var(--youge-line);
   background: var(--youge-surface-soft);
 }

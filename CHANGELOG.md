@@ -38,6 +38,11 @@ release is **prepared in-repo, not staged and not published**.
   Assistant theme section that drives the public `configure()` API, including an
   invalid palette that surfaces the warnings.
 
+- **Circular panel logo.** The identity logo shown when the floating circle is
+  pressed is a true circle (`border-radius: 50%`), zoomed from 36px to 44px
+  with `object-fit: contain` so the circular mark fills the header and is never
+  cropped into a rounded square; the React example panel matches at 40px.
+
 ## 0.1.1 — 2026-11-07
 
 - **Android in-app browser detection + Chrome handoff (reusable SDK
