@@ -49,6 +49,7 @@ export const FALLBACK_ASSISTANT_STATE = Object.freeze({
     failover: true,
     help: true,
     updates: true,
+    chromeHandoff: true,
   }),
   notifications: Object.freeze([]),
   availableActions: Object.freeze([]),

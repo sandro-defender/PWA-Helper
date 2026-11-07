@@ -31,6 +31,7 @@ const SOURCE_MODULES = [
   'config/index.js',
   'diagnostics/index.js',
   'installation/index.js',
+  'browser/index.js',
   'assistant/index.js',
 ];
 
@@ -98,6 +99,11 @@ ${sections.join('\n\n')}
     buildManifest: buildManifest,
     domain: createDomainResolver(root.YOU_GE_DOMAIN_REGISTRY || {}),
     validatePublishedConfig: validatePublishedConfig,
+    detectInAppBrowser: detectInAppBrowser,
+    isChromeHandoffCandidate: isChromeHandoffCandidate,
+    buildChromeIntentUrl: buildChromeIntentUrl,
+    chromeHandoffInstructions: chromeHandoffInstructions,
+    createChromeHandoff: createChromeHandoff,
   };
 
   root.YouGeAssistant = api;

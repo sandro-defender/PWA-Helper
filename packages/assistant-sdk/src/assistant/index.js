@@ -465,6 +465,7 @@ export function createAssistant(initialOptions, envOverrides) {
         failover: config.modules.failover,
         help: config.modules.help,
         updates: config.modules.updates,
+        chromeHandoff: config.modules.chromeHandoff !== false,
       },
       notifications: notifications,
       availableActions: availableActions,

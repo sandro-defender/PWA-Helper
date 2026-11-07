@@ -60,6 +60,15 @@ import {
   bridgePwaGlobals,
   readToolkitSummary,
 } from './adapters/pwa-kit.js';
+import {
+  CHROME_OFFER_STORAGE_KEY,
+  CHROME_PACKAGE,
+  buildChromeIntentUrl,
+  chromeHandoffInstructions,
+  createChromeHandoff,
+  detectInAppBrowser,
+  isChromeHandoffCandidate,
+} from './browser/index.js';
 
 export const YouGeAssistant = Object.freeze({
   version: SDK_VERSION,
@@ -73,6 +82,9 @@ export const YouGeAssistant = Object.freeze({
   resolveDomain: resolveDomain,
   buildManifest: buildManifest,
   validatePublishedConfig: validatePublishedConfig,
+  detectInAppBrowser: detectInAppBrowser,
+  buildChromeIntentUrl: buildChromeIntentUrl,
+  createChromeHandoff: createChromeHandoff,
 });
 
 export {
@@ -118,6 +130,13 @@ export {
   getGlobalAssistant,
   bridgePwaGlobals,
   readToolkitSummary,
+  CHROME_PACKAGE,
+  CHROME_OFFER_STORAGE_KEY,
+  detectInAppBrowser,
+  isChromeHandoffCandidate,
+  buildChromeIntentUrl,
+  chromeHandoffInstructions,
+  createChromeHandoff,
 };
 
 export default YouGeAssistant;

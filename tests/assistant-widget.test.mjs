@@ -267,6 +267,7 @@ function createContext(options = {}) {
     pathname: '/',
   };
   win.navigator = { onLine: options.online !== false };
+  if (options.userAgent !== undefined) win.navigator.userAgent = options.userAgent;
   win.localStorage = storage;
   win.CustomEvent = class CustomEvent {
     constructor(type, init = {}) { this.type = type; this.detail = init.detail; }
@@ -960,5 +961,264 @@ test('informational alerts and in-progress checks keep the button calm', () => {
   assert.equal(fab.getAttribute('data-tone'), 'info', 'an optional update is not something to act on now');
   ctx.api.setDnsResult({ status: 'running', classification: 'pending', message: 'Checking this connection.' });
   assert.equal(fab.getAttribute('data-tone'), 'info', 'a running diagnostic never turns the button red');
+  widget.destroy();
+});
+
+/* ------------------------------------------------------------------ *
+ * 0.1.1 feature release: responsive auto-scaling + manual icon       *
+ * adjustment (size / horizontal / vertical), and the Android         *
+ * in-app browser → Chrome handoff offer.                             *
+ * ------------------------------------------------------------------ */
+
+const ANDROID_CHROME_UA =
+  'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36';
+const ANDROID_FACEBOOK_UA =
+  'Mozilla/5.0 (Linux; Android 13; SM-A536B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36 [FBAN/FB4A;FBAV/460.0.0.36.107;]';
+const ANDROID_MESSENGER_UA =
+  'Mozilla/5.0 (Linux; Android 12; Pixel 6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Mobile Safari/537.36 [FBAN/MessengerForAndroid;FBAV/431.0.0.29.119;]';
+const ANDROID_INSTAGRAM_UA =
+  'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Mobile Safari/537.36 Instagram 312.0.0.0.0 Android';
+const IOS_FACEBOOK_UA =
+  'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 [FBAN/FBIOS;FBAV/460.0.0.36.107;]';
+const HANDOFF_HREF = 'https://example.test/staff/home?tab=2&next=%2Fdeep#section-4';
+
+function openPanelViaToggle(ctx, root) {
+  fire(ctx.document, root.querySelector('[data-role="toggle"]'), 'click');
+}
+
+test('the floating entry point scales automatically across phone, tablet and desktop sizes', () => {
+  // One token owns the diameter; the responsive tiers restate it.
+  assert.match(widgetCss, /\.youge-assistant-widget \{[^}]*--youge-fab-size: 56px/, 'default diameter is a single root token');
+  assert.match(widgetCss, /@media \(max-width: 480px\)[\s\S]*?--youge-fab-size: 54px/, 'phone tier');
+  assert.match(widgetCss, /@media \(min-width: 768px\)[\s\S]*?--youge-fab-size: 60px/, 'tablet tier');
+  assert.match(widgetCss, /@media \(min-width: 1280px\)[\s\S]*?--youge-fab-size: 64px/, 'desktop tier');
+  // The element itself follows the token so a manual override can win.
+  const rule = (/\.youge-fab \{[\s\S]*?\n\}/.exec(widgetCss) || [''])[0];
+  assert.match(rule, /width: var\(--youge-fab-size\)/);
+  assert.match(rule, /height: var\(--youge-fab-size\)/);
+  assert.doesNotMatch(rule, /width: 56px/, 'the base rule is not a fixed pixel size');
+  // …and stays a true circle at every tier (border-radius: 50% on the square box).
+  assert.match(rule, /border-radius: 50%/);
+  // The glyph and the panel gap follow the same token.
+  assert.match(widgetCss, /\.youge-fab \.youge-icon svg \{ width: var\(--youge-fab-glyph, 26px\)/);
+  assert.match(widgetCss, /var\(--youge-offset-y\) \+ var\(--youge-fab-size\) \+ 10px \+ env\(safe-area-inset-bottom/);
+  // The compact tier keeps its exact square measurement (circle regression gate).
+  assert.match(widgetCss, /\.youge-fab \{ width: 54px; height: 54px; \}/);
+});
+
+test('manual size and position adjustments apply immediately, clamp and persist', () => {
+  const ctx = createContext({ richDocument: true });
+  const widget = loadWidget(ctx);
+  const root = widget.getRoot();
+  openPanelViaToggle(ctx, root);
+
+  const sizeInput = root.querySelector('[data-adjust="size"]');
+  const xInput = root.querySelector('[data-adjust="x"]');
+  const yInput = root.querySelector('[data-adjust="y"]');
+  assert.ok(sizeInput && xInput && yInput, 'the adjust section renders three labelled ranges');
+
+  sizeInput.value = '80'; // above the 72px maximum → clamped
+  fire(ctx.document, sizeInput, 'input');
+  const fab = root.querySelector('[data-role="toggle"]');
+  assert.equal(fab.style.width, '72px', 'the manual size lands on the FAB as an inline override');
+  assert.equal(fab.style.height, '72px');
+  assert.equal(root.style['--youge-fab-size'], '72px', 'panel gap and offer follow the manual size');
+  assert.ok(fab.style['--youge-fab-glyph'], 'the glyph scales with the manual size');
+  assert.match(String(fab.style['--youge-fab-glyph']), /^\d+px$/);
+  assert.equal(root.querySelector('#youge-adjust-size-out').textContent, '72px');
+
+  xInput.value = '-5'; // below 0 → clamped
+  fire(ctx.document, xInput, 'input');
+  assert.equal(root.style['--youge-offset-x'], '0px');
+  yInput.value = '200'; // above 160 → clamped
+  fire(ctx.document, yInput, 'input');
+  assert.equal(root.style['--youge-offset-y'], '160px');
+
+  const saved = JSON.parse(ctx.storage.getItem('youge-assistant:fab-adjust'));
+  assert.deepEqual(saved, { size: 72, x: 0, y: 160 }, 'every adjustment persists on this origin');
+  widget.destroy();
+});
+
+test('manual adjustments survive a reload and the sliders reflect the stored values', () => {
+  const storage = makeStorage({
+    'youge-assistant:fab-adjust': JSON.stringify({ size: 64, x: 30, y: 44 }),
+  });
+  const ctx = createContext({ richDocument: true, storage });
+  const widget = loadWidget(ctx);
+  const root = widget.getRoot();
+  const fab = root.querySelector('[data-role="toggle"]');
+  assert.equal(fab.style.width, '64px', 'stored size applied on mount (page reload / PWA restart)');
+  assert.equal(fab.style.height, '64px');
+  assert.equal(root.style['--youge-offset-x'], '30px');
+  assert.equal(root.style['--youge-offset-y'], '44px');
+
+  openPanelViaToggle(ctx, root);
+  assert.equal(root.querySelector('[data-adjust="size"]').value, '64');
+  assert.equal(root.querySelector('[data-adjust="x"]').value, '30');
+  assert.equal(root.querySelector('[data-adjust="y"]').value, '44');
+  assert.equal(root.querySelector('#youge-adjust-size-out').textContent, '64px');
+  widget.destroy();
+});
+
+test('reset returns the icon to automatic defaults and clears the stored adjustment', () => {
+  const storage = makeStorage({
+    'youge-assistant:fab-adjust': JSON.stringify({ size: 70, x: 90, y: 100 }),
+  });
+  const ctx = createContext({ richDocument: true, storage });
+  const widget = loadWidget(ctx);
+  const root = widget.getRoot();
+  const fab = root.querySelector('[data-role="toggle"]');
+  assert.equal(fab.style.width, '70px', 'starts from the stored manual size');
+
+  openPanelViaToggle(ctx, root);
+  fire(ctx.document, root.querySelector('[data-adjust-reset]'), 'click');
+
+  assert.equal(fab.style.width, '', 'inline size override cleared');
+  assert.equal(fab.style.height, '');
+  assert.equal(root.style['--youge-offset-x'], '20px', 'configured/default offset restored');
+  assert.equal(root.style['--youge-offset-y'], '20px');
+  assert.equal(ctx.storage.getItem('youge-assistant:fab-adjust'), null, 'persistence cleared');
+  assert.equal(root.querySelector('[data-adjust="size"]').value, '56', 'slider back to the automatic diameter');
+  assert.equal(root.querySelector('#youge-adjust-size-out').textContent, '56px');
+  widget.destroy();
+});
+
+test('touch, mouse and keyboard share one delegated input path with 44px touch targets', () => {
+  // Behaviour: one 'input' listener on the panel root drives every range,
+  // regardless of whether it was driven by pointer, touch or arrow keys.
+  const ctx = createContext({ richDocument: true });
+  const widget = loadWidget(ctx);
+  const root = widget.getRoot();
+  openPanelViaToggle(ctx, root);
+  fire(ctx.document, root.querySelector('[data-adjust="size"]'), 'input', {});
+  fire(ctx.document, root.querySelector('[data-adjust="x"]'), 'input', {});
+  widget.destroy();
+
+  // Structure/CSS: native ranges keep keyboard semantics; targets are touch-safe.
+  assert.match(widgetCss, /\.youge-adjust-row input\[type="range"\] \{[^}]*min-height: 44px/s);
+  assert.match(widgetCss, /\.youge-adjust-row input\[type="range"\] \{[^}]*touch-action: manipulation/s);
+  assert.match(widgetCss, /\.youge-adjust > summary \{[^}]*min-height: 44px/s);
+  assert.match(widgetCss, /\.youge-adjust-row input\[type="range"\]:focus-visible \{[^}]*outline: 3px solid var\(--youge-focus\)/s);
+  assert.match(widgetCss, /\.youge-adjust-label \{/);
+});
+
+test('Android Facebook in-app browsers get an Open in Chrome offer that preserves the full URL', () => {
+  const timers = [];
+  const ctx = createContext({
+    richDocument: true,
+    userAgent: ANDROID_FACEBOOK_UA,
+    href: HANDOFF_HREF,
+  });
+  ctx.win.setTimeout = (fn, ms) => {
+    timers.push({ fn, ms });
+    return timers.length;
+  };
+  const assigned = [];
+  ctx.win.location.assign = (url) => assigned.push(url);
+  const widget = loadWidget(ctx);
+  const root = widget.getRoot();
+
+  const offer = root.querySelector('.youge-chrome-offer');
+  assert.ok(offer, 'the offer region exists in the widget root');
+  assert.equal(offer.hidden, false, 'confident Android Facebook in-app → offer shown');
+  assert.match(root.querySelector('[data-chrome-text]').textContent, /in-app browser|Chrome/i);
+  assert.equal(root.querySelector('[data-chrome-open]').textContent, 'Open in Chrome');
+
+  fire(ctx.document, root.querySelector('[data-chrome-open]'), 'click');
+  assert.equal(assigned.length, 1, 'the handoff attempts exactly one intent URL');
+  assert.match(assigned[0], /^intent:\/\//);
+  assert.match(assigned[0], /package=com\.android\.chrome/);
+  assert.ok(
+    assigned[0].startsWith('intent://example.test/staff/home?tab=2&next=%2Fdeep#section-4#Intent;'),
+    'pathname, query and hash are preserved in the handoff URL'
+  );
+  assert.ok(assigned[0].includes(encodeURIComponent(HANDOFF_HREF)), 'the original URL survives in the fallback slot');
+
+  // The page is still visible after the delay in this simulation → manual fallback.
+  assert.equal(root.querySelector('[data-chrome-fallback]').hidden, true, 'waits for the delay first');
+  assert.equal(timers.length, 1);
+  timers[0].fn();
+  const fallback = root.querySelector('[data-chrome-fallback]');
+  assert.equal(fallback.hidden, false, 'still in the app → manual instructions shown');
+  assert.equal(root.querySelector('.youge-chrome-offer-steps').children.length, 3, 'three copy-ready steps');
+  assert.match(root.querySelector('.youge-chrome-offer-steps').children.map((li) => li.textContent).join(' '), /Chrome/);
+  assert.equal(root.querySelector('.youge-chrome-offer-url').textContent, HANDOFF_HREF, 'original URL shown verbatim');
+  widget.destroy();
+});
+
+test('a failed Chrome handoff shows manual instructions with the original URL and a copy action', () => {
+  const ctx = createContext({
+    richDocument: true,
+    userAgent: ANDROID_FACEBOOK_UA,
+    href: HANDOFF_HREF,
+    // No location.assign at all: the handoff cannot leave the app.
+  });
+  const widget = loadWidget(ctx);
+  const root = widget.getRoot();
+  assert.equal(root.querySelector('.youge-chrome-offer').hidden, false);
+
+  fire(ctx.document, root.querySelector('[data-chrome-open]'), 'click');
+  const fallback = root.querySelector('[data-chrome-fallback]');
+  assert.equal(fallback.hidden, false, 'immediate manual fallback when the attempt cannot run');
+  assert.equal(root.querySelector('.youge-chrome-offer-steps').children.length, 3);
+  assert.equal(root.querySelector('.youge-chrome-offer-url').textContent, HANDOFF_HREF);
+  assert.match(root.querySelector('.youge-chrome-offer-steps').children.map((li) => li.textContent).join(' '), /Chrome/);
+
+  // Clipboard is unavailable in this environment → the graceful manual hint.
+  fire(ctx.document, root.querySelector('[data-chrome-copy]'), 'click');
+  assert.match(root.querySelector('.youge-chrome-offer-status').textContent, /Select the address/);
+  widget.destroy();
+});
+
+test('supported browsers, iOS in-apps and uncertain detections never see the offer', () => {
+  for (const userAgent of [ANDROID_CHROME_UA, IOS_FACEBOOK_UA, undefined]) {
+    const ctx = createContext({
+      richDocument: true,
+      userAgent,
+      href: 'https://example.test/',
+    });
+    const widget = loadWidget(ctx);
+    const offer = widget.getRoot().querySelector('.youge-chrome-offer');
+    assert.equal(offer.hidden, true, `no offer for ${String(userAgent).slice(0, 24) || 'an unknown user agent'}`);
+    widget.destroy();
+  }
+  // Identification uncertainty must never navigate either: no assign spy set,
+  // no crash, offer stays hidden.
+});
+
+test('Messenger and Instagram in-app browsers also get the offer', () => {
+  for (const userAgent of [ANDROID_MESSENGER_UA, ANDROID_INSTAGRAM_UA]) {
+    const ctx = createContext({ richDocument: true, userAgent, href: 'https://example.test/' });
+    const widget = loadWidget(ctx);
+    assert.equal(widget.getRoot().querySelector('.youge-chrome-offer').hidden, false, userAgent.slice(0, 40));
+    widget.destroy();
+  }
+});
+
+test('the offer hides while the panel is open and persists its dismissal across reloads', () => {
+  const storage = makeStorage();
+  const makeLoaded = () => {
+    const ctx = createContext({ richDocument: true, userAgent: ANDROID_FACEBOOK_UA, href: 'https://example.test/', storage });
+    return { ctx, widget: loadWidget(ctx) };
+  };
+
+  let { ctx, widget } = makeLoaded();
+  let root = widget.getRoot();
+  const offer = root.querySelector('.youge-chrome-offer');
+  assert.equal(offer.hidden, false);
+
+  openPanelViaToggle(ctx, root);
+  assert.equal(offer.hidden, true, 'the offer never covers the open panel');
+  fire(ctx.document, root.querySelector('[data-role="toggle"]'), 'click'); // close
+  assert.equal(offer.hidden, false, 'the offer returns when the panel closes');
+
+  fire(ctx.document, root.querySelector('[data-chrome-dismiss]'), 'click');
+  assert.equal(offer.hidden, true, 'Not now hides the offer');
+  assert.equal(ctx.storage.getItem('youge-assistant:chrome-offer-dismissed'), '1', 'dismissal persists');
+  widget.destroy();
+
+  // Same origin, fresh page load → still dismissed.
+  ({ ctx, widget } = makeLoaded());
+  assert.equal(widget.getRoot().querySelector('.youge-chrome-offer').hidden, true, 'dismissal survives a reload');
   widget.destroy();
 });

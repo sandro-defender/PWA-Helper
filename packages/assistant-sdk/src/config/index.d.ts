@@ -16,6 +16,8 @@ export interface AssistantModulesConfig {
   failover: boolean;
   help: boolean;
   updates: boolean;
+  /** Offer the Android in-app browser → Chrome handoff when applicable. */
+  chromeHandoff: boolean;
 }
 
 export interface AssistantNotificationsConfig {

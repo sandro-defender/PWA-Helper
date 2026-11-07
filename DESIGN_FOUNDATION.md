@@ -468,3 +468,60 @@ permissions, token-free authentication, never publish/approve/reject). The
 first-publication bootstrap is recorded as *created, used and revoked*, and the
 staged-publish-counts-as-first-publish question is documented **UNVERIFIED**
 until tested. No skill data or generated catalog was committed.
+
+## 15. 0.1.1 feature release — Android Chrome handoff + floating-icon auto-scale/manual adjust (2026-11-07)
+
+The `ui-ux-pro-max-skill` *When to Apply* section **was applied** for this
+phase: both features change how the interface looks, behaves and is interacted
+with (new offer banner, new panel section, responsive launcher sizing), so the
+skill's search workflow was run from a throwaway clone
+(`/tmp/ui-ux-pro-max-skill`, not committed — per §1 header policy):
+
+```bash
+python3 /tmp/ui-ux-pro-max-skill/.claude/skills/ui-ux-pro-max/scripts/search.py \
+  "floating action button touch target safe area" --domain ux -n 3
+python3 /tmp/ui-ux-pro-max-skill/.claude/skills/ui-ux-pro-max/scripts/search.py \
+  "range slider visible label accessible" --domain ux -n 3
+python3 /tmp/ui-ux-pro-max-skill/.claude/skills/ui-ux-pro-max/scripts/search.py \
+  "in app browser redirect user consent" --domain ux -n 3
+```
+
+**Where the results landed:**
+
+- **Touch target size (High):** every new control clears the web floor with
+  margin — widget ranges and the *Adjust icon* summary are `min-height: 44px`,
+  offer/adjust gaps are 8px (`touch-spacing`), example handoff buttons are
+  40px. No hover-only affordances (`reliance on hover only` anti-pattern).
+- **Back button / history (High):** the Chrome handoff never touches session
+  history — no `pushState`, no `location.replace`, no automatic navigation;
+  `intent://` runs only on an explicit button press and falls back to manual
+  steps when it cannot leave the app (navigation-preservation intent behind
+  the *Back Button* rule).
+- **Input labels (High):** every range has a visible `<label for>` above it
+  plus a live `<output>` value — never placeholder-as-label.
+- **Compact control semantics (Critical):** native `<button>` and
+  `<input type="range">` only (no clickable divs), with 3px `:focus-visible`
+  outlines on summary, ranges and offer buttons.
+- **Reduced motion (High):** no new `@keyframes`, no `animation:`, and no
+  width/height transitions (the existing fab transition contract keeps
+  holding); the reduced-motion block stays intact and the offer/adjust UI is
+  state-change-only.
+
+**Documentation guidance applied** (same status-first pattern as §10/§14):
+RELEASE.md banner now leads with *0.1.1 prepared, NOT staged/published* while
+keeping every wording-test phrase; SDK README gains a feature section +
+handoff API table + `chromeHandoff` config; WIDGET.md §4/§5/§7/§8 document the
+tiers, adjustment storage keys, offer flow, new tests and the one pathological
+`#Intent;` hash limitation; CHANGELOG folds the OIDC Unreleased section into
+`## 0.1.1 — 2026-11-07` with both feature entries on top.
+
+**Files influenced:** `assistant-widget.js` (offer + adjust section,
+persistence, focus preservation), `assistant-widget.css` (`--youge-fab-size`
+tiers, panel-gap token, `.youge-chrome-offer` + `.youge-adjust` blocks),
+`example/src/main.jsx` + `example/example.css` (React handoff banner),
+`packages/assistant-sdk/src/browser/` (new module + types), SDK
+`index.js`/`index.d.ts`/`config`/`assistant`/`react` wiring,
+`scripts/sync-sdk-browser.mjs` + `assistant-state.js` (bundle), tests
+(`sdk-browser` new, widget/example-ui/sdk-core/sdk-config-security extended),
+`scripts/check.mjs` (15 new contracts + 0.1.1 gate). No skill data or
+generated catalog was committed.

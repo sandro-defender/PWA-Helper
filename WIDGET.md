@@ -160,7 +160,7 @@ window.YOU_GE_ASSISTANT_CONFIG = {
   offsets: { x: 20, y: 20 },         // CSS px, combined with safe-area insets
   branding: { name, shortName, icon, themeColor }, // icon must be same-origin
   theme: 'auto',                     // auto | light | dark
-  modules: { installation, diagnostics, recovery, failover, help, updates },
+  modules: { installation, diagnostics, recovery, failover, help, updates, chromeHandoff },
   notifications: { dismissible, suppressRepeats, criticalPersistent },
   actions: [{ id, label, icon, priority, kind, message }],
   features: [{ id, label, message }],
@@ -211,13 +211,35 @@ duplicate prompts and duplicate network checks.
 - Subtle count/tone badge, never a flashing decoration. A visually hidden
   `role="status" aria-live="polite"` region announces a complete contextual
   phrase without moving focus.
-- 56px launcher, 44px minimum controls, visible `:focus-visible` outlines,
-  `cursor: pointer`, `touch-action: manipulation`, SVG icons (no emoji),
-  `aria-label`, `aria-expanded`, `aria-controls`, `role="dialog"`.
-- The launcher is a **true circle**: `border-radius: 50%` on a square 56px box
-  (54px below 480px), so it stays circular at every size and position. Any
-  decorative layer inside it is a circle of its own (`::before` inset 0), so no
-  square edge or glow can escape the button and the glyph stays clipped above it.
+- **Android Chrome handoff offer (0.1.1):** on a confident restricted in-app
+  detection (Facebook / Messenger / Instagram / Android WebView on Android —
+  via `YouGeAssistantSDK.createChromeHandoff`) the widget shows an *Open in
+  Chrome* region above the launcher with a three-step manual fallback carrying
+  the original URL (pathname + query + hash). Best-effort `intent://` only —
+  supported browsers, iOS in-apps and uncertain user agents render nothing,
+  nothing navigates without the explicit button press, dismissal persists per
+  origin (`youge-assistant:chrome-offer-dismissed`), and the offer hides while
+  the panel is open.
+- Auto-scaling launcher on one token: `--youge-fab-size` defaults to 56px and
+  re-states itself per tier — 54px below 480px (exact square rule kept as the
+  circle regression gate), 60px at ≥768px, 64px at ≥1280px — with the glyph on
+  `--youge-fab-glyph`. The panel gap and the Chrome offer track the same token,
+  so nothing ever covers the launcher at its real size. 44px minimum controls,
+  visible `:focus-visible` outlines, `cursor: pointer`,
+  `touch-action: manipulation`, SVG icons (no emoji), `aria-label`,
+  `aria-expanded`, `aria-controls`, `role="dialog"`.
+- **Manual adjustment (per origin):** the panel's *Adjust icon* section exposes
+  labelled native ranges — size 44–72px, horizontal/vertical 0–160px — that
+  apply immediately (size as an inline override that outranks every tier),
+  persist as `youge-assistant:fab-adjust` (`{size,x,y}`) across reloads and
+  PWA restarts, and reset to the automatic defaults in one button. 44px touch
+  targets, `touch-action: manipulation`, focus restoration across panel
+  re-renders; keyboard, touch and pointer share one delegated `input` path.
+- The launcher is a **true circle**: `border-radius: 50%` on a square box at
+  every tier (54/56/60/64px), so it stays circular at every size and position.
+  Any decorative layer inside it is a circle of its own (`::before` inset 0), so
+  no square edge or glow can escape the button and the glyph stays clipped
+  above it.
 - The resting state is deliberately calm: one low-saturation fill
   (`--youge-fab-bg`), a hairline ring, one short elevation shadow, no glow, no
   blur, no `@keyframes`. Hover lifts 1px and press scales to 0.98 — feedback
@@ -330,8 +352,8 @@ requirements. No `--force` was used; the existing `MASTER.md` was not replaced.
 
 ## 7. Tests
 
-`tests/assistant-widget.test.mjs` contains 24 tests. Coverage maps to the
-requested scenarios:
+`tests/assistant-widget.test.mjs` contains 46 tests (46 including the 0.1.1
+feature releases). Coverage maps to the requested scenarios:
 
 | Scenario | Test(s) |
 | --- | --- |
@@ -353,6 +375,12 @@ requested scenarios:
 | No duplicate SW/network requests | static contracts + single-flight diagnostics + one install delegation |
 | Never auto-open | panel hidden on mount; state updates do not open |
 | Event-driven updates | custom events and PWA events |
+| Responsive launcher sizing (phone/tablet/desktop) | single `--youge-fab-size` token, tier CSS contracts, circle gates |
+| Manual size/position + persistence + reset | range clamp, inline override, `fab-adjust` storage, reset-to-defaults |
+| Touch/keyboard/pointer adjust path | delegated `input` + `click`, 44px target CSS |
+| Android Chrome handoff offer | Facebook/Messenger/Instagram show; Chrome/iOS/unknown hidden |
+| URL preservation + failed handoff fallback | intent keeps `?query#hash`; manual steps with verbatim URL |
+| Offer dismissal + panel non-overlap | persisted dismissal survives reload; hidden while panel open |
 
 Static checks in `scripts/check.mjs` §7c additionally enforce the integration
 across `demo`, `example`, `offline`, `snippet`, Pages workflow, Vite middleware
@@ -378,5 +406,9 @@ and the worker precache list.
 - DNS-over-HTTPS classifications remain cautious and are not proof of ISP
   interference. Real-device installation, production DNS, CSP and deployment
   behavior remain acceptance checks outside these unit/static tests.
+- The Chrome handoff is best-effort by design: `intent://` requires Chrome (or
+  another intent handler) on the device, and a page URL whose hash contains a
+  literal `#Intent;` sequence is the one pathological case the handoff cannot
+  round-trip — the manual fallback with the original URL covers both.
 - PR #6 remains open and unmerged; this feature is delivered on the same
   working branch.

@@ -67,6 +67,134 @@
   var closeTimer = null;
   var lastLiveLabel = '';
   var lastBadge = '';
+  var chromeOffer = null;
+  var chromeOfferEl = null;
+  var chromeFallbackEl = null;
+  var chromeUrlEl = null;
+  var chromeStepsEl = null;
+  var chromeStatusEl = null;
+  var chromeInstructions = null;
+  var chromeSuppressed = false;
+
+  // Manual icon adjustments (size / horizontal / vertical) persist per
+  // origin so they survive page reloads and PWA restarts. `{}` means fully
+  // automatic: the responsive CSS tiers own the launcher.
+  var FAB_ADJUST_KEY = 'youge-assistant:fab-adjust';
+  var manualAdjust = loadManualAdjust();
+
+  function readStorage(key) {
+    try {
+      return root.localStorage ? root.localStorage.getItem(key) : null;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function writeStorage(key, value) {
+    try {
+      var storage = root.localStorage;
+      if (!storage) return;
+      if (value == null) storage.removeItem(key);
+      else storage.setItem(key, value);
+    } catch (error) { /* storage unavailable: adjustments stay in-memory */ }
+  }
+
+  function clampAdjustSize(value) {
+    var number = Number(value);
+    if (!isFinite(number)) return null;
+    return Math.min(72, Math.max(44, Math.round(number)));
+  }
+
+  function clampAdjustOffset(value) {
+    var number = Number(value);
+    if (!isFinite(number)) return null;
+    return Math.min(160, Math.max(0, Math.round(number)));
+  }
+
+  function loadManualAdjust() {
+    var raw = readStorage(FAB_ADJUST_KEY);
+    if (!raw) return {};
+    try {
+      var parsed = JSON.parse(raw);
+      var out = {};
+      if (parsed && typeof parsed === 'object') {
+        if (parsed.size != null) {
+          var size = clampAdjustSize(parsed.size);
+          if (size != null) out.size = size;
+        }
+        if (parsed.x != null) {
+          var x = clampAdjustOffset(parsed.x);
+          if (x != null) out.x = x;
+        }
+        if (parsed.y != null) {
+          var y = clampAdjustOffset(parsed.y);
+          if (y != null) out.y = y;
+        }
+      }
+      return out;
+    } catch (error) {
+      return {};
+    }
+  }
+
+  function saveManualAdjust() {
+    var has =
+      manualAdjust &&
+      (manualAdjust.size != null || manualAdjust.x != null || manualAdjust.y != null);
+    writeStorage(FAB_ADJUST_KEY, has ? JSON.stringify(manualAdjust) : null);
+  }
+
+  function clearStyleProp(node, name) {
+    if (!node || !node.style) return;
+    if (typeof node.style.removeProperty === 'function') node.style.removeProperty(name);
+    else if (node.style[name] !== undefined) node.style[name] = '';
+  }
+
+  function autoFabSize() {
+    try {
+      if (fab && typeof fab.getBoundingClientRect === 'function') {
+        var rect = fab.getBoundingClientRect();
+        if (rect && rect.width) return Math.round(rect.width);
+      }
+    } catch (error) { /* fall through to the default */ }
+    return 56;
+  }
+
+  function effectiveSize() {
+    return manualAdjust && manualAdjust.size != null ? manualAdjust.size : autoFabSize();
+  }
+
+  function effectiveOffset(axis) {
+    var fallback = 20; // matches the configured default offset on both axes
+    if (manualAdjust && manualAdjust[axis] != null) return manualAdjust[axis];
+    try {
+      var state = api.getState();
+      var offsets = state && state.appearance && state.appearance.offsets;
+      if (offsets && isFinite(Number(offsets[axis]))) return Number(offsets[axis]);
+    } catch (error) { /* use the default */ }
+    return fallback;
+  }
+
+  // Applies the manual size as inline styles (they win over every responsive
+  // media tier) and mirrors it into --youge-fab-size so the panel and the
+  // Chrome offer always clear the launcher at its real size.
+  function applyFabAdjust() {
+    if (!fab || !mount) return;
+    var hasSize = manualAdjust && manualAdjust.size != null;
+    if (hasSize) {
+      var size = manualAdjust.size + 'px';
+      fab.style.width = size;
+      fab.style.height = size;
+      var glyph = Math.max(18, Math.round(manualAdjust.size * 0.46)) + 'px';
+      fab.style.setProperty('--youge-fab-glyph', glyph);
+      mount.style.setProperty('--youge-fab-size', size);
+    } else {
+      fab.style.width = '';
+      fab.style.height = '';
+      clearStyleProp(fab, '--youge-fab-glyph');
+      clearStyleProp(mount, '--youge-fab-size');
+    }
+  }
 
   function el(tag, className, text) {
     var node = doc.createElement(tag);
@@ -128,8 +256,12 @@
     var offsets = appearance.offsets || {};
     mount.setAttribute('data-position', POSITIONS.indexOf(appearance.position) !== -1 ? appearance.position : 'bottom-right');
     mount.setAttribute('data-theme', THEMES.indexOf(appearance.theme) !== -1 ? appearance.theme : 'auto');
-    mount.style.setProperty('--youge-offset-x', offsetPx(offsets.x, 20));
-    mount.style.setProperty('--youge-offset-y', offsetPx(offsets.y, 20));
+    // A manual horizontal/vertical adjustment (set by the user in the panel)
+    // wins over the configured offsets until it is reset to automatic.
+    var manualX = manualAdjust && manualAdjust.x != null;
+    var manualY = manualAdjust && manualAdjust.y != null;
+    mount.style.setProperty('--youge-offset-x', manualX ? manualAdjust.x + 'px' : offsetPx(offsets.x, 20));
+    mount.style.setProperty('--youge-offset-y', manualY ? manualAdjust.y + 'px' : offsetPx(offsets.y, 20));
     if (HEX_COLOR.test(String(appearance.themeColor || ''))) mount.style.setProperty('--youge-brand', appearance.themeColor);
     mount.hidden = state.enabled === false;
   }
@@ -230,7 +362,8 @@
     var active = doc.activeElement;
     var focusKey = active && active.getAttribute
       ? (active.getAttribute('data-action') || active.getAttribute('data-dismiss') ||
-         active.getAttribute('data-acknowledge') || (active === closeButton ? 'close' : ''))
+         active.getAttribute('data-acknowledge') || active.getAttribute('data-adjust') ||
+         (active === closeButton ? 'close' : ''))
       : '';
     while (panelBody.firstChild) panelBody.removeChild(panelBody.firstChild);
 
@@ -321,11 +454,186 @@
     }
     panelBody.appendChild(actions);
 
+    // Manual icon adjustment (size / horizontal / vertical), collapsed so the
+    // main panel still reads at a glance.
+    panelBody.appendChild(renderAdjustSection());
+
     if (focusKey) {
       var target = focusKey === 'close' ? closeButton : panelBody.querySelector(
-        '[data-action="' + focusKey + '"], [data-dismiss="' + focusKey + '"], [data-acknowledge="' + focusKey + '"]');
+        '[data-action="' + focusKey + '"], [data-dismiss="' + focusKey + '"], [data-acknowledge="' + focusKey + '"], [data-adjust="' + focusKey + '"]');
       if (target && typeof target.focus === 'function') target.focus();
     }
+  }
+
+  /* ---------------------------------------------------------------- *
+   * Manual icon adjustment: size + horizontal + vertical.            *
+   * Keyboard, touch and pointer all flow through the native range    *
+   * inputs (one delegated 'input' listener on the panel root),      *
+   * values clamp to 44–72px / 0–160px, persist per origin and reset  *
+   * to the automatic responsive defaults on demand.                  *
+   * ---------------------------------------------------------------- */
+
+  function renderAdjustSection() {
+    var wrap = el('details', 'youge-adjust');
+    wrap.appendChild(el('summary', '', 'Adjust icon'));
+    wrap.appendChild(
+      el(
+        'p',
+        'youge-section-desc',
+        'Size and position are saved on this device. Reset returns to the automatic defaults.'
+      )
+    );
+    wrap.appendChild(renderAdjustRow('size', 'Icon size', 44, 72, effectiveSize(), 'px'));
+    wrap.appendChild(renderAdjustRow('x', 'Horizontal position', 0, 160, effectiveOffset('x'), 'px'));
+    wrap.appendChild(renderAdjustRow('y', 'Vertical position', 0, 160, effectiveOffset('y'), 'px'));
+    var reset = button('Reset to automatic defaults', 'custom', 'youge-btn youge-btn-small youge-adjust-reset');
+    reset.setAttribute('data-adjust-reset', '');
+    wrap.appendChild(reset);
+    return wrap;
+  }
+
+  function renderAdjustRow(key, labelText, min, max, value, unit) {
+    var row = el('div', 'youge-adjust-row');
+    var inputId = 'youge-adjust-' + key;
+    var label = el('label', 'youge-adjust-label', labelText);
+    label.setAttribute('for', inputId);
+    row.appendChild(label);
+    var input = doc.createElement('input');
+    input.setAttribute('type', 'range');
+    input.id = inputId;
+    input.setAttribute('data-adjust', key);
+    input.setAttribute('min', String(min));
+    input.setAttribute('max', String(max));
+    input.setAttribute('step', '1');
+    input.value = String(value);
+    row.appendChild(input);
+    var output = el('output', 'youge-adjust-value', value + unit);
+    output.id = inputId + '-out';
+    output.setAttribute('for', inputId);
+    row.appendChild(output);
+    return row;
+  }
+
+  function updateAdjustOutputs() {
+    if (!mount || !doc.getElementById) return;
+    ['size', 'x', 'y'].forEach(function (key) {
+      var input = doc.getElementById('youge-adjust-' + key);
+      var output = doc.getElementById('youge-adjust-' + key + '-out');
+      if (!input || !output) return;
+      var value = key === 'size' ? effectiveSize() : effectiveOffset(key);
+      input.value = String(value);
+      output.textContent = value + 'px';
+    });
+  }
+
+  function onAdjustInput(event) {
+    var target = event.target;
+    if (!target || !target.getAttribute) return;
+    var key = target.getAttribute('data-adjust');
+    if (!key || (key !== 'size' && key !== 'x' && key !== 'y')) return;
+    var raw = Number(target.value);
+    if (!isFinite(raw)) return;
+    var value = key === 'size' ? clampAdjustSize(raw) : clampAdjustOffset(raw);
+    if (value == null) return;
+    manualAdjust = manualAdjust || {};
+    manualAdjust[key] = value;
+    saveManualAdjust();
+    applyFabAdjust();
+    applyAppearance(api.getState());
+    var output = doc.getElementById('youge-adjust-' + key + '-out');
+    if (output) output.textContent = value + 'px';
+  }
+
+  function resetAdjust() {
+    manualAdjust = {};
+    saveManualAdjust();
+    applyFabAdjust();
+    applyAppearance(api.getState());
+    updateAdjustOutputs();
+  }
+
+  /* ---------------------------------------------------------------- *
+   * Android in-app browser → Chrome handoff (shared with the SDK).   *
+   * The offer renders only for a confident restricted in-app         *
+   * detection; normal Chrome/Safari/unknown browsers never see it.  *
+   * ---------------------------------------------------------------- */
+
+  function setupChromeOffer() {
+    if (!chromeOfferEl) return;
+    var sdk = root.YouGeAssistantSDK;
+    if (!sdk || typeof sdk.createChromeHandoff !== 'function') return;
+    try {
+      var state = api.getState();
+      if (state && state.capabilities && state.capabilities.chromeHandoff === false) return;
+    } catch (error) { return; }
+    if (readStorage('youge-assistant:chrome-offer-dismissed') === '1') return;
+    chromeOffer = sdk.createChromeHandoff({
+      userAgent: root.navigator && root.navigator.userAgent,
+      location: root.location || null,
+      document: doc,
+    });
+    if (!chromeOffer || typeof chromeOffer.shouldOffer !== 'function' || !chromeOffer.shouldOffer()) {
+      chromeOffer = null;
+      return;
+    }
+    chromeInstructions = chromeOffer.instructions(root.location && root.location.href);
+    var text = chromeOfferEl.querySelector('[data-chrome-text]');
+    var openButton = chromeOfferEl.querySelector('[data-chrome-open]');
+    var dismissButton = chromeOfferEl.querySelector('[data-chrome-dismiss]');
+    var copyButton = chromeOfferEl.querySelector('[data-chrome-copy]');
+    if (text && chromeInstructions.intro) text.textContent = chromeInstructions.intro;
+    if (openButton) openButton.textContent = chromeInstructions.openLabel || 'Open in Chrome';
+    if (dismissButton) dismissButton.textContent = chromeInstructions.dismissLabel || 'Not now';
+    if (copyButton) copyButton.textContent = chromeInstructions.copyLabel || 'Copy address';
+    chromeOfferEl.hidden = false;
+  }
+
+  function showChromeFallback(manual) {
+    if (!chromeFallbackEl || !chromeStepsEl || !chromeUrlEl) return;
+    if (manual) chromeInstructions = manual;
+    if (!chromeInstructions) return;
+    while (chromeStepsEl.firstChild) chromeStepsEl.removeChild(chromeStepsEl.firstChild);
+    (chromeInstructions.steps || []).forEach(function (step) {
+      chromeStepsEl.appendChild(el('li', '', step));
+    });
+    chromeUrlEl.textContent = chromeInstructions.url || '';
+    chromeFallbackEl.hidden = false;
+  }
+
+  function openChromeHandoff() {
+    if (!chromeOffer) return;
+    chromeOffer.open((root.location && root.location.href) || '', function (manual) {
+      showChromeFallback(manual);
+    });
+  }
+
+  function dismissChromeOffer() {
+    if (chromeOfferEl) chromeOfferEl.hidden = true;
+    chromeSuppressed = false;
+    writeStorage('youge-assistant:chrome-offer-dismissed', '1');
+    if (fab && typeof fab.focus === 'function') fab.focus();
+  }
+
+  function copyChromeUrl() {
+    var url = (chromeInstructions && chromeInstructions.url) || (root.location && root.location.href) || '';
+    var report = function (ok) {
+      if (!chromeStatusEl) return;
+      chromeStatusEl.textContent = ok
+        ? ((chromeInstructions && chromeInstructions.copiedLabel) || 'Address copied.')
+        : 'Select the address above to copy it manually.';
+    };
+    try {
+      if (root.navigator && root.navigator.clipboard && typeof root.navigator.clipboard.writeText === 'function') {
+        var pending = root.navigator.clipboard.writeText(url);
+        if (pending && typeof pending.then === 'function') {
+          pending.then(function () { report(true); }, function () { report(false); });
+          return;
+        }
+        report(true);
+        return;
+      }
+    } catch (error) { /* fall through to the manual hint */ }
+    report(false);
   }
 
   function reducedMotion() {
@@ -340,6 +648,11 @@
     if (closeTimer) { clearTimeout(closeTimer); closeTimer = null; }
     panel.hidden = false;
     fab.setAttribute('aria-expanded', 'true');
+    // The Chrome offer must never sit on top of the open panel.
+    if (chromeOfferEl && !chromeOfferEl.hidden) {
+      chromeOfferEl.hidden = true;
+      chromeSuppressed = true;
+    }
     renderPanel(api.getState());
     var reveal = function () { panel.classList.add('is-open'); };
     if (root.requestAnimationFrame) root.requestAnimationFrame(reveal);
@@ -355,6 +668,10 @@
     var hide = function () { if (!isOpen) panel.hidden = true; };
     if (reducedMotion()) hide();
     else closeTimer = setTimeout(hide, 180);
+    if (chromeSuppressed && chromeOfferEl && readStorage('youge-assistant:chrome-offer-dismissed') !== '1') {
+      chromeOfferEl.hidden = false;
+    }
+    chromeSuppressed = false;
     if (fab && typeof fab.focus === 'function') fab.focus();
   }
 
@@ -381,11 +698,15 @@
 
   function onClick(event) {
     var target = event.target && event.target.closest
-      ? event.target.closest('[data-action], [data-dismiss], [data-acknowledge], [data-role="close"], [data-role="toggle"]')
+      ? event.target.closest('[data-action], [data-dismiss], [data-acknowledge], [data-role="close"], [data-role="toggle"], [data-chrome-open], [data-chrome-dismiss], [data-chrome-copy], [data-adjust-reset]')
       : null;
     if (!target || !mount || !mount.contains(target)) return;
     if (target.getAttribute('data-role') === 'close') { closePanel(); return; }
     if (target.getAttribute('data-role') === 'toggle') { isOpen ? closePanel() : openPanel(); return; }
+    if (target.hasAttribute('data-chrome-open')) { openChromeHandoff(); return; }
+    if (target.hasAttribute('data-chrome-dismiss')) { dismissChromeOffer(); return; }
+    if (target.hasAttribute('data-chrome-copy')) { copyChromeUrl(); return; }
+    if (target.hasAttribute('data-adjust-reset')) { resetAdjust(); return; }
     var dismiss = target.getAttribute('data-dismiss');
     if (dismiss) { api.dismiss(dismiss); return; }
     var acknowledge = target.getAttribute('data-acknowledge');
@@ -444,6 +765,46 @@
     live.setAttribute('aria-live', 'polite');
     node.appendChild(live);
 
+    // Android in-app browser → Chrome handoff offer. Hidden until setup()
+    // confirms a confident restricted in-app detection through the SDK.
+    chromeOfferEl = el('div', 'youge-chrome-offer');
+    chromeOfferEl.setAttribute('role', 'region');
+    chromeOfferEl.setAttribute('aria-label', 'Open in Chrome');
+    chromeOfferEl.hidden = true;
+    var offerText = el('p', 'youge-chrome-offer-text');
+    offerText.setAttribute('data-chrome-text', '');
+    chromeOfferEl.appendChild(offerText);
+    var offerActions = el('div', 'youge-chrome-offer-actions');
+    var openChromeButton = doc.createElement('button');
+    openChromeButton.type = 'button';
+    openChromeButton.className = 'youge-btn youge-btn-install youge-chrome-open';
+    openChromeButton.setAttribute('data-chrome-open', '');
+    offerActions.appendChild(openChromeButton);
+    var dismissChromeButton = doc.createElement('button');
+    dismissChromeButton.type = 'button';
+    dismissChromeButton.className = 'youge-btn youge-btn-plain youge-chrome-dismiss';
+    dismissChromeButton.setAttribute('data-chrome-dismiss', '');
+    offerActions.appendChild(dismissChromeButton);
+    chromeOfferEl.appendChild(offerActions);
+    chromeFallbackEl = el('div', 'youge-chrome-offer-fallback');
+    chromeFallbackEl.setAttribute('data-chrome-fallback', '');
+    chromeFallbackEl.hidden = true;
+    chromeStepsEl = el('ol', 'youge-chrome-offer-steps');
+    chromeFallbackEl.appendChild(chromeStepsEl);
+    chromeUrlEl = el('code', 'youge-chrome-offer-url');
+    chromeFallbackEl.appendChild(chromeUrlEl);
+    var copyChromeButton = doc.createElement('button');
+    copyChromeButton.type = 'button';
+    copyChromeButton.className = 'youge-btn youge-btn-small youge-chrome-copy';
+    copyChromeButton.setAttribute('data-chrome-copy', '');
+    chromeFallbackEl.appendChild(copyChromeButton);
+    chromeStatusEl = el('span', 'youge-chrome-offer-status');
+    chromeStatusEl.setAttribute('role', 'status');
+    chromeStatusEl.setAttribute('aria-live', 'polite');
+    chromeFallbackEl.appendChild(chromeStatusEl);
+    chromeOfferEl.appendChild(chromeFallbackEl);
+    node.appendChild(chromeOfferEl);
+
     panel = el('section', 'youge-panel');
     panel.id = PANEL_ID;
     panel.hidden = true;
@@ -470,15 +831,21 @@
     mount = build();
     doc.body.appendChild(mount);
     mount.addEventListener('click', onClick);
+    mount.addEventListener('input', onAdjustInput);
     doc.addEventListener('keydown', onKeydown);
+    applyFabAdjust();
     unsubscribe = api.subscribe(onState);
+    setupChromeOffer();
   }
 
   function destroy() {
     if (unsubscribe) { unsubscribe(); unsubscribe = null; }
     if (closeTimer) { clearTimeout(closeTimer); closeTimer = null; }
+    if (chromeOffer && typeof chromeOffer.destroy === 'function') chromeOffer.destroy();
+    chromeOffer = null;
     if (mount) {
       mount.removeEventListener('click', onClick);
+      mount.removeEventListener('input', onAdjustInput);
       if (mount.parentNode) mount.parentNode.removeChild(mount);
     }
     doc.removeEventListener('keydown', onKeydown);

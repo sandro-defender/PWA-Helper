@@ -39,6 +39,7 @@ export const BUNDLED_DEFAULTS = {
     failover: true,
     help: true,
     updates: true,
+    chromeHandoff: true,
   },
   notifications: {
     dismissible: true,

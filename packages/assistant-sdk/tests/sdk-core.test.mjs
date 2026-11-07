@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import YouGeAssistantDefault, {
   BUNDLED_DEFAULTS,
+  CHROME_OFFER_STORAGE_KEY,
+  CHROME_PACKAGE,
   DOMAIN_DEFAULTS,
   EVENT_NAMES,
   KIT_COMPAT_VERSION,
@@ -11,12 +13,17 @@ import YouGeAssistantDefault, {
   YouGeAssistant,
   attachAssistant,
   bridgePwaGlobals,
+  buildChromeIntentUrl,
   buildManifest,
+  chromeHandoffInstructions,
   createAssistant,
+  createChromeHandoff,
   createDiagnosticsIntegration,
   createDomainResolver,
   deriveInstallationState,
+  detectInAppBrowser,
   getGlobalAssistant,
+  isChromeHandoffCandidate,
   readToolkitSummary,
   resolveAssistantConfig,
   resolveDomain,
@@ -26,6 +33,7 @@ import * as domainSubpath from '../src/domain/index.js';
 import * as configSubpath from '../src/config/index.js';
 import * as diagnosticsSubpath from '../src/diagnostics/index.js';
 import * as installationSubpath from '../src/installation/index.js';
+import * as browserSubpath from '../src/browser/index.js';
 import * as reactSubpath from '../src/adapters/react.js';
 
 function makeEventTarget() {
@@ -111,6 +119,23 @@ test('exposes explicit, documented public exports on root and subpath entry poin
   assert.equal(typeof diagnosticsSubpath.createDiagnosticsIntegration, 'function');
   assert.equal(typeof installationSubpath.deriveInstallationState, 'function');
   assert.equal(typeof reactSubpath.createReactAdapter, 'function');
+
+  // 0.1.1: Android in-app browser detection + Chrome handoff are first-class
+  // SDK exports, reachable from the root entry, the frozen static and the
+  // dedicated ./browser subpath.
+  assert.equal(typeof detectInAppBrowser, 'function');
+  assert.equal(typeof isChromeHandoffCandidate, 'function');
+  assert.equal(typeof buildChromeIntentUrl, 'function');
+  assert.equal(typeof chromeHandoffInstructions, 'function');
+  assert.equal(typeof createChromeHandoff, 'function');
+  assert.equal(typeof YouGeAssistant.detectInAppBrowser, 'function');
+  assert.equal(typeof YouGeAssistant.buildChromeIntentUrl, 'function');
+  assert.equal(typeof YouGeAssistant.createChromeHandoff, 'function');
+  assert.equal(typeof browserSubpath.detectInAppBrowser, 'function');
+  assert.equal(typeof browserSubpath.buildChromeIntentUrl, 'function');
+  assert.equal(typeof browserSubpath.createChromeHandoff, 'function');
+  assert.equal(CHROME_PACKAGE, 'com.android.chrome');
+  assert.equal(CHROME_OFFER_STORAGE_KEY, 'youge-assistant:chrome-offer-dismissed');
 });
 
 test('initializes with projectId and domain in Node/SSR without browser globals', () => {
@@ -128,6 +153,9 @@ test('initializes with projectId and domain in Node/SSR without browser globals'
   assert.equal(state.project.configured, false);
   assert.equal(state.badge.count, 0);
   assert.equal(state.badge.tone, 'none');
+  // 0.1.1: the Chrome handoff capability ships enabled by default and can be
+  // turned off through the regular modules config.
+  assert.equal(state.capabilities.chromeHandoff, true);
 
   // Snapshot is strictly JSON-serializable and stable across reads.
   assert.equal(assistant.getState(), state);
