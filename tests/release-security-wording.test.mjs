@@ -7,7 +7,7 @@
  *
  *   1. `npm login` is NOT a tokenless path — it generates a legacy publish
  *      token and saves credentials to `.npmrc`.
- *   2. `SDK_RELEASE_CONFIRM` / `confirm_publish` / `SDK_RELEASE_ENABLED` are
+ *   2. `SDK_RELEASE_CONFIRM` / `SDK_RELEASE_ENABLED` are
  *      accidental-publish guards, never described as making direct publishing
  *      impossible.
  *   3. Staging and publishing authenticate with npm Trusted Publishing
